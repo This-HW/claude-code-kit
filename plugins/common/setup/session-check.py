@@ -88,7 +88,13 @@ try:
         raw_hooks_path = hooks_path_result.stdout.strip()
         if hooks_path_result.returncode == 0 and raw_hooks_path:
             p = pathlib.Path(raw_hooks_path)
-            git_hooks_dir = p if p.is_absolute() else (repo_root / p)
+            candidate = (p if p.is_absolute() else (repo_root / p)).resolve()
+            # path traversal 방어: repo_root 상위로 탈출 차단
+            try:
+                candidate.relative_to(repo_root.resolve())
+                git_hooks_dir = candidate
+            except ValueError:
+                git_hooks_dir = repo_root / ".git/hooks"
         else:
             git_hooks_dir = repo_root / ".git/hooks"
 

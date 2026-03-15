@@ -82,8 +82,10 @@ PROTECTED_PATTERNS = [
     r'.*_ecdsa$',             # ECDSA 키
 
     # 기타 민감 파일
-    r'(^|/)\.?token(s)?($|\.|\s)',   # token이라는 이름의 파일만 (경로 구분자 기준)
-    r'(^|/)\.?password(s)?($|\.)',   # password라는 이름의 파일만
+    r'(^|/|_|-)token($|\.|_|-)',     # api_token, my-token, token.json
+    r'(^|/|_|-)tokens($|\.|_|-)',    # api_tokens, my-tokens
+    r'(^|/|_|-)password($|\.|_|-)', # my_password, user-password
+    r'(^|/|_|-)passwords($|\.|_|-)', # my_passwords
     r'\.htpasswd$',           # Apache htpasswd
 ]
 

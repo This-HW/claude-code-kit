@@ -188,7 +188,7 @@ for hook_file in "${HOOK_FILES[@]}"; do
 done
 
 # settings.json에 hooks 설정 병합 (ATK-003: 기존 훅 보존 병합)
-python3 - "$HOME/.claude/settings.json" "$HOOKS_DST" <<'PYEOF'
+python3 - "$HOME/.claude/settings.json" "$HOOKS_DST" "$SCRIPT_DIR" <<'PYEOF'
 import json, pathlib, sys
 
 settings_path = pathlib.Path(sys.argv[1])
@@ -220,8 +220,8 @@ settings['hooks']['PostToolUse'] = _merge_hooks(
     settings['hooks'].get('PostToolUse', []), post_entry
 )
 
-# ATK-002: glob 대신 SCRIPT_DIR 기반 직접 경로 계산 (임의 Python 실행 방지)
-script_dir = pathlib.Path(sys.argv[0]).resolve().parent
+# ATK-002: bash에서 sys.argv[3]으로 SCRIPT_DIR 전달 (heredoc에서 sys.argv[0]='-' 문제 회피)
+script_dir = pathlib.Path(sys.argv[3])
 session_check_candidate = script_dir / 'plugins' / 'common' / 'setup' / 'session-check.py'
 session_check = str(session_check_candidate) if session_check_candidate.exists() else None
 if session_check:
