@@ -6,9 +6,10 @@ set -e
 
 # Python 파일 ruff check
 if command -v ruff &>/dev/null; then
-    STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+    # NUL 구분자로 공백 포함 파일명 안전 처리
+    STAGED_PY=$(git diff --cached --name-only -z --diff-filter=ACM | tr '\0' '\n' | grep '\.py$' || true)
     if [ -n "$STAGED_PY" ]; then
-        echo "$STAGED_PY" | xargs ruff check --fix
-        echo "$STAGED_PY" | xargs git add
+        git diff --cached --name-only -z --diff-filter=ACM | grep -z '\.py$' | xargs -0 ruff check --fix
+        git diff --cached --name-only -z --diff-filter=ACM | grep -z '\.py$' | xargs -0 git add
     fi
 fi

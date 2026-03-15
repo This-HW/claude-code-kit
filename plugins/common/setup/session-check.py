@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SessionStart hook: 로컬 설정 체크 + 전역 누락 경고 + 무결성 검증"""
-import sys, shutil, pathlib, subprocess, hashlib
+import hashlib
+import pathlib
+import shutil
+import subprocess
+import sys
 
 
 # ATK-001: 함수 정의를 try 블록 이전에 위치 (호출 전 반드시 정의되어야 함)
@@ -14,11 +18,13 @@ def _verify_checksums(rules_dir, checksums_file):
             h, name = line.split(None, 1)
             expected[name] = h
     for name, expected_hash in expected.items():
-        fpath = rules_dir / name
-        if fpath.exists():
-            actual = hashlib.sha256(fpath.read_bytes()).hexdigest()
-            if actual != expected_hash:
-                return False
+        safe_name = pathlib.Path(name).name  # 경로 탐색 방지
+        fpath = rules_dir / safe_name
+        if not fpath.exists():
+            return False  # 체크섬에 명시된 파일이 없으면 실패
+        actual = hashlib.sha256(fpath.read_bytes()).hexdigest()
+        if actual != expected_hash:
+            return False
     return True
 
 
@@ -79,11 +85,12 @@ try:
             ["git", "config", "core.hooksPath"],
             capture_output=True, text=True, cwd=git_toplevel
         )
-        git_hooks_dir = (
-            pathlib.Path(hooks_path_result.stdout.strip())
-            if hooks_path_result.returncode == 0
-            else repo_root / ".git/hooks"
-        )
+        raw_hooks_path = hooks_path_result.stdout.strip()
+        if hooks_path_result.returncode == 0 and raw_hooks_path:
+            p = pathlib.Path(raw_hooks_path)
+            git_hooks_dir = p if p.is_absolute() else (repo_root / p)
+        else:
+            git_hooks_dir = repo_root / ".git/hooks"
 
         # 2a. pre-commit: core.hooksPath 경로에 설치
         hook_dst = git_hooks_dir / "pre-commit"
@@ -95,7 +102,7 @@ try:
 
         # D-015: dual-load 감지 (CR-07)
         claude_agents = repo_root / ".claude/agents"
-        if claude_agents.exists() and any(claude_agents.glob("*.md")):
+        if claude_agents.exists() and any(claude_agents.rglob("*.md")):
             warnings.append(
                 ".claude/agents/ + Plugin 동시 감지! 에이전트 중복 로딩 위험. "
                 "'setup.sh --migrate' 실행 권장"

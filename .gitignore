@@ -6,6 +6,7 @@ __pycache__/
 .env
 .venv/
 venv/
+.ruff_cache/
 
 # macOS
 .DS_Store

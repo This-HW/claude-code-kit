@@ -132,7 +132,17 @@ else
     DOMAINS=""  # 비대화형: common만
 fi
 
+ALLOWED_DOMAINS=(frontend infra ops data integration)
 for domain in $DOMAINS; do
+    # 화이트리스트 검증 (command injection 방지)
+    valid=false
+    for allowed in "${ALLOWED_DOMAINS[@]}"; do
+        [[ "$domain" == "$allowed" ]] && valid=true && break
+    done
+    if ! $valid; then
+        echo "  ⚠ Unknown domain: '$domain', 스킵됨"
+        continue
+    fi
     if ! _step_done "plugin-$domain"; then
         claude plugin install "claude-code-kit-${domain}@stable" --scope user
         _mark_done "plugin-$domain"
@@ -166,16 +176,20 @@ if [ "${FULL_INSTALL:-}" = "true" ] || $OPT_FULL; then
     )
 fi
 
+installed_count=0
 for hook_file in "${HOOK_FILES[@]}"; do
     if [ -f "$HOOKS_SRC/$hook_file" ]; then
         cp "$HOOKS_SRC/$hook_file" "$HOOKS_DST/$hook_file"
         chmod 644 "$HOOKS_DST/$hook_file"
+        ((installed_count++))
+    else
+        echo "  ⚠ $hook_file 없음 (스킵)"
     fi
 done
 
 # settings.json에 hooks 설정 병합 (ATK-003: 기존 훅 보존 병합)
 python3 - "$HOME/.claude/settings.json" "$HOOKS_DST" <<'PYEOF'
-import json, pathlib, sys, glob as _glob
+import json, pathlib, sys
 
 settings_path = pathlib.Path(sys.argv[1])
 hooks_dir = sys.argv[2]
@@ -206,32 +220,22 @@ settings['hooks']['PostToolUse'] = _merge_hooks(
     settings['hooks'].get('PostToolUse', []), post_entry
 )
 
-plugin_cache = pathlib.Path.home() / '.claude' / 'plugins'
-candidates = _glob.glob(
-    str(plugin_cache / 'claude-code-kit' / '**' / 'session-check.py'),
-    recursive=True
-)
-if not candidates:
-    candidates = [
-        c for c in _glob.glob(
-            str(pathlib.Path.home() / '.claude' / '**' / 'session-check.py'),
-            recursive=True
-        )
-        if '/claude-code-kit/' in c
-    ]
-session_check = candidates[0] if candidates else None
+# ATK-002: glob 대신 SCRIPT_DIR 기반 직접 경로 계산 (임의 Python 실행 방지)
+script_dir = pathlib.Path(sys.argv[0]).resolve().parent
+session_check_candidate = script_dir / 'plugins' / 'common' / 'setup' / 'session-check.py'
+session_check = str(session_check_candidate) if session_check_candidate.exists() else None
 if session_check:
     session_entry = {'hooks': [{'type': 'command', 'command': f'python3 {session_check}'}]}
     settings['hooks']['SessionStart'] = _merge_hooks(
         settings['hooks'].get('SessionStart', []), session_entry
     )
 else:
-    print('[setup] session-check.py를 Plugin 캐시에서 찾을 수 없음 — hooks.json fallback 사용')
+    print('[setup] session-check.py를 찾을 수 없음 — hooks.json fallback 사용')
 
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=False))
 PYEOF
-echo "  ✓ 보안 훅 ${#HOOK_FILES[@]}개 설치됨 → $HOOKS_DST"
+echo "  ✓ 보안 훅 ${installed_count}/${#HOOK_FILES[@]}개 설치됨 → $HOOKS_DST"
 echo "  ✓ settings.json에 절대경로 훅 등록됨"
 _mark_done "hooks"
 fi  # end hooks step

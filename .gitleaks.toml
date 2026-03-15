@@ -5,8 +5,8 @@ useDefault = true
 
 [[rules]]
 id = "private-project-names"
-description = "개인 프로젝트명 노출 방지"
-regex = '''(hantu_quant|bm_optimizer|dm_optimizer|hw_claude_ops|hw_claude)'''
+description = "일반화된 private 프로젝트 패턴 (특정 이름 대신 패턴 사용)"
+regex = '''[a-z][a-z0-9]+_(quant|optimizer|ops)'''
 tags = ["private", "internal"]
 
 [[rules]]
@@ -20,4 +20,6 @@ description = "허용 목록"
 paths = [
     '''.gitleaks.toml''',
     '''CHANGELOG.md''',
+    '''plugins/common/agents/dev/security-scan.md''',
+    '''plugins/common/rules/CHECKSUMS.sha256''',
 ]

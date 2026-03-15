@@ -82,8 +82,8 @@ PROTECTED_PATTERNS = [
     r'.*_ecdsa$',             # ECDSA 키
 
     # 기타 민감 파일
-    r'token',                  # 토큰 파일
-    r'password',              # 패스워드 파일
+    r'(^|/)\.?token(s)?($|\.|\s)',   # token이라는 이름의 파일만 (경로 구분자 기준)
+    r'(^|/)\.?password(s)?($|\.)',   # password라는 이름의 파일만
     r'\.htpasswd$',           # Apache htpasswd
 ]
 
@@ -210,6 +210,15 @@ def main():
         file_path = tool_input.get('file_path', '')
         if not file_path:
             sys.exit(0)
+
+        # 심볼릭 링크 탐지: 실제 경로도 검사
+        if file_path and os.path.islink(file_path):
+            real_path = os.path.realpath(file_path)
+            is_protected_real, message_real = check_protected(real_path)
+            if is_protected_real:
+                print(f"🔒 차단됨 (심볼릭 링크 대상): {file_path} → {real_path}", file=sys.stderr)
+                print(f"   {message_real}", file=sys.stderr)
+                sys.exit(2)
 
         # 보호 대상 확인
         is_protected, message = check_protected(file_path)

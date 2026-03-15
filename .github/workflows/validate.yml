@@ -16,7 +16,7 @@ jobs:
         run: |
           for f in plugins/*/.claude-plugin/plugin.json; do
             echo "Checking $f..."
-            python3 -c "import json; json.load(open('$f'))" && echo "✓ Valid JSON"
+            python3 -c "import json,sys; json.load(open(sys.argv[1])); print('✓ Valid JSON')" "$f"
           done
 
       - name: Validate marketplace.json
