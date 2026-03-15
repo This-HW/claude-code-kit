@@ -69,8 +69,8 @@ SSH 터널이 실행 중이어야 합니다:
 | -------- | ----------- |
 | Host     | localhost   |
 | Port     | 15432       |
-| Database | hantu_quant |
-| User     | hantu       |
+| Database | your_project |
+| User     | your_user   |
 
 ## 관련 에이전트
 

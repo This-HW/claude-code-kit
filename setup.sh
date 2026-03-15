@@ -153,7 +153,7 @@ HOOK_FILES=(
     "utils.py"
 )
 
-# --full 옵션: 개인 워크플로우 훅도 설치 (hw_claude_ops 없는 경우 fallback)
+# --full 옵션: 개인 워크플로우 훅도 설치 (personal hooks repo 없는 경우 fallback)
 if [ "${FULL_INSTALL:-}" = "true" ] || $OPT_FULL; then
     echo "  (--full 모드: 추가 훅 포함)"
     HOOK_FILES+=(
