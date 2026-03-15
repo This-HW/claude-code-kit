@@ -1,0 +1,23 @@
+title = "claude-code-kit gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "private-project-names"
+description = "개인 프로젝트명 노출 방지"
+regex = '''(hantu_quant|bm_optimizer|dm_optimizer|hw_claude_ops|hw_claude)'''
+tags = ["private", "internal"]
+
+[[rules]]
+id = "internal-server-patterns"
+description = "내부 서버/IP 패턴"
+regex = '''(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)'''
+tags = ["private", "internal"]
+
+[allowlist]
+description = "허용 목록"
+paths = [
+    '''.gitleaks.toml''',
+    '''CHANGELOG.md''',
+]

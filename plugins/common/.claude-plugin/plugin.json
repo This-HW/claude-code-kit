@@ -1,0 +1,11 @@
+{
+  "name": "claude-code-kit",
+  "version": "1.0.0",
+  "description": "Universal AI agents and skills for software development. 52 agents + 19 skills across planning, development, review, and operations.",
+  "author": "grimm",
+  "license": "MIT",
+  "repository": "https://github.com/grimm/claude-code-kit",
+  "tags": ["agents", "skills", "development", "planning", "review"],
+  "agents": "agents/",
+  "skills": "skills/"
+}

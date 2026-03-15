@@ -1,0 +1,36 @@
+{
+  "name": "claude-code-kit",
+  "description": "Universal Claude Code toolkit. Agents and skills for development, planning, review, infrastructure, ops, data, and integrations.",
+  "plugins": [
+    {
+      "name": "claude-code-kit",
+      "path": "plugins/common",
+      "description": "Core: 52 agents (planning, dev, meta) + 19 skills"
+    },
+    {
+      "name": "claude-code-kit-frontend",
+      "path": "plugins/frontend",
+      "description": "Frontend: 4 agents + 1 skill (React, Vue, UI/UX)"
+    },
+    {
+      "name": "claude-code-kit-infra",
+      "path": "plugins/infra",
+      "description": "Infra: 7 agents + 1 skill (Terraform, Docker, K8s)"
+    },
+    {
+      "name": "claude-code-kit-ops",
+      "path": "plugins/ops",
+      "description": "Ops: 14 agents + 4 skills (deploy, monitor, incident)"
+    },
+    {
+      "name": "claude-code-kit-data",
+      "path": "plugins/data",
+      "description": "Data: 4 agents + 3 skills (DB design, query, analytics)"
+    },
+    {
+      "name": "claude-code-kit-integration",
+      "path": "plugins/integration",
+      "description": "Integration: 4 agents (webhook, notify, sync, pipeline)"
+    }
+  ]
+}

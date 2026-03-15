@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 setup/session-check.py" }
+        ]
+      }
+    ]
+  }
+}

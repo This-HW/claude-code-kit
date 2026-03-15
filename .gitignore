@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.env
+.venv/
+venv/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code (로컬 전용)
+.claude/
+*.claude-local
+
+# 빌드 산출물
+dist/
+build/
+*.egg-info/
+
+# 민감 정보 (절대 커밋 금지)
+*.key
+*.pem
+*.p12
+secrets/
+.env*

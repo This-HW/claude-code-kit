@@ -1,0 +1,47 @@
+name: Validate Plugins
+
+on:
+  push:
+    branches: [main, stable]
+  pull_request:
+    branches: [stable]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate plugin.json files
+        run: |
+          for f in plugins/*/.claude-plugin/plugin.json; do
+            echo "Checking $f..."
+            python3 -c "import json; json.load(open('$f'))" && echo "✓ Valid JSON"
+          done
+
+      - name: Validate marketplace.json
+        run: |
+          python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))" && echo "✓ marketplace.json valid"
+
+      - name: Check agent frontmatter
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys
+          errors = []
+          for f in pathlib.Path('plugins').rglob('*.md'):
+              content = f.read_text()
+              if content.startswith('---'):
+                  if 'name:' not in content[:500]:
+                      errors.append(f"{f}: missing 'name' in frontmatter")
+                  if 'description:' not in content[:500]:
+                      errors.append(f"{f}: missing 'description' in frontmatter")
+          if errors:
+              print('\n'.join(errors))
+              sys.exit(1)
+          print(f"✓ All agent frontmatter valid")
+          EOF
+
+      - name: Security scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
