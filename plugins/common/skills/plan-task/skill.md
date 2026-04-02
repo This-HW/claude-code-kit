@@ -1,0 +1,157 @@
+---
+name: plan-task
+description: Work 파일 기반 구조화된 Planning. Work ID 또는 새 요청으로 호출.
+model: opus
+disable-model-invocation: true
+---
+
+# Plan-Task 스킬
+
+Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합니다.
+
+---
+
+## Step 1: Work 파일 확인 또는 생성
+
+### Work ID가 제공된 경우 (예: `/plan-task W-043`)
+
+1. `docs/works/idea/` 디렉토리에서 해당 Work 폴더 탐색
+2. `W-XXX-{slug}/W-XXX-{slug}.md` 파일 읽기
+3. `progress.md`로 현재 진행 상황 확인 — 중단된 지점부터 재개
+4. frontmatter `status`, `current_phase` 확인
+
+### Work ID가 없는 경우 (새 요청)
+
+`docs/works/idea/` 폴더가 존재하면:
+
+1. 최신 Work ID 확인:
+   ```bash
+   ls -1 docs/works/idea/ | grep -oE 'W-[0-9]+' | sort -V | tail -1
+   ```
+2. 다음 번호로 새 Work ID 결정 (없으면 W-001부터)
+3. 사용자 요청에서 slug 생성 (kebab-case, 3-5 단어)
+4. 폴더 및 파일 생성: `docs/works/idea/W-XXX-{slug}/`
+   - `W-XXX-{slug}.md` — frontmatter + 요구사항 섹션
+   - `progress.md` — Phase 체크리스트 초기화
+   - `decisions.md` — 의사결정 기록 초기화
+   - `planning-results.md` — Planning 결과 초기화
+
+`docs/works/` 폴더 자체가 없으면 → Step 5 fallback으로 이동
+
+**Work 파일 frontmatter 기본값:**
+
+```yaml
+work_id: "W-XXX"
+title: "요청 제목"
+status: idea
+current_phase: planning
+phases_completed: []
+size: "" # Step 2에서 판단
+priority: P1
+tags: []
+created_at: "현재 시각 ISO8601"
+updated_at: "현재 시각 ISO8601"
+```
+
+---
+
+## Step 2: Planning Tasks 생성
+
+Work ID(W-XXX) 확인 후 **항상** 아래 두 Tasks를 생성합니다.
+
+```
+T1: [W-XXX][Planning] 요구사항 명확화
+T2: [W-XXX][Planning] 구현 계획 수립   ← blockedBy T1
+```
+
+TaskCreate 시 모든 Task에 metadata 포함:
+
+```json
+{ "work_id": "W-XXX", "phase": "planning" }
+```
+
+T2는 생성 직후 `addBlockedBy: T1` 설정.
+
+---
+
+## Step 3: T1 실행 — 요구사항 명확화
+
+`clarify-requirements` 에이전트에 위임하거나 직접 진행:
+
+1. **규모 판단** (planning-protocol.md 기준):
+   - Small: 1개 모듈, 1-3파일, ~10h
+   - Medium: 2-3개 모듈, 4-10파일, 20-50h
+   - Large: 4개+ 모듈, 10파일+, 50h+
+   - 판단 후 Work frontmatter `size` 업데이트
+
+2. **P0 모호함 해결**: P0 발견 시 즉시 중단 → 사용자에게 질문
+
+   ```
+   맥락: [상황]   질문: [구체적 질문]
+   옵션: 1. [A]   2. [B]
+   ```
+
+3. **요구사항 정리**: 핵심 요구사항, 영향 범위, 리스크
+
+4. **완료 후 파일 업데이트**:
+   - `planning-results.md` → `## 요구사항 명확화` 섹션에 결과 기록
+   - `decisions.md` → P0 결정 사항 DEC-XXX로 추가
+   - `progress.md` → 요구사항 명확화 체크박스 체크
+   - Work frontmatter `updated_at` 갱신
+
+5. T1 → `completed` 마킹, T2 unblock
+
+---
+
+## Step 4: T2 실행 — 구현 계획 수립
+
+`plan-implementation` 에이전트에 위임하거나 직접 진행:
+
+1. T1 결과(`planning-results.md`) 기반으로 구현 계획 작성
+2. 규모별 추가 단계 (planning-protocol.md 참고):
+   - Medium+: 사용자 여정 설계 포함
+   - Large+: 비즈니스 로직 정의 포함
+3. 구현 순서, 의존성, 예상 범위 명시
+
+4. **완료 후 파일 업데이트**:
+   - `planning-results.md` → `## 구현 계획` 섹션에 결과 기록
+   - `progress.md` → 구현 계획 수립 체크박스 체크
+   - Work frontmatter `phases_completed: [planning]`, `updated_at` 갱신
+
+5. T2 → `completed` 마킹
+
+---
+
+## Step 5: Planning 완료 처리
+
+1. Work 파일 최종 업데이트 확인 (frontmatter, progress.md, planning-results.md)
+2. 다음 단계 안내:
+
+```
+Planning 완료: W-XXX
+
+다음 단계 옵션:
+  개발 시작  →  /auto-dev W-XXX
+  Phase 전환 →  ./scripts/work.sh next-phase W-XXX
+```
+
+---
+
+## Fallback: Work 시스템 없는 경우
+
+`docs/works/` 폴더가 없으면 Work 파일 없이 Planning만 진행:
+
+1. 요구사항 명확화 (P0 질문 포함)
+2. 규모 판단
+3. 구현 계획 수립
+4. 결과를 대화창에 출력
+
+---
+
+## 참고 문서
+
+| 문서              | 경로                                                            |
+| ----------------- | --------------------------------------------------------------- |
+| Work 시스템 상세  | `plugins/common/skills/references/work-system.md`               |
+| 하이브리드 설계   | `docs/works/idea/W-000-hybrid-work-task-system/design-draft.md` |
+| Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`                     |
