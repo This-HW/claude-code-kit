@@ -56,11 +56,12 @@ try:
         else:
             git_hooks_dir = repo_root / ".git/hooks"
 
-        # 2a. pre-commit: core.hooksPath 경로에 설치
+        # 2a. pre-commit: plugin-only 모드에서만 설치
+        # (풀 모드에서는 setup.sh가 이미 설치했으므로 중복 방지)
         import shutil
         hook_dst = git_hooks_dir / "pre-commit"
         pre_commit_src = SETUP_DIR / "pre-commit"
-        if not hook_dst.exists() and pre_commit_src.exists():
+        if is_plugin_only and not hook_dst.exists() and pre_commit_src.exists():
             hook_dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(pre_commit_src, hook_dst)
             hook_dst.chmod(0o755)

@@ -50,7 +50,7 @@ to_slug() {
 
 # Find the next W-XXX number by scanning all three stage dirs
 next_work_number() {
-  local max="-1"
+  local max="0"
   while IFS= read -r -d '' dir; do
     local base
     base="$(basename "$dir")"
@@ -466,7 +466,13 @@ cmd_complete() {
   set_field "$md" status completed
   set_field "$md" completed_at "$now"
   set_field "$md" updated_at "$now"
-  append_to_list_field "$md" phases_completed validation
+
+  # Only append validation if not already present (e.g. added by next-phase)
+  local phases
+  phases="$(get_field "$md" phases_completed)"
+  if [[ "$phases" != *"validation"* ]]; then
+    append_to_list_field "$md" phases_completed validation
+  fi
 
   echo "Completed: $id"
   echo "Moved    : $dest"

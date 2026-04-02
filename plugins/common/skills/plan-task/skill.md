@@ -22,36 +22,16 @@ Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합
 
 ### Work ID가 없는 경우 (새 요청)
 
-`docs/works/idea/` 폴더가 존재하면:
+`docs/works/` 폴더가 존재하면:
 
-1. 최신 Work ID 확인:
+1. `work.sh new`로 Work 파일 생성:
    ```bash
-   ls -1 docs/works/idea/ | grep -oE 'W-[0-9]+' | sort -V | tail -1
+   ./scripts/work.sh new "<요청 제목>"
    ```
-2. 다음 번호로 새 Work ID 결정 (없으면 W-001부터)
-3. 사용자 요청에서 slug 생성 (kebab-case, 3-5 단어)
-4. 폴더 및 파일 생성: `docs/works/idea/W-XXX-{slug}/`
-   - `W-XXX-{slug}.md` — frontmatter + 요구사항 섹션
-   - `progress.md` — Phase 체크리스트 초기화
-   - `decisions.md` — 의사결정 기록 초기화
-   - `planning-results.md` — Planning 결과 초기화
+   → `docs/works/idea/W-XXX-{slug}/` 폴더와 4개 파일 자동 생성
+   → 출력된 Work ID(예: W-001)를 이후 단계에서 사용
 
 `docs/works/` 폴더 자체가 없으면 → Step 5 fallback으로 이동
-
-**Work 파일 frontmatter 기본값:**
-
-```yaml
-work_id: "W-XXX"
-title: "요청 제목"
-status: idea
-current_phase: planning
-phases_completed: []
-size: "" # Step 2에서 판단
-priority: P1
-tags: []
-created_at: "현재 시각 ISO8601"
-updated_at: "현재 시각 ISO8601"
-```
 
 ---
 

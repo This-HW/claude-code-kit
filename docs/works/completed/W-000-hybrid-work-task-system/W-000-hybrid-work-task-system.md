@@ -8,8 +8,9 @@ size: Medium
 priority: P0
 tags: [work-system, task-system, infrastructure, meta]
 created_at: "2026-03-29T00:00:00+09:00"
-updated_at: "2026-04-02T00:00:00+09:00"
-completed_at: "2026-04-02T00:00:00+09:00"
+updated_at: "2026-04-02T04:21:27Z"
+completed_at: "2026-04-02T04:21:27Z"
+started_at: "2026-04-02T04:21:24Z"
 ---
 
 # 하이브리드 Work-Task 시스템 구현
