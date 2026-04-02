@@ -11,10 +11,11 @@
 - [x] 구현 계획 수립
 
 ### Development Phase
-- [ ] 대기 중 (Planning 완료 후)
+- [x] 개발 완료 (11개 항목)
 
 ### Validation Phase
-- [ ] 대기 중 (Development 완료 후)
+- [x] 코드 리뷰 완료
+- [x] 보안 스캔 완료
 
 ## 체크포인트
 
@@ -25,3 +26,5 @@
 | 2026-04-02 | T1 요구사항 명확화 | Planning | 완료 |
 | 2026-04-02 | T2 구현 계획 수립 | Planning | 완료 |
 | 2026-04-02 | idea → planning | Phase 전환 | 완료 |
+| 2026-04-02 | planning → development | Phase 전환 | 완료 |
+| 2026-04-02 | development → validation | Phase 전환 | 완료 |

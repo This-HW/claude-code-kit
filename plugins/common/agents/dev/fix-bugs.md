@@ -14,6 +14,7 @@ tools:
   - Bash
   - Glob
   - Grep
+  - ExitWorktree
 disallowedTools:
   - Task
   - Write

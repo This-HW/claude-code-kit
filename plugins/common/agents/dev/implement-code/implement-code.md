@@ -15,6 +15,7 @@ tools:
   - Glob
   - Grep
   - Bash
+  - ExitWorktree
 disallowedTools:
   - Task
 permissionMode: acceptEdits

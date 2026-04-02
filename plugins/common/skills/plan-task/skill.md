@@ -2,10 +2,21 @@
 name: plan-task
 description: Work 파일 기반 구조화된 Planning. Work ID 또는 새 요청으로 호출.
 model: opus
+effort: max
 disable-model-invocation: true
 ---
 
 # Plan-Task 스킬
+
+## 사용법
+
+```
+/plan-task W-001                    # 기존 Work ID로 재개
+/plan-task 로그인 기능 추가          # 새 요청 (Work 자동 생성)
+/plan-task fix the auth bug         # 새 요청 (description 형식)
+```
+
+---
 
 Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합니다.
 

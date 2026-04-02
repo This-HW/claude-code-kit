@@ -13,6 +13,22 @@ claude plugin install claude-code-kit@stable --scope user
 git clone https://github.com/grimm/claude-code-kit && ./setup.sh
 ```
 
+### source: settings (경량 설치)
+
+마켓플레이스 없이 `~/.claude/settings.json`에 직접 등록:
+
+```json
+{
+  "plugins": [
+    {
+      "name": "claude-code-kit",
+      "source": "settings",
+      "path": "/absolute/path/to/claude-code-kit/plugins/common"
+    }
+  ]
+}
+```
+
 ## Structure
 
 ```

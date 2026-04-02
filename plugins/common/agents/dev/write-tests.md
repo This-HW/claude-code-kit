@@ -8,6 +8,8 @@ description: |
 model: sonnet
 effort: medium
 isolation: worktree
+disallowedTools:
+  - Task
 tools:
   - Read
   - Write
@@ -15,6 +17,7 @@ tools:
   - Glob
   - Grep
   - Bash
+  - ExitWorktree
 permissionMode: acceptEdits
 hooks:
   PreToolUse:
@@ -48,6 +51,7 @@ context_cache:
 ## 테스트 위치 규칙 (필수)
 
 ### 테스트 유형별 위치
+
 ```
 tests/
 ├── unit/              # 단위 테스트 (영구 보존)
@@ -63,12 +67,13 @@ tests/
 
 ### 영구 테스트 vs 임시 테스트
 
-| 유형 | 위치 | 보존 | 용도 |
-|------|------|------|------|
-| 영구 테스트 | `tests/unit/`, `tests/integration/` | 영구 | 기능 검증, CI/CD |
-| 임시 테스트 | `tests/scratch/` | PR 전 삭제 | 디버깅, 실험 |
+| 유형        | 위치                                | 보존       | 용도             |
+| ----------- | ----------------------------------- | ---------- | ---------------- |
+| 영구 테스트 | `tests/unit/`, `tests/integration/` | 영구       | 기능 검증, CI/CD |
+| 임시 테스트 | `tests/scratch/`                    | PR 전 삭제 | 디버깅, 실험     |
 
 ### 언제 어디에 작성?
+
 ```
 ✅ tests/unit/:
 - 새 기능의 테스트
@@ -86,6 +91,7 @@ tests/
 ## 테스트 작성 프로세스
 
 ### 1단계: 테스트 대상 분석
+
 ```
 확인 항목:
 - 테스트할 함수/컴포넌트
@@ -95,6 +101,7 @@ tests/
 ```
 
 ### 2단계: 테스트 케이스 설계
+
 ```
 케이스 분류:
 - Happy path (정상 동작)
@@ -104,6 +111,7 @@ tests/
 ```
 
 ### 3단계: 테스트 코드 작성
+
 ```
 작성 원칙:
 - AAA 패턴 (Arrange, Act, Assert)
@@ -113,6 +121,7 @@ tests/
 ```
 
 ### 4단계: 테스트 실행 및 검증
+
 ```
 검증 항목:
 - 모든 테스트 통과
@@ -125,22 +134,24 @@ tests/
 ## 테스트 작성 가이드
 
 ### 네이밍 규칙
+
 ```typescript
 // 파일명
-Component.test.ts
-useHook.test.ts
-utils.test.ts
+Component.test.ts;
+useHook.test.ts;
+utils.test.ts;
 
 // 테스트 이름: "should [동작] when [조건]"
-describe('UserService', () => {
-  it('should return user when valid ID is provided', () => {});
-  it('should throw error when user not found', () => {});
+describe("UserService", () => {
+  it("should return user when valid ID is provided", () => {});
+  it("should throw error when user not found", () => {});
 });
 ```
 
 ### AAA 패턴
+
 ```typescript
-it('should calculate total price with discount', () => {
+it("should calculate total price with discount", () => {
   // Arrange (준비)
   const items = [{ price: 100 }, { price: 200 }];
   const discount = 0.1;
@@ -154,28 +165,30 @@ it('should calculate total price with discount', () => {
 ```
 
 ### 목(Mock) 사용
+
 ```typescript
 // 외부 의존성 목킹
-jest.mock('../api/userApi');
+jest.mock("../api/userApi");
 const mockFetchUser = fetchUser as jest.MockedFunction<typeof fetchUser>;
 
 beforeEach(() => {
-  mockFetchUser.mockResolvedValue({ id: 1, name: 'Test' });
+  mockFetchUser.mockResolvedValue({ id: 1, name: "Test" });
 });
 ```
 
 ### 테스트 헬퍼 활용
+
 ```typescript
 // tests/__helpers__/factories/user.ts
 export const createMockUser = (overrides = {}) => ({
   id: 1,
-  name: 'Test User',
-  email: 'test@example.com',
+  name: "Test User",
+  email: "test@example.com",
   ...overrides,
 });
 
 // 테스트에서 사용
-const user = createMockUser({ name: 'Custom Name' });
+const user = createMockUser({ name: "Custom Name" });
 ```
 
 ---
@@ -185,12 +198,14 @@ const user = createMockUser({ name: 'Custom Name' });
 ### 작성 완료 보고
 
 #### 테스트 파일
-| 파일 | 유형 | 테스트 수 | 보존 |
-|------|------|----------|------|
-| `tests/unit/.../Component.test.ts` | 단위 | 5개 | 영구 |
-| `tests/scratch/debug.test.ts` | 임시 | 2개 | 삭제 예정 |
+
+| 파일                               | 유형 | 테스트 수 | 보존      |
+| ---------------------------------- | ---- | --------- | --------- |
+| `tests/unit/.../Component.test.ts` | 단위 | 5개       | 영구      |
+| `tests/scratch/debug.test.ts`      | 임시 | 2개       | 삭제 예정 |
 
 #### 테스트 케이스
+
 ```
 describe('Component')
   ✓ should render correctly
@@ -201,11 +216,13 @@ describe('Component')
 ```
 
 #### 커버리지 (해당시)
+
 | 파일 | Statements | Branches | Functions |
-|------|------------|----------|-----------|
-| ... | ...% | ...% | ...% |
+| ---- | ---------- | -------- | --------- |
+| ...  | ...%       | ...%     | ...%      |
 
 #### 주의사항
+
 - [테스트 실행 시 주의할 점]
 - [필요한 환경 설정]
 
@@ -214,11 +231,13 @@ describe('Component')
 ## 체크리스트
 
 ### 작성 전
+
 - [ ] 테스트 대상 명확히 파악
 - [ ] 영구 vs 임시 테스트 결정
 - [ ] 기존 테스트 헬퍼 확인
 
 ### 작성 후
+
 - [ ] 모든 테스트 통과
 - [ ] 테스트 이름 명확
 - [ ] 올바른 위치에 파일 생성
@@ -242,13 +261,14 @@ write-tests 완료
 
 ### 위임 대상
 
-| 순서 | 위임 대상 | 조건 | 설명 |
-|------|----------|------|------|
-| 1 | **verify-code** | 항상 | 작성한 테스트 실행 및 검증 |
-| 2 | **implement-code** | TDD 방식 | 테스트 기반 구현 시작 |
-| 3 | **fix-bugs** | 테스트 실패 시 | 기존 코드 버그 수정 |
+| 순서 | 위임 대상          | 조건           | 설명                       |
+| ---- | ------------------ | -------------- | -------------------------- |
+| 1    | **verify-code**    | 항상           | 작성한 테스트 실행 및 검증 |
+| 2    | **implement-code** | TDD 방식       | 테스트 기반 구현 시작      |
+| 3    | **fix-bugs**       | 테스트 실패 시 | 기존 코드 버그 수정        |
 
 ### 테스트 실패 시 흐름
+
 ```
 verify-code에서 테스트 실패 감지
     │
@@ -258,6 +278,7 @@ verify-code에서 테스트 실패 감지
 ```
 
 ### 중요
+
 ```
 ⚠️ 테스트 작성만 하고 끝내지 마세요!
 반드시 verify-code로 테스트가 올바르게 동작하는지 확인하세요.
@@ -270,6 +291,7 @@ verify-code에서 테스트 실패 감지
 작업 완료 시 반드시 아래 형식 중 하나를 출력:
 
 ### 다른 에이전트 필요 시
+
 ```
 ---DELEGATION_SIGNAL---
 TYPE: DELEGATE_TO
@@ -280,6 +302,7 @@ CONTEXT: [전달할 컨텍스트]
 ```
 
 ### 작업 완료 시
+
 ```
 ---DELEGATION_SIGNAL---
 TYPE: TASK_COMPLETE

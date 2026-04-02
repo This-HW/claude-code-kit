@@ -9,6 +9,8 @@ description: |
 model: sonnet
 effort: medium
 isolation: worktree
+disallowedTools:
+  - Task
 tools:
   - Read
   - Write
@@ -16,6 +18,7 @@ tools:
   - Bash
   - Glob
   - Grep
+  - ExitWorktree
 ---
 
 # Frontend Test Writer

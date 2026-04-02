@@ -129,6 +129,28 @@ Playwright MCP는 다음 기능을 제공합니다:
 
 ---
 
+## Computer Use (Fallback)
+
+Playwright MCP가 동작하지 않거나 복잡한 GUI 조작이 필요한 경우 Computer Use를 사용합니다.
+
+### 사용 시점
+
+- Playwright MCP로 처리 불가한 플래시/Canvas 요소
+- 드래그&드롭 등 복잡한 마우스 조작
+- 파일 업로드 다이얼로그 등 OS 네이티브 UI
+
+### 활성화 방법
+
+Claude Code 설정에서 Computer Use 옵션 활성화 후:
+
+```
+/webapp-testing --computer-use https://app.example.com
+```
+
+> 참고: Computer Use는 Playwright MCP보다 느리고 비용이 높습니다. 기본값은 Playwright MCP입니다.
+
+---
+
 ## 관련 도구
 
 - **Playwright MCP**: 브라우저 자동화

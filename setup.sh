@@ -100,7 +100,7 @@ _check_version "ruff" "0.4.0"
 _check_version "gitleaks" "8.18.0"
 
 # 1. Plugin 설치 (common 필수)
-echo "[1/4] Plugin 설치..."
+echo "[1/5] Plugin 설치..."
 if ! _step_done "plugin-common"; then
     claude plugin install claude-code-kit@stable --scope user
     _mark_done "plugin-common"
@@ -151,7 +151,7 @@ for domain in $DOMAINS; do
 done
 
 # 2. ruff.toml 전역 설치
-echo "[2/4] ruff.toml 설치..."
+echo "[2/5] ruff.toml 설치..."
 RUFF_DST="$HOME/.config/ruff/ruff.toml"
 if [ ! -f "$RUFF_DST" ]; then
     mkdir -p "$(dirname "$RUFF_DST")"
@@ -162,7 +162,7 @@ else
 fi
 
 # 3. init.templateDir 설정
-echo "[3/4] git init.templateDir 설정..."
+echo "[3/5] git init.templateDir 설정..."
 CURRENT_TPL="$(git config --global init.templateDir 2>/dev/null || true)"
 if [ -z "$CURRENT_TPL" ]; then
     TPL_DIR="$HOME/.claude/git-templates/hooks"
@@ -177,13 +177,49 @@ elif [ "$CURRENT_TPL" != "$HOME/.claude/git-templates" ]; then
 fi
 
 # 4. 현재 repo pre-commit 설치
-echo "[4/4] 현재 repo pre-commit 설치..."
+echo "[4/5] 현재 repo pre-commit 설치..."
 GIT_DIR="$(git rev-parse --git-dir 2>/dev/null || true)"
-if [ -n "$GIT_DIR" ] && [ ! -f "$GIT_DIR/hooks/pre-commit" ]; then
-    cp "$SCRIPT_DIR/plugins/common/setup/pre-commit" "$GIT_DIR/hooks/pre-commit"
-    chmod 755 "$GIT_DIR/hooks/pre-commit"
-    echo "  ✓ pre-commit 설치됨"
+if [ -n "$GIT_DIR" ]; then
+    HOOK_DST="$GIT_DIR/hooks/pre-commit"
+    if [ ! -f "$HOOK_DST" ]; then
+        cp "$SCRIPT_DIR/plugins/common/setup/pre-commit" "$HOOK_DST"
+        chmod 755 "$HOOK_DST"
+        echo "  ✓ pre-commit 설치됨"
+    elif $OPT_FORCE; then
+        cp "$SCRIPT_DIR/plugins/common/setup/pre-commit" "$HOOK_DST"
+        chmod 755 "$HOOK_DST"
+        echo "  ✓ pre-commit 강제 갱신됨"
+    else
+        echo "  ⚠ pre-commit 이미 존재, 스킵 (갱신하려면 --force)"
+    fi
 fi
+
+# 5. ~/.claude/settings.json 설정 주입
+echo "[5/5] Claude Code 설정 주입..."
+SETTINGS_FILE="$HOME/.claude/settings.json"
+python3 - "$SETTINGS_FILE" <<'PYEOF'
+import json, pathlib, sys
+
+settings_file = pathlib.Path(sys.argv[1])
+try:
+    settings = json.loads(settings_file.read_text()) if settings_file.exists() else {}
+except Exception as e:
+    print(f"  ⚠ settings.json 파싱 실패, 스킵: {e}", file=sys.stderr)
+    sys.exit(0)
+
+# rate_limits 상태바
+settings.setdefault("statusline", {})
+if "rate_limits" not in settings["statusline"]:
+    settings["statusline"]["rate_limits"] = True
+
+# autoMemoryDirectory (이미 설정된 경우 유지)
+if "autoMemoryDirectory" not in settings:
+    settings["autoMemoryDirectory"] = str(pathlib.Path.home() / ".claude/memory")
+
+settings_file.parent.mkdir(parents=True, exist_ok=True)
+settings_file.write_text(json.dumps(settings, indent=2, ensure_ascii=False))
+print("  ✓ settings.json 업데이트됨")
+PYEOF
 
 echo ""
 echo "=== 셋업 완료 ==="
