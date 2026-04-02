@@ -1,15 +1,16 @@
 ---
 work_id: "W-001"
 title: "Claude Code v2.1.74~v2.1.86 업데이트 적용"
-status: active
+status: completed
 current_phase: validation
-phases_completed: [idea, planning, development]
+phases_completed: [idea, planning, development, validation]
 size: Medium
 priority: P2
 tags: [claude-code, hooks, skills, agents, mcp, ci]
 created_at: "2026-03-29T00:00:00+09:00"
-updated_at: "2026-04-02T04:56:03Z"
+updated_at: "2026-04-02T04:59:01Z"
 started_at: "2026-04-02T04:51:12Z"
+completed_at: "2026-04-02T04:59:01Z"
 ---
 
 # Claude Code v2.1.74~v2.1.86 업데이트 적용
