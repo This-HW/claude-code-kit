@@ -1,5 +1,5 @@
 #!/bin/bash
-# setup.sh: 새 환경 초기 셋업 (전역 설정 + Plugin 설치 + 보안 훅 설치)
+# setup.sh: 새 환경 초기 셋업 (전역 설정 + Plugin 설치)
 # D-016: 상태 추적 + 멱등성 + 외부 도구 버전 체크
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -100,11 +100,12 @@ _check_version "ruff" "0.4.0"
 _check_version "gitleaks" "8.18.0"
 
 # 1. Plugin 설치 (common 필수)
-echo "[1/5] Plugin 설치..."
+echo "[1/4] Plugin 설치..."
 if ! _step_done "plugin-common"; then
     claude plugin install claude-code-kit@stable --scope user
     _mark_done "plugin-common"
 fi
+echo "  ℹ 훅(protect-sensitive, auto-format 등)은 플러그인이 자동으로 처리합니다"
 
 # D-016 (IM-06): 도메인 선택 UI에 설명 추가
 if $OPT_LIST; then
@@ -149,99 +150,8 @@ for domain in $DOMAINS; do
     fi
 done
 
-# 2. 보안/운영 훅 설치 (~/.claude/hooks/) — D-002 v3 핵심
-echo "[2/5] 보안 훅 설치..."
-if _step_done "hooks"; then echo "  - 이미 완료, 스킵"; else
-HOOKS_DST="$HOME/.claude/hooks"
-HOOKS_SRC="$SCRIPT_DIR/plugins/common/hooks"
-mkdir -p "$HOOKS_DST"
-
-# 범용 훅만 설치 (D-010)
-HOOK_FILES=(
-    "protect-sensitive.py"
-    "auto-format.py"
-    "utils.py"
-)
-
-# --full 옵션: 개인 워크플로우 훅도 설치 (personal hooks repo 없는 경우 fallback)
-if [ "${FULL_INSTALL:-}" = "true" ] || $OPT_FULL; then
-    echo "  (--full 모드: 추가 훅 포함)"
-    HOOK_FILES+=(
-        "governance-check.py"
-        "log-subagent.py"
-        "task-completed-metrics.py"
-        "teammate-idle.py"
-        "pol002-monitor.py"
-        "notebooklm-source-limit.py"
-    )
-fi
-
-installed_count=0
-for hook_file in "${HOOK_FILES[@]}"; do
-    if [ -f "$HOOKS_SRC/$hook_file" ]; then
-        cp "$HOOKS_SRC/$hook_file" "$HOOKS_DST/$hook_file"
-        chmod 644 "$HOOKS_DST/$hook_file"
-        ((installed_count++))
-    else
-        echo "  ⚠ $hook_file 없음 (스킵)"
-    fi
-done
-
-# settings.json에 hooks 설정 병합 (ATK-003: 기존 훅 보존 병합)
-python3 - "$HOME/.claude/settings.json" "$HOOKS_DST" "$SCRIPT_DIR" <<'PYEOF'
-import json, pathlib, sys
-
-settings_path = pathlib.Path(sys.argv[1])
-hooks_dir = sys.argv[2]
-settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-settings.setdefault('hooks', {})
-
-def _merge_hooks(existing, new_entry):
-    """기존 훅 목록에 새 훅을 추가 (중복 방지). ATK-003: 배열 대입 대신 병합."""
-    cmd = new_entry['hooks'][0]['command']
-    if not any(
-        e.get('hooks', [{}])[0].get('command') == cmd
-        for e in existing
-    ):
-        existing.append(new_entry)
-    return existing
-
-pre_entry = {'matcher': '^(Write|Edit|Read)$', 'hooks': [
-    {'type': 'command', 'command': f'python3 {hooks_dir}/protect-sensitive.py'}
-]}
-settings['hooks']['PreToolUse'] = _merge_hooks(
-    settings['hooks'].get('PreToolUse', []), pre_entry
-)
-
-post_entry = {'matcher': '^(Write|Edit)$', 'hooks': [
-    {'type': 'command', 'command': f'python3 {hooks_dir}/auto-format.py'}
-]}
-settings['hooks']['PostToolUse'] = _merge_hooks(
-    settings['hooks'].get('PostToolUse', []), post_entry
-)
-
-# ATK-002: bash에서 sys.argv[3]으로 SCRIPT_DIR 전달 (heredoc에서 sys.argv[0]='-' 문제 회피)
-script_dir = pathlib.Path(sys.argv[3])
-session_check_candidate = script_dir / 'plugins' / 'common' / 'setup' / 'session-check.py'
-session_check = str(session_check_candidate) if session_check_candidate.exists() else None
-if session_check:
-    session_entry = {'hooks': [{'type': 'command', 'command': f'python3 {session_check}'}]}
-    settings['hooks']['SessionStart'] = _merge_hooks(
-        settings['hooks'].get('SessionStart', []), session_entry
-    )
-else:
-    print('[setup] session-check.py를 찾을 수 없음 — hooks.json fallback 사용')
-
-settings_path.parent.mkdir(parents=True, exist_ok=True)
-settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=False))
-PYEOF
-echo "  ✓ 보안 훅 ${installed_count}/${#HOOK_FILES[@]}개 설치됨 → $HOOKS_DST"
-echo "  ✓ settings.json에 절대경로 훅 등록됨"
-_mark_done "hooks"
-fi  # end hooks step
-
-# 3. ruff.toml 전역 설치
-echo "[3/5] ruff.toml 설치..."
+# 2. ruff.toml 전역 설치
+echo "[2/4] ruff.toml 설치..."
 RUFF_DST="$HOME/.config/ruff/ruff.toml"
 if [ ! -f "$RUFF_DST" ]; then
     mkdir -p "$(dirname "$RUFF_DST")"
@@ -251,8 +161,8 @@ else
     echo "  - 이미 존재, 스킵"
 fi
 
-# 4. init.templateDir 설정
-echo "[4/5] git init.templateDir 설정..."
+# 3. init.templateDir 설정
+echo "[3/4] git init.templateDir 설정..."
 CURRENT_TPL="$(git config --global init.templateDir 2>/dev/null || true)"
 if [ -z "$CURRENT_TPL" ]; then
     TPL_DIR="$HOME/.claude/git-templates/hooks"
@@ -266,8 +176,8 @@ elif [ "$CURRENT_TPL" != "$HOME/.claude/git-templates" ]; then
     echo "    수동으로 pre-commit을 해당 디렉토리에 복사하세요."
 fi
 
-# 5. 현재 repo pre-commit 설치
-echo "[5/5] 현재 repo pre-commit 설치..."
+# 4. 현재 repo pre-commit 설치
+echo "[4/4] 현재 repo pre-commit 설치..."
 GIT_DIR="$(git rev-parse --git-dir 2>/dev/null || true)"
 if [ -n "$GIT_DIR" ] && [ ! -f "$GIT_DIR/hooks/pre-commit" ]; then
     cp "$SCRIPT_DIR/plugins/common/setup/pre-commit" "$GIT_DIR/hooks/pre-commit"
@@ -277,5 +187,4 @@ fi
 
 echo ""
 echo "=== 셋업 완료 ==="
-echo "다음 세션부터 보안 훅이 자동으로 활성화됩니다."
 echo "도메인 플러그인 목록: ./setup.sh --list"
