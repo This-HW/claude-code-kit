@@ -10,8 +10,12 @@ if command -v ruff &>/dev/null; then
     STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
     if [ -n "$STAGED_PY" ]; then
         while IFS= read -r f; do
-            ruff check --fix "$f"
-            git add "$f"
+            before="$(md5 -q "$f" 2>/dev/null || md5sum "$f" 2>/dev/null | cut -d' ' -f1)"
+            ruff check --fix "$f" 2>/dev/null || true
+            after="$(md5 -q "$f" 2>/dev/null || md5sum "$f" 2>/dev/null | cut -d' ' -f1)"
+            if [ "$before" != "$after" ]; then
+                git add "$f"
+            fi
         done <<< "$STAGED_PY"
     fi
 fi

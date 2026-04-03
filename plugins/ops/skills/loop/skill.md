@@ -20,7 +20,6 @@ disable-model-invocation: true
 ```
 /loop 5m /monitor                     # 5분마다 모니터링
 /loop 1h /security-scan               # 1시간마다 보안 스캔
-/loop 30s "check deployment status"  # 30초마다 배포 상태 확인
 /loop list                            # 등록된 반복 작업 목록
 /loop stop <id>                       # 반복 작업 중지
 ```

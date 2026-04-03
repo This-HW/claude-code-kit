@@ -69,8 +69,8 @@ MCP 서버 사용을 위해 필요한 환경변수:
 ```json
 {
   "env": {
-    "TAVILY_API_KEY": "tvly-...",
-    "EXA_API_KEY": "exa-..."
+    "TAVILY_API_KEY": "YOUR_TAVILY_API_KEY",
+    "EXA_API_KEY": "YOUR_EXA_API_KEY"
   }
 }
 ```

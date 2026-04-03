@@ -9,6 +9,7 @@ description: |
 model: sonnet
 effort: medium
 isolation: worktree
+permissionMode: acceptEdits
 disallowedTools:
   - Task
 tools:

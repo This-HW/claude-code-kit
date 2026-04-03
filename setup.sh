@@ -196,6 +196,7 @@ fi
 
 # 5. ~/.claude/settings.json 설정 주입
 echo "[5/5] Claude Code 설정 주입..."
+if ! _step_done "settings-inject"; then
 SETTINGS_FILE="$HOME/.claude/settings.json"
 python3 - "$SETTINGS_FILE" <<'PYEOF'
 import json, pathlib, sys
@@ -220,6 +221,10 @@ settings_file.parent.mkdir(parents=True, exist_ok=True)
 settings_file.write_text(json.dumps(settings, indent=2, ensure_ascii=False))
 print("  ✓ settings.json 업데이트됨")
 PYEOF
+    _mark_done "settings-inject"
+else
+    echo "  - 이미 완료, 스킵"
+fi
 
 echo ""
 echo "=== 셋업 완료 ==="

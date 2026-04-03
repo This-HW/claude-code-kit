@@ -67,7 +67,7 @@ next_work_number() {
 find_work_dir() {
   local id="$1"  # e.g. W-001
   local result
-  result="$(find "$WORKS_DIR" -mindepth 2 -maxdepth 2 -type d -name "${id}-*" 2>/dev/null | head -1)"
+  result="$(find "$WORKS_DIR" -mindepth 2 -maxdepth 2 -type d -name "${id}-*" 2>/dev/null | head -1 || true)"
   if [[ -z "$result" ]]; then
     echo "Error: Work '$id' not found under $WORKS_DIR" >&2
     exit 1
@@ -80,7 +80,7 @@ find_work_md() {
   local dir="$1"
   local id
   id="$(basename "$dir" | grep -oE '^W-[0-9]+')"
-  find "$dir" -maxdepth 1 -name "${id}-*.md" | head -1
+  find "$dir" -maxdepth 1 -name "${id}-*.md" | head -1 || true
 }
 
 # Read a frontmatter field value from a work .md file
@@ -199,11 +199,17 @@ cmd_new() {
 
   mkdir -p "$dir"
 
+  # Escape special characters in title to prevent heredoc injection
+  local title_esc
+  title_esc="${title//\\/\\\\}"
+  title_esc="${title_esc//\`/\\\`}"
+  title_esc="${title_esc//\$/\\\$}"
+
   # --- W-XXX-{slug}.md ---
   cat > "${dir}/${id}-${slug}.md" <<MDEOF
 ---
 work_id: "${id}"
-title: "${title}"
+title: "${title_esc}"
 status: idea
 current_phase: idea
 phases_completed: []
@@ -214,7 +220,7 @@ created_at: "${now}"
 updated_at: "${now}"
 ---
 
-# ${title}
+# ${title_esc}
 
 > Work ID: ${id}
 > Status: idea
@@ -228,7 +234,7 @@ MDEOF
 
   # --- progress.md ---
   cat > "${dir}/progress.md" <<MDEOF
-# Progress: ${title}
+# Progress: ${title_esc}
 
 > Work ID: ${id}
 > Last Updated: ${now}
@@ -254,7 +260,7 @@ MDEOF
 
   # --- decisions.md ---
   cat > "${dir}/decisions.md" <<MDEOF
-# Decisions: ${title}
+# Decisions: ${title_esc}
 
 > Work ID: ${id}
 > Last Updated: ${now}
@@ -264,7 +270,7 @@ MDEOF
 
   # --- planning-results.md ---
   cat > "${dir}/planning-results.md" <<MDEOF
-# Planning 결과: ${title}
+# Planning 결과: ${title_esc}
 
 > Work ID: ${id}
 > Last Updated: ${now}
