@@ -2,7 +2,7 @@
 name: db-query
 description: Execute database queries using PostgreSQL MCP. Use when users want to run SQL queries, analyze data, check schema, or optimize queries.
 model: sonnet
-domain: common
+domain: data-engineering
 disable-model-invocation: true
 ---
 
@@ -65,12 +65,12 @@ SSH 터널이 실행 중이어야 합니다:
 
 ## 연결 정보
 
-| 항목     | 값          |
-| -------- | ----------- |
-| Host     | localhost   |
-| Port     | 15432       |
+| 항목     | 값           |
+| -------- | ------------ |
+| Host     | localhost    |
+| Port     | 15432        |
 | Database | your_project |
-| User     | your_user   |
+| User     | your_user    |
 
 ## 관련 에이전트
 

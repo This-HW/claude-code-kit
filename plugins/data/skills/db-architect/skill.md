@@ -3,17 +3,9 @@ name: db-architect
 description: Database architecture design specialist. ERD design, normalization strategy, indexing optimization, and performance-oriented schema design.
 domain: data-engineering
 model: opus
-tools:
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Bash
-  - AskUserQuestion
-author: claude_setting
-version: 1.0.0
-license: MIT
+effort: high
+argument-hint: [business requirements or existing schema]
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 ---
 
 # Database Architecture Design Specialist

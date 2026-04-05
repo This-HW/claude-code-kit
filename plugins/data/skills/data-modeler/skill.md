@@ -3,17 +3,9 @@ name: data-modeler
 description: Data modeling specialist. Entity modeling, relationship design, constraint definition, and schema evolution patterns with ORM integration.
 domain: data-engineering
 model: sonnet
-tools:
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - Bash
-  - AskUserQuestion
-author: claude_setting
-version: 1.0.0
-license: MIT
+effort: medium
+argument-hint: [SQL schema or entity description]
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 ---
 
 # Data Modeling Specialist

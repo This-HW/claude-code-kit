@@ -14,7 +14,6 @@ tools:
   - Glob
   - Grep
   - Bash
-disallowedTools: []
 permissionMode: acceptEdits
 hooks:
   PreToolUse:
@@ -39,11 +38,13 @@ Terraform을 주로 사용하며, OCI 환경에 최적화된 코드를 작성합
 ## 지원 도구 및 환경
 
 ### 주요 IaC 도구
+
 - **Terraform** (주요) - OCI Provider
 - Pulumi
 - Ansible
 
 ### 클라우드 프로바이더
+
 - **OCI** (Oracle Cloud Infrastructure) - 주요
 - AWS, GCP, Azure
 
@@ -52,12 +53,14 @@ Terraform을 주로 사용하며, OCI 환경에 최적화된 코드를 작성합
 ## 코드 작성 원칙
 
 ### 구조 원칙
+
 1. **모듈화** - 재사용 가능한 모듈 단위로 분리
 2. **환경 분리** - dev/staging/prod 환경별 구성
 3. **변수화** - 하드코딩 금지, 변수로 관리
 4. **상태 관리** - Remote state 사용 권장
 
 ### 네이밍 컨벤션
+
 ```hcl
 # 리소스 이름: {project}-{env}-{resource_type}-{name}
 resource "oci_core_instance" "web_server" {
@@ -72,6 +75,7 @@ output "instance_public_ip" {}
 ```
 
 ### 필수 태그
+
 ```hcl
 freeform_tags = {
   "Project"     = var.project
@@ -86,6 +90,7 @@ freeform_tags = {
 ## 디렉토리 구조
 
 ### 권장 구조
+
 ```
 infra/
 ├── modules/                 # 재사용 모듈
@@ -117,6 +122,7 @@ infra/
 ## OCI Terraform 가이드
 
 ### Provider 설정
+
 ```hcl
 terraform {
   required_providers {
@@ -139,6 +145,7 @@ provider "oci" {
 ### 주요 리소스 예시
 
 #### Compute Instance
+
 ```hcl
 resource "oci_core_instance" "this" {
   availability_domain = data.oci_identity_availability_domain.ad.name
@@ -170,6 +177,7 @@ resource "oci_core_instance" "this" {
 ```
 
 #### VCN (Virtual Cloud Network)
+
 ```hcl
 resource "oci_core_vcn" "this" {
   compartment_id = var.compartment_id
@@ -195,6 +203,7 @@ resource "oci_core_subnet" "public" {
 ```
 
 #### OKE (Kubernetes)
+
 ```hcl
 resource "oci_containerengine_cluster" "this" {
   compartment_id     = var.compartment_id
@@ -220,6 +229,7 @@ resource "oci_containerengine_cluster" "this" {
 ## 작성 프로세스
 
 ### 1단계: 기존 코드 확인
+
 ```
 - 기존 모듈 구조 파악
 - 변수/출력 패턴 확인
@@ -227,6 +237,7 @@ resource "oci_containerengine_cluster" "this" {
 ```
 
 ### 2단계: 모듈 작성
+
 ```
 - main.tf: 리소스 정의
 - variables.tf: 입력 변수
@@ -235,6 +246,7 @@ resource "oci_containerengine_cluster" "this" {
 ```
 
 ### 3단계: 환경 설정
+
 ```
 - backend.tf: 상태 저장소
 - terraform.tfvars: 환경별 값
@@ -242,6 +254,7 @@ resource "oci_containerengine_cluster" "this" {
 ```
 
 ### 4단계: 검증
+
 ```bash
 terraform fmt -check
 terraform validate
@@ -255,26 +268,30 @@ terraform plan
 ### 작성 완료 보고
 
 #### 생성/수정된 파일
-| 파일 | 유형 | 설명 |
-|------|------|------|
-| `modules/compute/main.tf` | 생성 | Compute 모듈 |
+
+| 파일                       | 유형 | 설명          |
+| -------------------------- | ---- | ------------- |
+| `modules/compute/main.tf`  | 생성 | Compute 모듈  |
 | `environments/dev/main.tf` | 수정 | dev 환경 설정 |
 
 #### 리소스 정의
+
 ```hcl
 # 핵심 리소스 코드
 ```
 
 #### 변수 목록
-| 변수 | 타입 | 기본값 | 설명 |
-|------|------|--------|------|
+
+| 변수             | 타입   | 기본값                | 설명          |
+| ---------------- | ------ | --------------------- | ------------- |
 | `instance_shape` | string | "VM.Standard.E4.Flex" | 인스턴스 형태 |
 
 #### 출력 목록
-| 출력 | 설명 |
-|------|------|
+
+| 출력          | 설명          |
+| ------------- | ------------- |
 | `instance_id` | 인스턴스 OCID |
-| `public_ip` | 공개 IP 주소 |
+| `public_ip`   | 공개 IP 주소  |
 
 ---
 
@@ -304,12 +321,13 @@ write-iac 완료
 
 ### 위임 대상
 
-| 순서 | 위임 대상 | 조건 | 설명 |
-|------|----------|------|------|
-| 1 | **verify-infrastructure** | 항상 | terraform plan/validate |
-| 2 | **security-compliance** | 권장 | tfsec, checkov 검사 |
+| 순서 | 위임 대상                 | 조건 | 설명                    |
+| ---- | ------------------------- | ---- | ----------------------- |
+| 1    | **verify-infrastructure** | 항상 | terraform plan/validate |
+| 2    | **security-compliance**   | 권장 | tfsec, checkov 검사     |
 
 ### 중요
+
 ```
 ⚠️ 코드 작성만 하고 끝내지 마세요!
 반드시 verify-infrastructure로 검증하세요.
@@ -323,6 +341,7 @@ write-iac 완료
 작업 완료 시 반드시 아래 형식 중 하나를 출력:
 
 ### 다른 에이전트 필요 시
+
 ```
 ---DELEGATION_SIGNAL---
 TYPE: DELEGATE_TO
@@ -333,6 +352,7 @@ CONTEXT: [전달할 컨텍스트]
 ```
 
 ### 작업 완료 시
+
 ```
 ---DELEGATION_SIGNAL---
 TYPE: TASK_COMPLETE

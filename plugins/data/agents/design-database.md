@@ -19,9 +19,6 @@ disallowedTools:
   - Write
   - Edit
   - Task
-author: claude_setting
-version: 2.0.0
-license: MIT
 ---
 
 # Database Design Orchestrator

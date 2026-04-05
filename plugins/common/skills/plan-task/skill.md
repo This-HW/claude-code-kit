@@ -3,6 +3,7 @@ name: plan-task
 description: Work 파일 기반 구조화된 Planning. Work ID 또는 새 요청으로 호출.
 model: opus
 effort: max
+domain: common
 disable-model-invocation: true
 ---
 

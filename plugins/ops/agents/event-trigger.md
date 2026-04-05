@@ -7,7 +7,7 @@ description: |
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: event-trigger" 반환 시.
   OUTPUT: 트리거 결과 + "DELEGATE_TO: [workflow-runner|notify-team]" 또는 "TASK_COMPLETE"
 model: haiku
-effort: none
+effort: low
 tools:
   - Read
   - Bash

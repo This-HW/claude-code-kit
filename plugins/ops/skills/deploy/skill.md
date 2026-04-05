@@ -2,7 +2,8 @@
 name: deploy
 description: 배포 파이프라인. 검증 → 배포 → 모니터링 순서로 진행합니다.
 model: sonnet
-domain: common
+effort: high
+domain: ops
 argument-hint: [대상] [환경] (예: app staging, infra production)
 allowed-tools: Read, Bash, Glob, Grep, Task
 ---

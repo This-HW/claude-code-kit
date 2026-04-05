@@ -14,7 +14,6 @@ tools:
   - Glob
   - Grep
   - Bash
-disallowedTools: []
 permissionMode: acceptEdits
 hooks:
   PreToolUse:
@@ -39,14 +38,17 @@ Docker, Kubernetes, Helm을 사용하여 컨테이너 환경을 구성합니다.
 ## 지원 환경
 
 ### 컨테이너 런타임
+
 - **Docker** - 주요
 - Podman
 
 ### 오케스트레이션
+
 - **Kubernetes** - 주요
 - **OKE** (Oracle Kubernetes Engine)
 
 ### 패키지 관리
+
 - Helm
 - Kustomize
 
@@ -57,6 +59,7 @@ Docker, Kubernetes, Helm을 사용하여 컨테이너 환경을 구성합니다.
 ### Dockerfile 베스트 프랙티스
 
 #### Node.js 앱
+
 ```dockerfile
 # Build stage
 FROM node:20-alpine AS builder
@@ -79,6 +82,7 @@ CMD ["node", "server.js"]
 ```
 
 #### Python 앱
+
 ```dockerfile
 FROM python:3.11-slim
 
@@ -99,8 +103,9 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ### docker-compose.yml
+
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   app:
@@ -137,6 +142,7 @@ volumes:
 ## Kubernetes 가이드
 
 ### Deployment
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -189,6 +195,7 @@ spec:
 ```
 
 ### Service
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -204,6 +211,7 @@ spec:
 ```
 
 ### Ingress (OCI)
+
 ```yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -245,6 +253,7 @@ charts/app/
 ```
 
 ### values.yaml
+
 ```yaml
 replicaCount: 3
 
@@ -277,19 +286,22 @@ resources:
 ### 컨테이너 설정 완료 보고
 
 #### 생성된 파일
-| 파일 | 설명 |
-|------|------|
-| `Dockerfile` | 컨테이너 이미지 정의 |
-| `docker-compose.yml` | 로컬 개발 환경 |
-| `k8s/deployment.yaml` | K8s 배포 설정 |
+
+| 파일                  | 설명                 |
+| --------------------- | -------------------- |
+| `Dockerfile`          | 컨테이너 이미지 정의 |
+| `docker-compose.yml`  | 로컬 개발 환경       |
+| `k8s/deployment.yaml` | K8s 배포 설정        |
 
 #### 이미지 빌드 명령
+
 ```bash
 docker build -t app:latest .
 docker push <registry>/app:latest
 ```
 
 #### K8s 배포 명령
+
 ```bash
 kubectl apply -f k8s/
 # 또는
@@ -302,14 +314,15 @@ helm install app ./charts/app -f values-prod.yaml
 
 ### 설정 완료 후 위임 대상
 
-| 상황 | 위임 대상 | 설명 |
-|------|----------|------|
-| 이미지 빌드/푸시 | **deploy** | 빌드 및 레지스트리 푸시 |
-| CI/CD에 통합 | **configure-cicd** | 파이프라인에 추가 |
-| 인프라 설정 필요 | **write-iac** | OKE 클러스터 생성 |
-| 보안 검토 | **security-compliance** | 이미지 취약점 스캔 |
+| 상황             | 위임 대상               | 설명                    |
+| ---------------- | ----------------------- | ----------------------- |
+| 이미지 빌드/푸시 | **deploy**              | 빌드 및 레지스트리 푸시 |
+| CI/CD에 통합     | **configure-cicd**      | 파이프라인에 추가       |
+| 인프라 설정 필요 | **write-iac**           | OKE 클러스터 생성       |
+| 보안 검토        | **security-compliance** | 이미지 취약점 스캔      |
 
 ### 중요
+
 ```
 ⚠️ 컨테이너 설정 후:
 1. 로컬에서 빌드/테스트
@@ -324,6 +337,7 @@ helm install app ./charts/app -f values-prod.yaml
 작업 완료 시 반드시 아래 형식 중 하나를 출력:
 
 ### 다른 에이전트 필요 시
+
 ```
 ---DELEGATION_SIGNAL---
 TYPE: DELEGATE_TO
@@ -334,6 +348,7 @@ CONTEXT: [전달할 컨텍스트]
 ```
 
 ### 작업 완료 시
+
 ```
 ---DELEGATION_SIGNAL---
 TYPE: TASK_COMPLETE

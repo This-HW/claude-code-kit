@@ -7,7 +7,7 @@ description: |
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: notify-team" 반환 시.
   OUTPUT: 알림 발송 결과 + "TASK_COMPLETE"
 model: haiku
-effort: none
+effort: low
 background: true
 tools:
   - Read

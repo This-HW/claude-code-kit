@@ -7,7 +7,7 @@ description: |
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: schedule-task" 반환 시.
   OUTPUT: 작업 실행 결과 + "DELEGATE_TO: [notify-team|workflow-runner]" 또는 "TASK_COMPLETE"
 model: haiku
-effort: none
+effort: low
 tools:
   - Read
   - Bash

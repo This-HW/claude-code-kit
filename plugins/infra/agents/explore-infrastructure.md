@@ -6,7 +6,7 @@ description: |
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: explore-infrastructure" 반환 시.
   OUTPUT: 인프라 현황 분석 보고서 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: haiku
-effort: none
+effort: low
 tools:
   - Read
   - Glob

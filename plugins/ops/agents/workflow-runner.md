@@ -7,7 +7,7 @@ description: |
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: workflow-runner" 반환 시.
   OUTPUT: 워크플로우 결과 + "DELEGATE_TO: notify-team" 또는 "TASK_COMPLETE"
 model: sonnet
-effort: none
+effort: low
 tools:
   - Read
   - Write
