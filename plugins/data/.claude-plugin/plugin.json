@@ -2,7 +2,7 @@
   "name": "claude-code-kit-data",
   "version": "1.0.0",
   "description": "Data engineering and analytics agents and skills. Database design, query optimization, data migration, and analytics.",
-  "author": "grimm",
+  "author": "This-HW",
   "license": "MIT",
   "tags": ["data", "database", "analytics", "sql", "etl"],
   "agents": "agents/",

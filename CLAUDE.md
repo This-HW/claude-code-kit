@@ -6,37 +6,21 @@
 
 ```bash
 # Basic (Plugin only)
-claude plugin marketplace add grimm/claude-code-kit
-claude plugin install claude-code-kit@stable --scope user
+/plugin marketplace add This-HW/claude-code-kit
+/plugin install claude-code-kit@This-HW/claude-code-kit
 
-# Full (with security hooks)
-git clone https://github.com/grimm/claude-code-kit && ./setup.sh
-```
-
-### source: settings (경량 설치)
-
-마켓플레이스 없이 `~/.claude/settings.json`에 직접 등록:
-
-```json
-{
-  "plugins": [
-    {
-      "name": "claude-code-kit",
-      "source": "settings",
-      "path": "/absolute/path/to/claude-code-kit/plugins/common"
-    }
-  ]
-}
+# Full (with security hooks + auto-format + pre-commit)
+git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./setup.sh
 ```
 
 ## Structure
 
 ```
 plugins/
-├── common/      — Core agents (52) + skills (19) + rules (10) + hooks
+├── common/      — Core agents (33) + skills (3) + rules (8) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
-├── ops/         — Operations agents (14) + skills (4)
+├── ops/         — Operations agents (14) + skills (5)
 ├── data/        — Data agents (4) + skills (3)
 └── integration/ — Integration agents (4)
 ```
@@ -51,20 +35,19 @@ Each domain lives in `plugins/{domain}/` with:
 
 ## Key Skills
 
-| Skill                    | Command                     | Description                    |
-| ------------------------ | --------------------------- | ------------------------------ |
-| plan-task                | `/plan-task`                | Structured task planning       |
-| auto-dev                 | `/auto-dev`                 | Automated development pipeline |
-| review                   | `/review`                   | Adversarial code review        |
-| multi-perspective-review | `/multi-perspective-review` | Multi-expert review            |
+| Skill        | Command         | Description                    |
+| ------------ | --------------- | ------------------------------ |
+| plan-task    | `/plan-task`    | Structured task planning       |
+| auto-dev     | `/auto-dev`     | Automated development pipeline |
+| web-research | `/web-research` | MCP-powered research           |
 
 ## Agent Architecture
 
 ### 3-Tier Model
 
 ```
-Tier 1: plugins/common/    — All projects (52 agents)
-Tier 2: plugins/{domain}/  — Domain-specific (29 agents)
+Tier 1: plugins/common/    — All projects (33 agents)
+Tier 2: plugins/{domain}/  — Domain-specific (33 agents)
 Tier 3: project-local/     — Project-specific (user-added)
 ```
 

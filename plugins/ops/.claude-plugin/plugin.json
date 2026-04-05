@@ -2,7 +2,7 @@
   "name": "claude-code-kit-ops",
   "version": "1.0.0",
   "description": "Operations agents and skills. Deploy, monitor, incident response, rollback, and SLA tracking.",
-  "author": "grimm",
+  "author": "This-HW",
   "license": "MIT",
   "tags": ["ops", "deploy", "monitor", "incident", "sla"],
   "agents": "agents/",

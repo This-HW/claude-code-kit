@@ -2,7 +2,7 @@
   "name": "claude-code-kit-frontend",
   "version": "1.0.0",
   "description": "Frontend development agents and skills. React, Vue, UI components, UX optimization, and web testing.",
-  "author": "grimm",
+  "author": "This-HW",
   "license": "MIT",
   "tags": ["frontend", "react", "vue", "ui", "ux"],
   "agents": "agents/",

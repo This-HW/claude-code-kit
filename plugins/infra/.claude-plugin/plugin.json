@@ -2,7 +2,7 @@
   "name": "claude-code-kit-infra",
   "version": "1.0.0",
   "description": "Infrastructure agents and skills. Terraform, Docker, Kubernetes, CI/CD, and cloud infrastructure.",
-  "author": "grimm",
+  "author": "This-HW",
   "license": "MIT",
   "tags": ["infra", "terraform", "docker", "kubernetes", "cicd"],
   "agents": "agents/",

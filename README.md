@@ -1,6 +1,6 @@
 # claude-code-kit
 
-> Universal Claude Code toolkit — 85 agents + 28 skills for software development
+> Universal Claude Code toolkit — 66 agents + 13 skills for software development
 
 A structured, multi-domain AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, infrastructure, operations, and more.
 
@@ -12,21 +12,21 @@ A structured, multi-domain AI agent system built for Claude Code. Covers the ful
 
 ```bash
 # Core toolkit (common domain)
-claude plugin marketplace add grimm/claude-code-kit
-claude plugin install claude-code-kit@stable --scope user
+/plugin marketplace add This-HW/claude-code-kit
+/plugin install claude-code-kit@This-HW/claude-code-kit
 
 # Add domain plugins as needed
-claude plugin install claude-code-kit-frontend@stable --scope user
-claude plugin install claude-code-kit-infra@stable --scope user
-claude plugin install claude-code-kit-ops@stable --scope user
-claude plugin install claude-code-kit-data@stable --scope user
-claude plugin install claude-code-kit-integration@stable --scope user
+/plugin install claude-code-kit-frontend@This-HW/claude-code-kit
+/plugin install claude-code-kit-infra@This-HW/claude-code-kit
+/plugin install claude-code-kit-ops@This-HW/claude-code-kit
+/plugin install claude-code-kit-data@This-HW/claude-code-kit
+/plugin install claude-code-kit-integration@This-HW/claude-code-kit
 ```
 
 ## Full Mode (Security Hooks + Auto-format)
 
 ```bash
-git clone https://github.com/grimm/claude-code-kit
+git clone https://github.com/This-HW/claude-code-kit
 cd claude-code-kit
 ./setup.sh
 ```
@@ -45,10 +45,10 @@ Options:
 
 | Plugin                        | Agents | Skills | Description                               |
 | ----------------------------- | ------ | ------ | ----------------------------------------- |
-| `claude-code-kit`             | 52     | 19     | Core: planning, development, review, meta |
+| `claude-code-kit`             | 33     | 3      | Core: planning, development, review, meta |
 | `claude-code-kit-frontend`    | 4      | 1      | React, Vue, UI/UX                         |
 | `claude-code-kit-infra`       | 7      | 1      | Terraform, Docker, Kubernetes             |
-| `claude-code-kit-ops`         | 14     | 4      | Deploy, monitor, incident response        |
+| `claude-code-kit-ops`         | 14     | 5      | Deploy, monitor, incident response        |
 | `claude-code-kit-data`        | 4      | 3      | Database design, query optimization       |
 | `claude-code-kit-integration` | 4      | 0      | Webhook, Slack, CI/CD triggers            |
 
@@ -59,7 +59,7 @@ Options:
 ### 3-Tier Agent Model
 
 ```
-Tier 1: plugins/common/    — Core agents for all projects (52 agents)
+Tier 1: plugins/common/    — Core agents for all projects (33 agents)
 Tier 2: plugins/{domain}/  — Domain-specific agents (33 agents)
 Tier 3: project-local/     — Project-specific agents (user-defined)
 ```
@@ -108,13 +108,11 @@ File-modifying agents run in an isolated git worktree to prevent conflicts:
 
 ### Key Skills
 
-| Skill                      | Command                     | Description                                                                |
-| -------------------------- | --------------------------- | -------------------------------------------------------------------------- |
-| `plan-task`                | `/plan-task`                | 5-phase planning pipeline: explore → clarify → journey → logic → implement |
-| `auto-dev`                 | `/auto-dev`                 | Full automated development pipeline                                        |
-| `review`                   | `/review`                   | Adversarial code review                                                    |
-| `multi-perspective-review` | `/multi-perspective-review` | Round 1 parallel → Round 2 cross-review → Round 3 consensus                |
-| `web-research`             | `/web-research`             | MCP-powered research: Context7 (docs) + Exa (code) + Tavily (web)          |
+| Skill          | Command         | Description                                                                |
+| -------------- | --------------- | -------------------------------------------------------------------------- |
+| `plan-task`    | `/plan-task`    | 5-phase planning pipeline: explore → clarify → journey → logic → implement |
+| `auto-dev`     | `/auto-dev`     | Full automated development pipeline                                        |
+| `web-research` | `/web-research` | MCP-powered research: Context7 (docs) + Exa (code) + Tavily (web)          |
 
 ### Planning Agents (5 — Opus)
 
@@ -335,10 +333,10 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-├── common/      — Core agents (52) + skills (19) + rules (10) + hooks
+├── common/      — Core agents (33) + skills (3) + rules (8) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
-├── ops/         — Operations agents (14) + skills (4)
+├── ops/         — Operations agents (14) + skills (5)
 ├── data/        — Data agents (4) + skills (3)
 └── integration/ — Integration agents (4)
 ```

@@ -1,36 +1,40 @@
 {
   "name": "claude-code-kit",
-  "description": "Universal Claude Code toolkit. Agents and skills for development, planning, review, infrastructure, ops, data, and integrations.",
+  "owner": {
+    "name": "This-HW",
+    "url": "https://github.com/This-HW"
+  },
+  "repository": "https://github.com/This-HW/claude-code-kit",
   "plugins": [
     {
       "name": "claude-code-kit",
-      "path": "plugins/common",
-      "description": "Core: 52 agents (planning, dev, meta) + 19 skills"
+      "source": "./plugins/common",
+      "description": "Core toolkit: 33 agents + 3 skills for planning, development, review, and meta workflows."
     },
     {
       "name": "claude-code-kit-frontend",
-      "path": "plugins/frontend",
-      "description": "Frontend: 4 agents + 1 skill (React, Vue, UI/UX)"
+      "source": "./plugins/frontend",
+      "description": "Frontend agents and skills: React, Vue, UI/UX optimization, and E2E testing."
     },
     {
       "name": "claude-code-kit-infra",
-      "path": "plugins/infra",
-      "description": "Infra: 7 agents + 1 skill (Terraform, Docker, K8s)"
+      "source": "./plugins/infra",
+      "description": "Infrastructure agents and skills: Terraform, Docker, Kubernetes, CI/CD."
     },
     {
       "name": "claude-code-kit-ops",
-      "path": "plugins/ops",
-      "description": "Ops: 14 agents + 4 skills (deploy, monitor, incident)"
+      "source": "./plugins/ops",
+      "description": "Operations agents and skills: deploy, monitor, incident response, rollback, SLA tracking."
     },
     {
       "name": "claude-code-kit-data",
-      "path": "plugins/data",
-      "description": "Data: 4 agents + 3 skills (DB design, query, analytics)"
+      "source": "./plugins/data",
+      "description": "Data engineering agents and skills: database design, query optimization, migration."
     },
     {
       "name": "claude-code-kit-integration",
-      "path": "plugins/integration",
-      "description": "Integration: 4 agents (webhook, notify, sync, pipeline)"
+      "source": "./plugins/integration",
+      "description": "Integration agents: webhooks, Slack/Teams notifications, issue sync, CI/CD triggers."
     }
   ]
 }
