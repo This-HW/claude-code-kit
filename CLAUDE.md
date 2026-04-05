@@ -17,7 +17,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-├── common/      — Core agents (33) + skills (3) + rules (8) + hooks
+├── common/      — Core agents (33) + skills (12) + rules (8) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
 ├── ops/         — Operations agents (14) + skills (5)
@@ -35,11 +35,20 @@ Each domain lives in `plugins/{domain}/` with:
 
 ## Key Skills
 
-| Skill        | Command         | Description                    |
-| ------------ | --------------- | ------------------------------ |
-| plan-task    | `/plan-task`    | Structured task planning       |
-| auto-dev     | `/auto-dev`     | Automated development pipeline |
-| web-research | `/web-research` | MCP-powered research           |
+| Skill                    | Command                     | Description                                     |
+| ------------------------ | --------------------------- | ----------------------------------------------- |
+| plan-task                | `/plan-task`                | Structured task planning                        |
+| auto-dev                 | `/auto-dev`                 | Automated development pipeline                  |
+| web-research             | `/web-research`             | MCP-powered research                            |
+| review                   | `/review`                   | Code review: ruff + review-code + security-scan |
+| multi-perspective-review | `/multi-perspective-review` | 3-Round Deliberation with 10 perspectives       |
+| doc-coauthoring          | `/doc-coauthoring`          | AI-assisted documentation authoring             |
+| debug                    | `/debug`                    | 4-Phase debug pipeline                          |
+| test                     | `/test`                     | Run tests and auto-fix failures                 |
+| agent-creator            | `/agent-creator`            | Generate plugin agents                          |
+| skill-creator            | `/skill-creator`            | Generate plugin skills                          |
+| mcp-builder              | `/mcp-builder`              | Scaffold MCP servers                            |
+| agent-teams              | `/agent-teams`              | Parallel tasks via Agent Teams (experimental)   |
 
 ## Agent Architecture
 

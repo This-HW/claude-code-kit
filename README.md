@@ -1,6 +1,6 @@
 # claude-code-kit
 
-> Universal Claude Code toolkit — 66 agents + 13 skills for software development
+> Universal Claude Code toolkit — 66 agents + 22 skills for software development
 
 A structured, multi-domain AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, infrastructure, operations, and more.
 
@@ -45,7 +45,7 @@ Options:
 
 | Plugin                        | Agents | Skills | Description                               |
 | ----------------------------- | ------ | ------ | ----------------------------------------- |
-| `claude-code-kit`             | 33     | 3      | Core: planning, development, review, meta |
+| `claude-code-kit`             | 33     | 12     | Core: planning, development, review, meta |
 | `claude-code-kit-frontend`    | 4      | 1      | React, Vue, UI/UX                         |
 | `claude-code-kit-infra`       | 7      | 1      | Terraform, Docker, Kubernetes             |
 | `claude-code-kit-ops`         | 14     | 5      | Deploy, monitor, incident response        |
@@ -108,11 +108,20 @@ File-modifying agents run in an isolated git worktree to prevent conflicts:
 
 ### Key Skills
 
-| Skill          | Command         | Description                                                                |
-| -------------- | --------------- | -------------------------------------------------------------------------- |
-| `plan-task`    | `/plan-task`    | 5-phase planning pipeline: explore → clarify → journey → logic → implement |
-| `auto-dev`     | `/auto-dev`     | Full automated development pipeline                                        |
-| `web-research` | `/web-research` | MCP-powered research: Context7 (docs) + Exa (code) + Tavily (web)          |
+| Skill                      | Command                     | Description                                                                |
+| -------------------------- | --------------------------- | -------------------------------------------------------------------------- |
+| `plan-task`                | `/plan-task`                | 5-phase planning pipeline: explore → clarify → journey → logic → implement |
+| `auto-dev`                 | `/auto-dev`                 | Full automated development pipeline                                        |
+| `web-research`             | `/web-research`             | MCP-powered research: Context7 (docs) + Exa (code) + Tavily (web)          |
+| `review`                   | `/review`                   | Code review pipeline: ruff + review-code + security-scan                   |
+| `multi-perspective-review` | `/multi-perspective-review` | 3-Round Deliberation: 10 perspectives, consensus-driven                    |
+| `doc-coauthoring`          | `/doc-coauthoring`          | AI-assisted documentation authoring and review                             |
+| `debug`                    | `/debug`                    | 4-Phase debug: diagnose → fix-bugs → verify-code                           |
+| `test`                     | `/test`                     | Run tests and auto-fix failures via verify-code + fix-bugs                 |
+| `agent-creator`            | `/agent-creator`            | Generate claude-code-kit plugin agents with correct frontmatter            |
+| `skill-creator`            | `/skill-creator`            | Generate claude-code-kit skills with best practices                        |
+| `mcp-builder`              | `/mcp-builder`              | Scaffold MCP servers and configure Claude Code integration                 |
+| `agent-teams`              | `/agent-teams`              | Parallel large tasks via Agent Teams (experimental, Opus 4.6 required)     |
 
 ### Planning Agents (5 — Opus)
 
