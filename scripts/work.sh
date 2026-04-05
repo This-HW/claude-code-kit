@@ -18,6 +18,7 @@ Commands:
   start <id>        idea → active 전환
   next-phase <id>   현재 phase를 다음 단계로 전환
   complete <id>     active → completed 전환
+  resume <id>       CLAUDE_CODE_TASK_LIST_ID 설정 후 claude 실행 (Task 영속성)
 
 Examples:
   $(basename "$0") new "새 기능 구현"
@@ -26,6 +27,7 @@ Examples:
   $(basename "$0") start W-001
   $(basename "$0") next-phase W-001
   $(basename "$0") complete W-001
+  $(basename "$0") resume W-001
 EOF
   exit 1
 }
@@ -38,14 +40,18 @@ iso8601() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
-# Convert title to kebab-case slug (basic ASCII-safe transformation)
+# Convert title to kebab-case slug
+# Python heredoc 사용 — POSIX sed의 한글 문자 범위(가-힣) collation 오류 회피,
+# 제목에 따옴표·특수문자가 있어도 shell escape 문제 없음
 to_slug() {
   local title="$1"
-  echo "$title" \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed 's/[^a-z0-9가-힣]/-/g' \
-    | sed 's/-\{2,\}/-/g' \
-    | sed 's/^-//;s/-$//'
+  python3 - "$title" <<'PYEOF'
+import re, sys
+t = sys.argv[1].lower()
+t = re.sub(r'[^\w]', '-', t)   # \w = Unicode word chars (한글 포함)
+t = re.sub(r'-+', '-', t).strip('-')
+print(t)
+PYEOF
 }
 
 # Find the next W-XXX number by scanning all three stage dirs
@@ -484,6 +490,30 @@ cmd_complete() {
   echo "Moved    : $dest"
 }
 
+cmd_resume() {
+  if [[ $# -lt 1 ]]; then
+    echo "Error: 'resume' requires a Work ID (e.g. W-001)" >&2
+    exit 1
+  fi
+  local id
+  id="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+  local dir
+  dir="$(find_work_dir "$id")"
+  local stage
+  stage="$(basename "$(dirname "$dir")")"
+
+  if [[ "$stage" != "active" ]]; then
+    echo "Error: Work '$id' is in '$stage', not 'active'" >&2
+    echo "Tip   : Use 'start $id' to move it to active first" >&2
+    exit 1
+  fi
+
+  echo "Resuming $id with persistent task list (CLAUDE_CODE_TASK_LIST_ID=$id)"
+  echo "Tasks will be preserved across sessions."
+  shift
+  exec env CLAUDE_CODE_TASK_LIST_ID="$id" claude "$@"
+}
+
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
@@ -502,6 +532,7 @@ case "$command" in
   start)       cmd_start "$@" ;;
   next-phase)  cmd_next_phase "$@" ;;
   complete)    cmd_complete "$@" ;;
+  resume)      cmd_resume "$@" ;;
   *)
     echo "Error: Unknown command '$command'" >&2
     usage

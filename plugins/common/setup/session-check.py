@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """SessionStart hook: rules additionalContext 주입 + 로컬 설정 체크 + 경고"""
+
 import json
 import pathlib
 import subprocess
@@ -7,8 +8,8 @@ import sys
 
 try:
     # D-012: __file__ 기반 경로 해결 (cwd 무관, Plugin 캐시 위치 무관)
-    SETUP_DIR = pathlib.Path(__file__).resolve().parent   # plugins/common/setup/
-    PLUGIN_DIR = SETUP_DIR.parent                          # plugins/common/
+    SETUP_DIR = pathlib.Path(__file__).resolve().parent  # plugins/common/setup/
+    PLUGIN_DIR = SETUP_DIR.parent  # plugins/common/
     RULES_DIR = PLUGIN_DIR / "rules"
 
     warnings = []
@@ -24,15 +25,15 @@ try:
 
     tpl_result = subprocess.run(
         ["git", "config", "--global", "--get", "init.templateDir"],
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     if tpl_result.returncode == 1 and not is_plugin_only:
         warnings.append("init.templateDir 미설정 — setup.sh를 다시 실행하세요")
 
     # 2. 현재 repo 로컬 설정
     git_toplevel = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     ).stdout.strip()
 
     if git_toplevel:
@@ -41,7 +42,9 @@ try:
         # D-015: core.hooksPath 확인 (H-1, IM-04)
         hooks_path_result = subprocess.run(
             ["git", "config", "core.hooksPath"],
-            capture_output=True, text=True, cwd=git_toplevel
+            capture_output=True,
+            text=True,
+            cwd=git_toplevel,
         )
         raw_hooks_path = hooks_path_result.stdout.strip()
         if hooks_path_result.returncode == 0 and raw_hooks_path:
@@ -59,6 +62,7 @@ try:
         # 2a. pre-commit: plugin-only 모드에서만 설치
         # (풀 모드에서는 setup.sh가 이미 설치했으므로 중복 방지)
         import shutil
+
         hook_dst = git_hooks_dir / "pre-commit"
         pre_commit_src = SETUP_DIR / "pre-commit"
         if is_plugin_only and not hook_dst.exists() and pre_commit_src.exists():
@@ -85,6 +89,7 @@ try:
         "ssot.md",
         "mcp-usage.md",
         "code-quality.md",
+        "task-resume.md",
     ]
 
     sections = []
@@ -97,12 +102,12 @@ try:
             pass  # 조용히 스킵
 
     if sections:
-        rules_content = "<claude-code-kit-rules>\n" + "\n\n".join(sections) + "\n</claude-code-kit-rules>"
-        print(json.dumps({
-            "hookSpecificOutput": {
-                "additionalContext": rules_content
-            }
-        }))
+        rules_content = (
+            "<claude-code-kit-rules>\n"
+            + "\n\n".join(sections)
+            + "\n</claude-code-kit-rules>"
+        )
+        print(json.dumps({"hookSpecificOutput": {"additionalContext": rules_content}}))
 
 except Exception as e:
     print(f"[claude-code-kit] session-check warning: {e}", file=sys.stderr)

@@ -22,7 +22,7 @@ Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합
 
 ---
 
-## Step 1: Work 파일 확인 또는 생성
+## Step 0: Work ID 확보 [건너뛰기 금지]
 
 ### Work ID가 제공된 경우 (예: `/plan-task W-043`)
 
@@ -39,33 +39,54 @@ Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합
    ```bash
    ./scripts/work.sh new "<요청 제목>"
    ```
-   → `docs/works/idea/W-XXX-{slug}/` 폴더와 4개 파일 자동 생성
+   → `docs/works/idea/W-XXX-{slug}/` 폴더와 파일 자동 생성
    → 출력된 Work ID(예: W-001)를 이후 단계에서 사용
 
-`docs/works/` 폴더 자체가 없으면 → Step 5 fallback으로 이동
+`docs/works/` 폴더 자체가 없으면 → Fallback으로 이동
+
+Work ID 확보 완료 후에만 Step 1로 진행.
 
 ---
 
-## Step 2: Planning Tasks 생성
+## Step 1: Task 시스템 초기화 [건너뛰기 금지]
 
-Work ID(W-XXX) 확인 후 **항상** 아래 두 Tasks를 생성합니다.
+1. `ToolSearch("select:TaskCreate,TaskUpdate,TaskList")` — 스키마 fetch (deferred tool이므로 필수)
+2. `TaskList` 실행 → 이미 생성된 동일 Work Task 있으면 이 Step 스킵 (중복 방지)
+3. Task 없으면 아래 두 Tasks 생성:
 
-```
-T1: [W-XXX][Planning] 요구사항 명확화
-T2: [W-XXX][Planning] 구현 계획 수립   ← blockedBy T1
-```
+   ```
+   T1: [W-XXX][Planning] 요구사항 명확화
+   T2: [W-XXX][Planning] 구현 계획 수립   ← blockedBy T1
+   ```
 
-TaskCreate 시 모든 Task에 metadata 포함:
+   TaskCreate 시 모든 Task에 metadata 포함:
 
-```json
-{ "work_id": "W-XXX", "phase": "planning" }
-```
+   ```json
+   { "work_id": "W-XXX", "phase": "planning" }
+   ```
 
-T2는 생성 직후 `addBlockedBy: T1` 설정.
+   T2 생성 직후 `TaskUpdate(T2, addBlockedBy=[T1])` 설정.
+
+4. `progress.md` Task Map 섹션 초기화 (description 컬럼 포함):
+
+   ```markdown
+   ## Task Map
+
+   ### Planning
+
+   | Task ID | 제목            | 설명                          | 상태 | blockedBy |
+   | ------- | --------------- | ----------------------------- | ---- | --------- |
+   | T-1     | 요구사항 명확화 | clarify-requirements 에이전트 | ⏳   | -         |
+   | T-2     | 구현 계획 수립  | plan-implementation 에이전트  | ⬜   | T-1       |
+
+   ## Task 업데이트 로그
+
+   - {ISO timestamp}: W-XXX Planning 시작
+   ```
 
 ---
 
-## Step 3: T1 실행 — 요구사항 명확화
+## Step 2: T1 실행 — 요구사항 명확화
 
 `clarify-requirements` 에이전트에 위임하거나 직접 진행:
 
@@ -84,17 +105,18 @@ T2는 생성 직후 `addBlockedBy: T1` 설정.
 
 3. **요구사항 정리**: 핵심 요구사항, 영향 범위, 리스크
 
-4. **완료 후 파일 업데이트**:
+4. **완료 후 의무 업데이트**:
    - `planning-results.md` → `## 요구사항 명확화` 섹션에 결과 기록
    - `decisions.md` → P0 결정 사항 DEC-XXX로 추가
-   - `progress.md` → 요구사항 명확화 체크박스 체크
+   - `progress.md` Task Map: T-1 행 상태 ✅로 수정
+   - `progress.md` Task 업데이트 로그에 완료 시각 기록
    - Work frontmatter `updated_at` 갱신
 
-5. T1 → `completed` 마킹, T2 unblock
+5. `TaskUpdate(T1, status="completed")` 마킹
 
 ---
 
-## Step 4: T2 실행 — 구현 계획 수립
+## Step 3: T2 실행 — 구현 계획 수립
 
 `plan-implementation` 에이전트에 위임하거나 직접 진행:
 
@@ -104,16 +126,17 @@ T2는 생성 직후 `addBlockedBy: T1` 설정.
    - Large+: 비즈니스 로직 정의 포함
 3. 구현 순서, 의존성, 예상 범위 명시
 
-4. **완료 후 파일 업데이트**:
+4. **완료 후 의무 업데이트**:
    - `planning-results.md` → `## 구현 계획` 섹션에 결과 기록
-   - `progress.md` → 구현 계획 수립 체크박스 체크
+   - `progress.md` Task Map: T-2 행 상태 ✅로 수정
+   - `progress.md` Task 업데이트 로그에 완료 시각 기록
    - Work frontmatter `phases_completed: [planning]`, `updated_at` 갱신
 
-5. T2 → `completed` 마킹
+5. `TaskUpdate(T2, status="completed")` 마킹
 
 ---
 
-## Step 5: Planning 완료 처리
+## Step 4: Planning 완료 처리
 
 1. Work 파일 최종 업데이트 확인 (frontmatter, progress.md, planning-results.md)
 2. 다음 단계 안내:
@@ -141,8 +164,7 @@ Planning 완료: W-XXX
 
 ## 참고 문서
 
-| 문서              | 경로                                                                 |
-| ----------------- | -------------------------------------------------------------------- |
-| Work 시스템 상세  | `plugins/common/skills/references/work-system.md`                    |
-| 하이브리드 설계   | `docs/works/completed/W-000-hybrid-work-task-system/design-draft.md` |
-| Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`                          |
+| 문서              | 경로                                              |
+| ----------------- | ------------------------------------------------- |
+| Work 시스템 상세  | `plugins/common/skills/references/work-system.md` |
+| Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`       |

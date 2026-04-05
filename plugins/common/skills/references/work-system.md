@@ -77,6 +77,8 @@ updated_at: "2026-01-30T10:30:00+09:00"
 
 ### 4. progress.md 초기화
 
+Task Map 포맷을 사용한다. Phase 체크리스트 대신 Task 단위로 추적하여 세션 재시작 시 Task 재생성의 소스로 활용한다.
+
 ```markdown
 # Progress: 사용자 인증 시스템 추가
 
@@ -85,32 +87,47 @@ updated_at: "2026-01-30T10:30:00+09:00"
 
 ---
 
-## Phase 진행 상황
+## Task Map
 
-### Planning Phase
+### Planning
 
-- [ ] 규모 판단
-- [ ] 요구사항 명확화 (P0 모호함 해결)
-- [ ] 사용자 여정 설계 (Medium/Large)
-- [ ] 비즈니스 로직 정의 (Large)
-- [ ] 구현 계획 수립
+| Task ID | 제목            | 설명                          | 상태 | blockedBy |
+| ------- | --------------- | ----------------------------- | ---- | --------- |
+| T-1     | 요구사항 명확화 | clarify-requirements 에이전트 | ⬜   | -         |
+| T-2     | 구현 계획 수립  | plan-implementation 에이전트  | ⬜   | T-1       |
 
-### Development Phase
+### Development
 
-- [ ] 대기 중 (Planning 완료 후)
+| Task ID                               | 제목 | 설명 | 상태 | blockedBy |
+| ------------------------------------- | ---- | ---- | ---- | --------- |
+| (plan-task 완료 후 auto-dev에서 채움) |      |      |      |           |
 
-### Validation Phase
+### Validation
 
-- [ ] 대기 중 (Development 완료 후)
+| Task ID | 제목      | 설명                   | 상태 | blockedBy  |
+| ------- | --------- | ---------------------- | ---- | ---------- |
+| T-V1    | 코드 리뷰 | review-code 에이전트   | ⬜   | (Dev 전체) |
+| T-V2    | 보안 스캔 | security-scan 에이전트 | ⬜   | (Dev 전체) |
+| T-V3    | 결과 통합 | 리뷰+보안 결과 통합    | ⬜   | T-V1, T-V2 |
 
----
+## Task 업데이트 로그
 
-## 체크포인트
-
-| 날짜       | Phase    | 체크포인트 | 상태 |
-| ---------- | -------- | ---------- | ---- |
-| 2026-01-30 | Planning | 규모 판단  | ✅   |
+- 2026-01-30T10:30:00Z: W-043 시작
 ```
+
+**Task 상태 기호**
+
+| 기호 | 의미    | TaskCreate 상태 |
+| ---- | ------- | --------------- |
+| ✅   | 완료    | completed       |
+| ⏳   | 진행 중 | in_progress     |
+| ⬜   | 대기    | pending         |
+
+**Task 완료 시 의무 업데이트:**
+
+1. Task Map 해당 행 상태를 ✅로 수정
+2. Task 업데이트 로그에 완료 시각 기록
+3. Work frontmatter `updated_at` 갱신
 
 ### 5. decisions.md 초기화
 
