@@ -9,7 +9,7 @@
     {
       "name": "claude-code-kit",
       "source": "./plugins/common",
-      "description": "Core toolkit: 33 agents + 3 skills for planning, development, review, and meta workflows."
+      "description": "Core toolkit: 33 agents + 12 skills for planning, development, review, and meta workflows."
     },
     {
       "name": "claude-code-kit-frontend",

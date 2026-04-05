@@ -49,8 +49,7 @@
 
 - `Source` = 원문 근거, `Note` = 가공 산출물
 - **Source 최대 50개** 제한 (노트북당)
-- 50개 초과 추가 요청은 PreToolUse 훅(`notebooklm-source-limit.py`)이 자동 차단
-- 추가 전 반드시 `notebook_get`으로 현재 Source 수 확인
+- 50개 초과 시 추가 불가 — 추가 전 반드시 `notebook_get`으로 현재 Source 수 확인
 
 ## MCP 환경변수 설정
 

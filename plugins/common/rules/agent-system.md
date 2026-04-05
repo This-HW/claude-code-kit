@@ -29,22 +29,11 @@ CONTEXT: [전달 컨텍스트]
 ---END_SIGNAL---
 ```
 
-## 점진적 에이전트 선택
-
-```
-Step 1: agents/common/index.json 읽기 (~6K 토큰)
-Step 2: description 매칭으로 에이전트 식별
-Step 3: 필요한 에이전트만 전체 로드
-Step 4: 병렬 실행 → 75% 토큰 절약
-```
-
-**인덱스 갱신:** `python scripts/build-agent-index.py`
-
 ## 에이전트 선택 강제 규칙
 
 ### ⚠️ 필수: Task tool 호출 전 반드시 확인
 
-1. **agents/common/index.json 읽기** (76개 에이전트 목록)
+1. **plugin.json에 등록된 에이전트 목록 확인** (66개 에이전트)
 2. **description 키워드 매칭**으로 적합한 에이전트 찾기
 3. **subagent_type 명시적 지정** (general-purpose 폴백 금지)
 
@@ -87,14 +76,14 @@ isolation: worktree # 임시 worktree에서 격리 실행
 
 에이전트가 항상 백그라운드 Task로 실행됩니다. 장시간 실행 + 사용자 대기 불필요한 운영 에이전트에 적용합니다.
 
-| 적용 기준                | 적용 대상                                                  |
-| ------------------------ | ---------------------------------------------------------- |
-| 모니터링/스케줄 에이전트 | health-check, schedule-task, trigger-pipeline, notify-team |
+| 적용 기준                | 적용 대상                                               |
+| ------------------------ | ------------------------------------------------------- |
+| 모니터링/스케줄 에이전트 | schedule-task, trigger-pipeline, notify-team, track-sla |
 
 ```yaml
 ---
-name: health-check
-model: haiku
+name: schedule-task
+model: sonnet
 background: true # 항상 백그라운드 실행
 ---
 ```
@@ -107,7 +96,7 @@ background: true # 항상 백그라운드 실행
 
 | 에이전트 유형                                       | disallowedTools                      |
 | --------------------------------------------------- | ------------------------------------ |
-| **Meta 에이전트** (facilitator, synthesizer 등 4개) | `[Bash]`                             |
+| **Meta 에이전트** (facilitator, synthesizer 등 6개) | `[Bash]`                             |
 | **일반 에이전트** (implement-code, fix-bugs 등)     | `[Task]`                             |
 | **스킬**                                            | 없음 (메인 Claude가 실행, Task 필요) |
 

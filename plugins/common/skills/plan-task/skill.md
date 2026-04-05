@@ -141,8 +141,8 @@ Planning 완료: W-XXX
 
 ## 참고 문서
 
-| 문서              | 경로                                                            |
-| ----------------- | --------------------------------------------------------------- |
-| Work 시스템 상세  | `plugins/common/skills/references/work-system.md`               |
-| 하이브리드 설계   | `docs/works/idea/W-000-hybrid-work-task-system/design-draft.md` |
-| Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`                     |
+| 문서              | 경로                                                                 |
+| ----------------- | -------------------------------------------------------------------- |
+| Work 시스템 상세  | `plugins/common/skills/references/work-system.md`                    |
+| 하이브리드 설계   | `docs/works/completed/W-000-hybrid-work-task-system/design-draft.md` |
+| Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`                          |

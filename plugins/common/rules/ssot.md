@@ -43,7 +43,7 @@ export CLAUDE_DB_SSH_HOST="user@your-server.com"
 # Agent/Skill/Rules는 스크립트 참조만: ./scripts/db-tunnel.sh start
 ```
 
-결과: 서버 변경 시 `~/.zshrc` 1곳만 수정. **상세:** `docs/guides/ssot-db-tunnel.md`
+결과: 서버 변경 시 `~/.zshrc` 1곳만 수정.
 
 ## SSOT 체크리스트
 

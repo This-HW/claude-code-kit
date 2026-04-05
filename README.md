@@ -246,14 +246,15 @@ Core development workflow agents.
 | `track-sla`        | Sonnet | SLA monitoring and violation detection                |
 | `event-trigger`    | Sonnet | Event-driven automation triggers                      |
 
-### Skills (4)
+### Skills (5)
 
-| Skill               | Command              | Description                        |
-| ------------------- | -------------------- | ---------------------------------- |
-| `alert-setup`       | `/alert-setup`       | Alert configuration automation     |
-| `deploy`            | `/deploy`            | Deployment automation pipeline     |
-| `incident-response` | `/incident-response` | Incident management workflow       |
-| `monitor`           | `/monitor`           | Monitoring setup and configuration |
+| Skill               | Command              | Description                                  |
+| ------------------- | -------------------- | -------------------------------------------- |
+| `alert-setup`       | `/alert-setup`       | Alert configuration automation               |
+| `deploy`            | `/deploy`            | Deployment automation pipeline               |
+| `incident-response` | `/incident-response` | Incident management workflow                 |
+| `loop`              | `/loop`              | Recurring task loop (interval-based polling) |
+| `monitor`           | `/monitor`           | Monitoring setup and configuration           |
 
 ---
 
@@ -342,7 +343,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-├── common/      — Core agents (33) + skills (3) + rules (8) + hooks
+├── common/      — Core agents (33) + skills (12) + rules (8) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
 ├── ops/         — Operations agents (14) + skills (5)
