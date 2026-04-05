@@ -2,8 +2,10 @@
   "name": "claude-code-kit-integration",
   "version": "1.0.0",
   "description": "Integration agents. Webhooks, Slack/Teams notifications, issue tracker sync, and CI/CD pipeline triggers.",
-  "author": "This-HW",
+  "author": {
+    "name": "This-HW",
+    "url": "https://github.com/This-HW"
+  },
   "license": "MIT",
-  "tags": ["integration", "webhook", "slack", "cicd", "sync"],
-  "agents": "agents/"
+  "keywords": ["integration", "webhook", "slack", "cicd", "sync"]
 }
