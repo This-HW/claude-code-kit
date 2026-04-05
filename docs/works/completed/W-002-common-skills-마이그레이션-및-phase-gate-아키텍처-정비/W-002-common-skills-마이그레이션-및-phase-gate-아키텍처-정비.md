@@ -1,15 +1,16 @@
 ---
 work_id: "W-002"
 title: "Common Skills 마이그레이션 및 Phase Gate 아키텍처 정비"
-status: active
+status: completed
 current_phase: validation
-phases_completed: [planning, development]
+phases_completed: [planning, development, validation]
 size: "large"
 priority: P1
 tags: ["migration", "skills", "architecture", "phase-gate"]
 created_at: "2026-04-05T06:47:55Z"
-updated_at: "2026-04-05T07:10:00Z"
+updated_at: "2026-04-05T07:18:24Z"
 started_at: "2026-04-05T06:53:49Z"
+completed_at: "2026-04-05T07:18:24Z"
 ---
 
 # Common Skills 마이그레이션 및 Phase Gate 아키텍처 정비
