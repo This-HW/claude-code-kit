@@ -6,7 +6,6 @@ effort: medium
 domain: common
 argument-hint: "[테스트 경로 또는 빈칸(전체)]"
 allowed-tools: Read, Bash, Glob, Grep, Task
-disable-model-invocation: true
 ---
 
 # 테스트 실행

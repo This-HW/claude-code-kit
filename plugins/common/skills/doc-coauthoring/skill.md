@@ -6,7 +6,6 @@ effort: medium
 domain: common
 argument-hint: "[작업설명] [파일경로]"
 allowed-tools: Read, Write, Edit, Glob, Grep
-disable-model-invocation: true
 ---
 
 # Document Co-authoring

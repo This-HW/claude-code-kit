@@ -5,10 +5,10 @@
 ```
 Tier 1: plugins/common/    → 모든 프로젝트 공통 (33개)
 Tier 2: plugins/{domain}/  → 도메인별 (33개)
-Tier 3: agents/project/   → 프로젝트 전용 (4개)
+Tier 3: .claude/agents/    → 프로젝트 전용 (사용자 정의)
 ```
 
-스킬도 동일 구조: `skills/common/` (Tier 1) → `skills/domain/` → `skills/project/`
+스킬도 동일 구조: `plugins/common/skills/` (Tier 1) → `plugins/{domain}/skills/` (Tier 2) → `.claude/` (Tier 3)
 
 ## 모델 선택 기준
 

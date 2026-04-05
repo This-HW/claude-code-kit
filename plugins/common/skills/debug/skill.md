@@ -6,7 +6,6 @@ effort: high
 domain: common
 argument-hint: "[에러 메시지 또는 설명]"
 allowed-tools: Read, Edit, Bash, Glob, Grep, Task, WebSearch
-disable-model-invocation: true
 ---
 
 # 디버깅 실행
