@@ -235,3 +235,295 @@ SUMMARY: [결과 요약]
 NEXT_STEP: [권장 다음 단계]
 ---END_SIGNAL---
 ```
+
+---
+
+## Reference: 구현 패턴
+
+# 구현 패턴 가이드
+
+## 파일 위치 규칙
+
+```
+✅ 올바른 위치:
+- 기능 코드: src/features/[기능명]/
+- 엔티티: src/entities/[엔티티명]/
+- 공유 코드: src/shared/
+- 테스트: tests/unit/ 또는 tests/scratch/ (임시)
+
+❌ 금지:
+- src/ 내 .md 파일
+- 루트에 임의 폴더
+- temp*, backup* 파일
+```
+
+---
+
+## 아키텍처 패턴
+
+### Feature-Based 구조
+```
+src/features/user-profile/
+├── index.ts           # 진입점 (exports)
+├── UserProfile.tsx    # 메인 컴포넌트
+├── useUserProfile.ts  # 커스텀 훅
+├── types.ts           # 타입 정의
+└── api.ts             # API 호출
+```
+
+### 계층 분리
+```
+UI Layer    → 컴포넌트, 페이지
+Logic Layer → 훅, 서비스
+Data Layer  → API, Repository
+```
+
+---
+
+## 에러 처리 패턴
+
+### Try-Catch with Context
+```typescript
+try {
+  const result = await fetchData();
+  return result;
+} catch (error) {
+  if (error instanceof ApiError) {
+    throw new UserFacingError('데이터를 불러올 수 없습니다');
+  }
+  throw error;
+}
+```
+
+### Error Boundary (React)
+```typescript
+<ErrorBoundary fallback={<ErrorFallback />}>
+  <RiskyComponent />
+</ErrorBoundary>
+```
+
+---
+
+## API 호출 패턴
+
+### React Query
+```typescript
+const { data, isLoading, error } = useQuery({
+  queryKey: ['user', userId],
+  queryFn: () => fetchUser(userId),
+});
+```
+
+### SWR
+```typescript
+const { data, error, isLoading } = useSWR(
+  `/api/user/${userId}`,
+  fetcher
+);
+```
+
+---
+
+## 상태 관리 패턴
+
+### Local State (useState)
+단일 컴포넌트 내 상태
+
+### Lifted State
+부모-자식 간 공유 상태
+
+### Context
+앱 전역 상태 (테마, 인증)
+
+### External Store (Zustand, Jotai)
+복잡한 클라이언트 상태
+
+---
+
+## Reference: 코드 품질 기준
+
+# 코드 품질 기준
+
+## 네이밍 규칙
+
+| 종류 | 규칙 | 예시 |
+|------|------|------|
+| 컴포넌트 | PascalCase | `UserProfile.tsx` |
+| 훅 | camelCase, use 접두사 | `useAuth.ts` |
+| 유틸 | camelCase | `formatDate.ts` |
+| 상수 | UPPER_SNAKE | `API_ENDPOINTS.ts` |
+| 폴더 | kebab-case | `user-profile/` |
+
+---
+
+## 함수 크기
+
+- **권장**: 20줄 이하
+- **최대**: 50줄 (리팩토링 고려)
+- **파라미터**: 3개 이하
+
+---
+
+## 금지 사항
+
+- ❌ 하드코딩된 시크릿/API 키
+- ❌ console.log 남기기 (디버깅용)
+- ❌ any 타입 남용 (TypeScript)
+- ❌ 주석 처리된 코드 남기기
+- ❌ 미사용 import/변수
+- ❌ src/ 내 .md 파일 생성
+- ❌ temp, backup 파일 생성
+
+---
+
+## 타입 안전성
+
+### Good
+```typescript
+function getUser(id: string): Promise<User> {
+  return api.get<User>(`/users/${id}`);
+}
+```
+
+### Bad
+```typescript
+function getUser(id: any): Promise<any> {
+  return api.get(`/users/${id}`);
+}
+```
+
+---
+
+## 주석 가이드
+
+### 필요한 주석
+- 복잡한 비즈니스 로직 설명
+- TODO(P1/P2) 태그
+- API 문서 (JSDoc)
+
+### 불필요한 주석
+- 코드가 하는 일을 그대로 설명
+- 주석 처리된 코드
+- 명확한 변수명에 대한 설명
+
+---
+
+## Import 정리
+
+```typescript
+// 1. 외부 라이브러리
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+// 2. 절대 경로 import
+import { Button } from '@/components/ui';
+
+// 3. 상대 경로 import
+import { useUserData } from './hooks';
+import type { User } from './types';
+```
+
+---
+
+## Reference: 구현 예시
+
+# 예제 코드
+
+## React 컴포넌트 예제
+
+### 기본 컴포넌트
+```tsx
+interface UserProfileProps {
+  userId: string;
+}
+
+export function UserProfile({ userId }: UserProfileProps) {
+  const { data: user, isLoading, error } = useUser(userId);
+
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+  if (!user) return null;
+
+  return (
+    <div className="user-profile">
+      <Avatar src={user.avatar} />
+      <h2>{user.name}</h2>
+      <p>{user.email}</p>
+    </div>
+  );
+}
+```
+
+---
+
+## 커스텀 훅 예제
+
+### 데이터 페칭 훅
+```typescript
+export function useUser(userId: string) {
+  return useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => fetchUser(userId),
+    enabled: !!userId,
+  });
+}
+```
+
+### 폼 상태 훅
+```typescript
+export function useFormState<T>(initialState: T) {
+  const [values, setValues] = useState(initialState);
+  const [errors, setErrors] = useState<Partial<T>>({});
+
+  const handleChange = (field: keyof T, value: T[keyof T]) => {
+    setValues(prev => ({ ...prev, [field]: value }));
+  };
+
+  return { values, errors, handleChange, setErrors };
+}
+```
+
+---
+
+## API 서비스 예제
+
+```typescript
+// api/userService.ts
+const BASE_URL = '/api/users';
+
+export const userService = {
+  async getById(id: string): Promise<User> {
+    const response = await fetch(`${BASE_URL}/${id}`);
+    if (!response.ok) {
+      throw new ApiError('User not found', response.status);
+    }
+    return response.json();
+  },
+
+  async create(data: CreateUserDto): Promise<User> {
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return response.json();
+  },
+};
+```
+
+---
+
+## 출력 보고 예제
+
+```markdown
+### 변경 사항
+| 파일 | 유형 | 설명 |
+|------|------|------|
+| `src/features/user/UserProfile.tsx` | 생성 | 프로필 컴포넌트 |
+| `src/features/user/useUser.ts` | 생성 | 데이터 훅 |
+| `src/app/routes.ts` | 수정 | 라우트 추가 |
+
+### 테스트 필요 사항
+- [ ] 프로필 렌더링 테스트
+- [ ] 에러 상태 테스트
+```

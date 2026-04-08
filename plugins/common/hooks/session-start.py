@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-SessionStart hook: active Work 상태를 additionalContext로 출력.
-active Work가 없거나 docs/works/가 없으면 아무것도 출력하지 않음.
+SessionStart hook: rules 주입 + active Work 상태를 additionalContext로 출력.
+active Work가 없어도 rules는 항상 주입됨.
 
 공식 output 형식:
   {"hookSpecificOutput": {"additionalContext": "<text>"}}
@@ -179,36 +179,95 @@ def summarize_work(work_dir: Path) -> Optional[str]:
     return "\n".join(lines)
 
 
+ALWAYS_RULES = [
+    "agent-system.md",
+    "tool-usage-priority.md",
+    "planning-protocol.md",
+    "planning-check.md",
+    "agent-delegation-chain.md",
+    "code-quality.md",
+    "ssot.md",
+    "mcp-usage.md",
+]
+
+
+def load_rules(plugin_root: Path, include_task_resume: bool) -> str:
+    """
+    plugin_root/rules/ 디렉토리의 rule 파일들을 읽어 섹션 문자열로 반환.
+    파일이 없거나 읽기 실패해도 무시 (fail-open).
+    반환값: '=== RULES ===' 섹션 전체 문자열 (파일 없으면 빈 문자열)
+    """
+    rules_dir = plugin_root / "rules"
+    if not rules_dir.exists():
+        return ""
+
+    rule_files = list(ALWAYS_RULES)
+    if include_task_resume:
+        rule_files.append("task-resume.md")
+
+    sections = []
+    for filename in rule_files:
+        rule_path = rules_dir / filename
+        try:
+            content = rule_path.read_text(encoding="utf-8").strip()
+        except Exception:
+            continue
+        sections.append(content)
+
+    if not sections:
+        return ""
+
+    return "=== RULES ===\n" + "\n---\n".join(sections) + "\n=== END RULES ==="
+
+
 def main() -> None:
     project_root = Path(get_project_root())
     works_active = project_root / "docs" / "works" / "active"
 
-    if not works_active.exists():
+    # Active Work 스캔
+    active_work_text = ""
+    has_active_work = False
+
+    if works_active.exists():
+        active_dirs = sorted(d for d in works_active.iterdir() if d.is_dir())
+        if active_dirs:
+            summaries = []
+            for work_dir in active_dirs:
+                summary = summarize_work(work_dir)
+                if summary:
+                    summaries.append(summary)
+
+            if summaries:
+                has_active_work = True
+                # 상태 표시만 — 사용자가 재개 의사를 표현할 때까지 Task 재생성 안 함
+                active_work_text = (
+                    "=== ACTIVE WORK ===\n"
+                    + "\n\n".join(summaries)
+                    + "\n\n"
+                    + "작업 재개 시 progress.md Task Map을 읽고 Task 재생성 알고리즘을 실행하세요.\n"
+                    + "(규칙: task-resume.md 참고)\n"
+                    + "=== END ACTIVE WORK ==="
+                )
+
+    # Rules 주입
+    plugin_root_env = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    rules_text = ""
+    if plugin_root_env:
+        rules_text = load_rules(
+            Path(plugin_root_env), include_task_resume=has_active_work
+        )
+
+    # context 조합
+    parts = []
+    if active_work_text:
+        parts.append(active_work_text)
+    if rules_text:
+        parts.append(rules_text)
+
+    if not parts:
         return
 
-    active_dirs = sorted(d for d in works_active.iterdir() if d.is_dir())
-    if not active_dirs:
-        return
-
-    summaries = []
-    for work_dir in active_dirs:
-        summary = summarize_work(work_dir)
-        if summary:
-            summaries.append(summary)
-
-    if not summaries:
-        return
-
-    # 상태 표시만 — 사용자가 재개 의사를 표현할 때까지 Task 재생성 안 함
-    context = (
-        "=== ACTIVE WORK ===\n"
-        + "\n\n".join(summaries)
-        + "\n\n"
-        + "작업 재개 시 progress.md Task Map을 읽고 Task 재생성 알고리즘을 실행하세요.\n"
-        + "(규칙: task-resume.md 참고)\n"
-        + "=== END ACTIVE WORK ==="
-    )
-
+    context = "\n\n".join(parts)
     print(json.dumps({"hookSpecificOutput": {"additionalContext": context}}))
 
 
