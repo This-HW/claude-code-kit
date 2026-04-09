@@ -69,7 +69,7 @@ disable-model-invocation: true # Task 없이 MCP/Bash만 사용 시
 ## 플러그인 구조 등록
 
 `plugins/{domain}/.claude-plugin/plugin.json`의 `skills` 필드 확인 후
-`plugins/{domain}/skills/{name}/skill.md` 경로에 파일 생성.
+`plugins/{domain}/skills/{name}/SKILL.md` 경로에 파일 생성.
 
 ---
 
@@ -191,4 +191,4 @@ prompt: |
 - [ ] argument-hint 추가됨
 - [ ] 사용법 예시 포함
 - [ ] 워크플로우 단계별 설명
-- [ ] `plugins/{domain}/skills/{name}/skill.md` 경로 준수
+- [ ] `plugins/{domain}/skills/{name}/SKILL.md` 경로 준수

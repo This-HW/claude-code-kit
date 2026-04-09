@@ -131,5 +131,5 @@ MPR 스킬은 CALC-001 점수 >= 9일 때 자동으로 Agent Teams 모드를 사
 | 문서                        | 위치                                                    |
 | --------------------------- | ------------------------------------------------------- |
 | facilitator-teams 에이전트  | plugins/common/agents/meta/facilitator-teams.md         |
-| MPR 스킬 (Agent Teams 모드) | plugins/common/skills/multi-perspective-review/skill.md |
+| MPR 스킬 (Agent Teams 모드) | plugins/common/skills/multi-perspective-review/SKILL.md |
 | Phase Gate 패턴             | docs/architecture/phase-gate-pattern.md                 |

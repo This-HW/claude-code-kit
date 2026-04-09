@@ -133,7 +133,7 @@ CONTEXT: [handoff context]
 
 ### Adding a New Skill
 
-1. Create `plugins/{domain}/skills/{name}/skill.md`
+1. Create `plugins/{domain}/skills/{name}/SKILL.md`
 2. Optionally add `README.md` in the same directory
 3. Register in `plugins/{domain}/.claude-plugin/plugin.json`
 
