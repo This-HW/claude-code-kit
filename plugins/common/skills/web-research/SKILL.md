@@ -4,7 +4,6 @@ description: Research external information using MCP servers. Use when users nee
 model: sonnet
 effort: medium
 domain: common
-disable-model-invocation: true
 ---
 
 # Web Research

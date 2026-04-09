@@ -4,7 +4,6 @@ description: Work 기반 자동 개발 파이프라인. Planning 완료 Work를 
 model: sonnet
 effort: high
 domain: common
-disable-model-invocation: true
 ---
 
 # Auto-Dev 스킬
