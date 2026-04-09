@@ -1,5 +1,7 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-code-kit",
+  "description": "Universal AI toolkit: agents and skills for planning, development, review, and operations.",
   "owner": {
     "name": "This-HW",
     "url": "https://github.com/This-HW"
@@ -8,33 +10,75 @@
   "plugins": [
     {
       "name": "claude-code-kit",
-      "source": "./plugins/common",
-      "description": "Core toolkit: 33 agents + 12 skills for planning, development, review, and meta workflows."
+      "description": "Core toolkit: 33 agents + 12 skills for planning, development, review, and meta workflows.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "This-HW/claude-code-kit",
+        "path": "plugins/common",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-frontend",
-      "source": "./plugins/frontend",
-      "description": "Frontend agents and skills: React, Vue, UI/UX optimization, and E2E testing."
+      "description": "Frontend agents and skills: React, Vue, UI/UX optimization, and E2E testing.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "This-HW/claude-code-kit",
+        "path": "plugins/frontend",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-infra",
-      "source": "./plugins/infra",
-      "description": "Infrastructure agents and skills: Terraform, Docker, Kubernetes, CI/CD."
+      "description": "Infrastructure agents and skills: Terraform, Docker, Kubernetes, CI/CD.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "This-HW/claude-code-kit",
+        "path": "plugins/infra",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-ops",
-      "source": "./plugins/ops",
-      "description": "Operations agents and skills: deploy, monitor, incident response, rollback, SLA tracking."
+      "description": "Operations agents and skills: deploy, monitor, incident response, rollback, SLA tracking.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "This-HW/claude-code-kit",
+        "path": "plugins/ops",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-data",
-      "source": "./plugins/data",
-      "description": "Data engineering agents and skills: database design, query optimization, migration."
+      "description": "Data engineering agents and skills: database design, query optimization, migration.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "This-HW/claude-code-kit",
+        "path": "plugins/data",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-integration",
-      "source": "./plugins/integration",
-      "description": "Integration agents: webhooks, Slack/Teams notifications, issue sync, CI/CD triggers."
+      "description": "Integration agents: webhooks, Slack/Teams notifications, issue sync, CI/CD triggers.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "This-HW/claude-code-kit",
+        "path": "plugins/integration",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/This-HW/claude-code-kit"
     }
   ]
 }
