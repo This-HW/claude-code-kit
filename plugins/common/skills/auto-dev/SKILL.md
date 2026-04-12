@@ -125,7 +125,41 @@ Agent(task_C) ─┘
 
 ## Step 3: Validation Tasks 생성 및 실행
 
-Dev 완료 직후 두 Task를 동시 생성 후 **병렬 실행**:
+Dev 완료 직후 Validation을 3단계로 실행합니다:
+
+```
+T-spec   (스펙 준수 확인, 단독 선행)
+  ↓ 통과 후
+T-review + T-security (병렬)
+  ↓ 완료 후
+T-merge  (결과 통합)
+```
+
+### T-spec: 스펙 준수 확인 (선행 실행)
+
+Task 생성:
+```
+T-spec: [W-XXX][Validation/C] 스펙 준수 확인   — blockedBy: 모든 Dev Tasks
+```
+
+TaskCreate 시 metadata:
+```json
+{ "work_id": "W-XXX", "phase": "validation" }
+```
+
+**T-spec 실행 내용:**
+1. `planning-results.md`의 `## 구현 계획` 항목 목록화
+2. 실제 변경된 코드(`git diff` 또는 worktree 변경 파일)와 대조:
+   - 모든 항목 구현 확인 → T-review + T-security 병렬 실행으로 진행
+   - 누락/불일치 항목 발견 → **T-spec 실패 흐름** 실행
+
+**T-spec 실패 흐름:**
+1. 누락/불일치 항목 목록을 사용자에게 보고
+2. 누락 항목에 대한 추가 Dev Task만 생성 (기존 완료 Task 유지)
+3. 추가 Dev Task 완료 후 T-spec 재실행
+4. **최대 2회 재시도** — 초과 시 사용자에게 판단 요청 후 파이프라인 중단
+
+T-spec 통과 후 아래 T-review, T-security를 동시 생성 후 **병렬 실행**:
 
 ```
 T-review:   [W-042][Validation/A] 코드 리뷰   — blockedBy: 모든 Dev Tasks
@@ -149,15 +183,34 @@ TaskCreate 시 metadata:
 T-merge: [W-042][Validation] 결과 통합   — blockedBy: T-review, T-security
 ```
 
+### T-merge 판정 기준 [건너뛰기 금지]
+
+<!-- Pattern from: superpowers/verification-before-completion -->
+T-review, T-security 결과를 구조적으로 검증:
+- review-code `decision` 필드 == `ACCEPT` 인가?
+- review-code `critical_count` == 0, `high_count` == 0 인가?
+- security-scan 결과에 CRITICAL/HIGH == 0 인가?
+
+→ 모두 충족 시에만 `T-merge` 실행 ("이슈 없음" 판정)
+→ 하나라도 미충족 시 이슈 목록과 권고사항을 사용자에게 보고, 파이프라인 중단
+
 `T-merge` 실행:
 
 1. T-review, T-security 결과를 `review-results.md`에 통합 기록
 2. 이슈 여부 판단:
-   - **이슈 없음**: 사용자에게 완료 보고 후 Work 완료 처리
-     ```bash
-     ./scripts/work.sh complete W-042
-     # active/ → completed/ 이동
+   - **이슈 없음**: 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
+
      ```
+     W-XXX Validation 통과. 브랜치를 어떻게 처리할까요?
+     1. 로컬 머지 (현재 브랜치 → main)
+     2. PR 생성
+     3. 브랜치 유지 (나중에 처리)
+     ```
+
+     옵션별 Work 상태 처리:
+     - **옵션 1 (로컬 머지):** 머지 완료 후 `./scripts/work.sh complete W-XXX` 실행
+     - **옵션 2 (PR 생성):** `gh pr create` 후 Work 상태 active 유지 — PR 머지 확인 후 `work.sh complete`
+     - **옵션 3 (브랜치 유지):** Work 상태 active 유지, progress.md에 "Validation 통과" 메모 기록
    - **이슈 있음**: 이슈 목록과 권고사항을 사용자에게 보고, 파이프라인 중단
 
 3. `TaskUpdate(T-merge, status="completed")`

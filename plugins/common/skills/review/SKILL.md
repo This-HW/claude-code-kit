@@ -122,6 +122,46 @@ $ARGUMENTS에 `--quick`이 포함되어 있으면:
 
 ---
 
+## 1.7단계: 사용자 의견 처리 원칙 (조건부)
+
+<!-- Pattern from: superpowers/receiving-code-review -->
+**트리거**: $ARGUMENTS에 파일 경로·옵션(`--quick` 등)이 아닌 **자연어 문장이 포함된 경우**에만 실행.
+
+예시:
+- `/review src/auth.py 보안이 걱정돼` → **실행** (자연어 의견 포함)
+- `/review src/auth.py` → 실행 안 함 (경로만)
+- `/review --quick` → 실행 안 함 (옵션만)
+
+### 처리 절차
+
+```
+1. Restate  — 의견을 기술적으로 재술 (오해 없게)
+2. Verify   — Read/Grep 도구만으로 해당 코드를 직접 확인 (Bash 사용 금지)
+3. Evaluate — 기술적 타당성 판단
+4. Respond  — 동의 or 근거 있는 반박을 review-code 프롬프트에 반영
+```
+
+### 금지
+
+- "맞습니다!" / "좋은 지적이에요!" (검증 없는 동의)
+- Verify 없이 의견을 바로 리뷰 방향에 반영
+
+### 처리 예시
+
+```
+의견: "이 함수는 성능 문제가 있을 것 같아"
+Verify: [Read로 함수 확인 → 중첩 루프 발견]
+Evaluate: 타당함 — O(n²) 확인됨
+→ review-code 프롬프트에 포함: "사용자 지적 — 성능 이슈 가능성, 검증됨"
+
+의견: "이 부분은 타입 체크가 없어"
+Verify: [Grep으로 상위 검증 로직 확인 → strict mode 확인]
+Evaluate: 상위에서 처리됨 — 중복 불필요
+→ review-code 프롬프트에 반영 안 함. 사용자에게 이유 명시.
+```
+
+---
+
 ## 2단계: 코드 리뷰 실행
 
 ```
