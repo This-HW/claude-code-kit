@@ -12,72 +12,42 @@
       "name": "claude-code-kit",
       "description": "Core toolkit: 33 agents + 12 skills for planning, development, review, and meta workflows.",
       "category": "development",
-      "source": {
-        "source": "git-subdir",
-        "url": "This-HW/claude-code-kit",
-        "path": "plugins/common",
-        "ref": "main"
-      },
+      "source": "./plugins/common",
       "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-frontend",
       "description": "Frontend agents and skills: React, Vue, UI/UX optimization, and E2E testing.",
       "category": "development",
-      "source": {
-        "source": "git-subdir",
-        "url": "This-HW/claude-code-kit",
-        "path": "plugins/frontend",
-        "ref": "main"
-      },
+      "source": "./plugins/frontend",
       "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-infra",
       "description": "Infrastructure agents and skills: Terraform, Docker, Kubernetes, CI/CD.",
       "category": "development",
-      "source": {
-        "source": "git-subdir",
-        "url": "This-HW/claude-code-kit",
-        "path": "plugins/infra",
-        "ref": "main"
-      },
+      "source": "./plugins/infra",
       "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-ops",
       "description": "Operations agents and skills: deploy, monitor, incident response, rollback, SLA tracking.",
       "category": "development",
-      "source": {
-        "source": "git-subdir",
-        "url": "This-HW/claude-code-kit",
-        "path": "plugins/ops",
-        "ref": "main"
-      },
+      "source": "./plugins/ops",
       "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-data",
       "description": "Data engineering agents and skills: database design, query optimization, migration.",
       "category": "development",
-      "source": {
-        "source": "git-subdir",
-        "url": "This-HW/claude-code-kit",
-        "path": "plugins/data",
-        "ref": "main"
-      },
+      "source": "./plugins/data",
       "homepage": "https://github.com/This-HW/claude-code-kit"
     },
     {
       "name": "claude-code-kit-integration",
       "description": "Integration agents: webhooks, Slack/Teams notifications, issue sync, CI/CD triggers.",
       "category": "development",
-      "source": {
-        "source": "git-subdir",
-        "url": "This-HW/claude-code-kit",
-        "path": "plugins/integration",
-        "ref": "main"
-      },
+      "source": "./plugins/integration",
       "homepage": "https://github.com/This-HW/claude-code-kit"
     }
   ]
