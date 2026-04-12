@@ -101,15 +101,17 @@ try:
         except Exception:
             pass  # 조용히 스킵
 
-    if sections:
-        rules_content = (
-            "<claude-code-kit-rules>\n"
-            + "\n\n".join(sections)
-            + "\n</claude-code-kit-rules>"
-        )
-        print(json.dumps({"hookSpecificOutput": {"additionalContext": rules_content}}))
+    rules_content = (
+        "<claude-code-kit-rules>\n"
+        + "\n\n".join(sections)
+        + "\n</claude-code-kit-rules>"
+        if sections
+        else ""
+    )
+    print(json.dumps({"hookSpecificOutput": {"additionalContext": rules_content}}))
 
 except Exception as e:
     print(f"[claude-code-kit] session-check warning: {e}", file=sys.stderr)
+    print(json.dumps({"hookSpecificOutput": {"additionalContext": ""}}))
 
 sys.exit(0)  # 항상 허용 (SessionStart = fail-open)

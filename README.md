@@ -342,7 +342,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-├── common/      — Core agents (33) + skills (12) + rules (8) + hooks
+├── common/      — Core agents (33) + skills (12) + rules (9) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
 ├── ops/         — Operations agents (14) + skills (5)

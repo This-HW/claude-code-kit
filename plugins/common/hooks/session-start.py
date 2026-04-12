@@ -264,10 +264,7 @@ def main() -> None:
     if rules_text:
         parts.append(rules_text)
 
-    if not parts:
-        return
-
-    context = "\n\n".join(parts)
+    context = "\n\n".join(parts) if parts else ""
     print(json.dumps({"hookSpecificOutput": {"additionalContext": context}}))
 
 
