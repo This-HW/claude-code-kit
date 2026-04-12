@@ -265,7 +265,16 @@ def main() -> None:
         parts.append(rules_text)
 
     context = "\n\n".join(parts) if parts else ""
-    print(json.dumps({"hookSpecificOutput": {"additionalContext": context}}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "SessionStart",
+                    "additionalContext": context,
+                }
+            }
+        )
+    )
 
 
 if __name__ == "__main__":
@@ -274,4 +283,14 @@ if __name__ == "__main__":
     except Exception as e:
         # SessionStart는 fail-open — 오류가 세션을 막으면 안 됨
         print(f"[claude-code-kit] session-start warning: {e}", file=sys.stderr)
+        print(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "SessionStart",
+                        "additionalContext": "",
+                    }
+                }
+            )
+        )
     sys.exit(0)

@@ -108,10 +108,28 @@ try:
         if sections
         else ""
     )
-    print(json.dumps({"hookSpecificOutput": {"additionalContext": rules_content}}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "SessionStart",
+                    "additionalContext": rules_content,
+                }
+            }
+        )
+    )
 
 except Exception as e:
     print(f"[claude-code-kit] session-check warning: {e}", file=sys.stderr)
-    print(json.dumps({"hookSpecificOutput": {"additionalContext": ""}}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "SessionStart",
+                    "additionalContext": "",
+                }
+            }
+        )
+    )
 
 sys.exit(0)  # 항상 허용 (SessionStart = fail-open)
