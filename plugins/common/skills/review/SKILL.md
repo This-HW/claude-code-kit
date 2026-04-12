@@ -136,7 +136,7 @@ $ARGUMENTS에 `--quick`이 포함되어 있으면:
 
 ```
 1. Restate  — 의견을 기술적으로 재술 (오해 없게)
-2. Verify   — Read/Grep 도구만으로 해당 코드를 직접 확인 (Bash 사용 금지)
+2. Verify   — Read/Grep 도구만으로 해당 코드를 직접 확인 (이 단계에서는 읽기 전용 — Bash 실행 없이)
 3. Evaluate — 기술적 타당성 판단
 4. Respond  — 동의 or 근거 있는 반박을 review-code 프롬프트에 반영
 ```

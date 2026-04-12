@@ -162,8 +162,8 @@ TaskCreate 시 metadata:
 T-spec 통과 후 아래 T-review, T-security를 동시 생성 후 **병렬 실행**:
 
 ```
-T-review:   [W-042][Validation/A] 코드 리뷰   — blockedBy: 모든 Dev Tasks
-T-security: [W-042][Validation/B] 보안 스캔   — blockedBy: 모든 Dev Tasks
+T-review:   [W-042][Validation/A] 코드 리뷰   — blockedBy: T-spec
+T-security: [W-042][Validation/B] 보안 스캔   — blockedBy: T-spec
 ```
 
 TaskCreate 시 metadata:
@@ -196,22 +196,21 @@ T-review, T-security 결과를 구조적으로 검증:
 
 `T-merge` 실행:
 
+0. **[Guard]** 판정 기준 미충족 시: 미충족 항목 + 이슈 목록 + 권고사항을 사용자에게 보고하고 파이프라인을 중단한다. `TaskUpdate(T-merge, status="failed")`. 아래 단계를 실행하지 않는다.
 1. T-review, T-security 결과를 `review-results.md`에 통합 기록
-2. 이슈 여부 판단:
-   - **이슈 없음**: 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
+2. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
 
-     ```
-     W-XXX Validation 통과. 브랜치를 어떻게 처리할까요?
-     1. 로컬 머지 (현재 브랜치 → main)
-     2. PR 생성
-     3. 브랜치 유지 (나중에 처리)
-     ```
+   ```
+   W-XXX Validation 통과. 브랜치를 어떻게 처리할까요?
+   1. 로컬 머지 (현재 브랜치 → main)
+   2. PR 생성
+   3. 브랜치 유지 (나중에 처리)
+   ```
 
-     옵션별 Work 상태 처리:
-     - **옵션 1 (로컬 머지):** 머지 완료 후 `./scripts/work.sh complete W-XXX` 실행
-     - **옵션 2 (PR 생성):** `gh pr create` 후 Work 상태 active 유지 — PR 머지 확인 후 `work.sh complete`
-     - **옵션 3 (브랜치 유지):** Work 상태 active 유지, progress.md에 "Validation 통과" 메모 기록
-   - **이슈 있음**: 이슈 목록과 권고사항을 사용자에게 보고, 파이프라인 중단
+   옵션별 Work 상태 처리:
+   - **옵션 1 (로컬 머지):** 머지 완료 후 `./scripts/work.sh complete W-XXX` 실행
+   - **옵션 2 (PR 생성):** `gh pr create` 후 Work 상태 active 유지 — PR 머지 확인 후 `work.sh complete`
+   - **옵션 3 (브랜치 유지):** Work 상태 active 유지, progress.md에 "Validation 통과" 메모 기록
 
 3. `TaskUpdate(T-merge, status="completed")`
 
