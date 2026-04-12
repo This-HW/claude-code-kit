@@ -181,6 +181,21 @@ Hooks are defined in `plugins/common/hooks/hooks.json` and run via `SessionStart
 2. Checks agent frontmatter completeness (`name`, `description` required)
 3. Runs gitleaks security scan
 
+## Release Checklist
+
+**CRITICAL: Every commit that changes plugin behavior MUST bump the version in `plugins/common/.claude-plugin/plugin.json`.**
+
+Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update fetched = users never get the fix.
+
+- Patch bump (1.1.x) for bug fixes and hook changes
+- Minor bump (1.x.0) for new agents, skills, or features
+- Also bump domain plugin.json files if those domains changed
+
+```bash
+# Before git commit — update version field:
+# plugins/common/.claude-plugin/plugin.json  → "version": "x.y.z"
+```
+
 ## Contributing
 
 PRs welcome. Checklist:
