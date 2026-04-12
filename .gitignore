@@ -34,3 +34,6 @@ build/
 *.p12
 secrets/
 .env*
+
+# 내부 개발 기록 (공개 리포에 포함하지 않음)
+docs/works/

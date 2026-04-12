@@ -6,7 +6,9 @@ description: |
   OUTPUT: 등록된 크론 작업 ID와 다음 실행 시각
 model: haiku
 effort: low
-disable-model-invocation: true
+domain: ops
+argument-hint: "[interval] [command] | list | stop <id>"
+allowed-tools: Read
 ---
 
 # Loop 스킬
@@ -26,12 +28,23 @@ disable-model-invocation: true
 
 ---
 
+## 사전 준비
+
+CronCreate/CronList/CronDelete는 deferred tool입니다. 실행 전 반드시 로드:
+
+```
+ToolSearch("select:CronCreate,CronList,CronDelete")
+```
+
+---
+
 ## 워크플로우
 
 ### 등록 (`/loop <interval> <command>`)
 
-1. interval 파싱: `s`(초), `m`(분), `h`(시간) 단위 지원
-2. CronCreate로 작업 등록:
+1. `ToolSearch("select:CronCreate,CronList,CronDelete")` 실행
+2. interval 파싱: `s`(초), `m`(분), `h`(시간) 단위 지원
+3. CronCreate로 작업 등록:
    - `schedule`: cron 표현식으로 변환 (예: `5m` → `*/5 * * * *`)
    - `command`: 실행할 슬래시 커맨드 또는 설명
 3. 등록 확인 및 작업 ID 반환

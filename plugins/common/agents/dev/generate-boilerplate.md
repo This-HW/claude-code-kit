@@ -8,6 +8,7 @@ description: |
   OUTPUT: 생성된 코드 + "DELEGATE_TO: implement-code" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: low
+isolation: worktree
 tools:
   - Read
   - Write

@@ -13,7 +13,9 @@ tools:
   - Edit
   - Glob
   - Grep
+isolation: worktree
 disallowedTools:
+  - Task
   - Bash
 permissionMode: acceptEdits
 hooks:

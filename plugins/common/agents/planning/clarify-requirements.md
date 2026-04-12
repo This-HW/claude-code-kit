@@ -14,6 +14,7 @@ tools:
   - Grep
   - AskUserQuestion
 disallowedTools:
+  - Task
   - Write
   - Edit
   - Bash

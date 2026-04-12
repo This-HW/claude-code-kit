@@ -50,7 +50,6 @@ model: sonnet | opus | haiku
 effort: low | medium | high | max
 argument-hint: "[파라미터 힌트]"
 allowed-tools: [tools]
-disable-model-invocation: true # Task 없이 MCP/Bash만 사용 시
 ---
 ```
 

@@ -351,3 +351,10 @@ Round 3 완료 후에도 합의 불가한 경우:
 | Agent Teams | **facilitator-teams.md** | Lead에 통합 (Round 2)      | Lead에 통합 (Round 3)            |
 
 기존 파일 `facilitator.md`, `synthesizer.md`, `consensus-builder.md`는 **변경 없이 유지**됩니다.
+
+---DELEGATION_SIGNAL---
+TYPE: TASK_COMPLETE
+TARGET: -
+REASON: 분석 완료
+CONTEXT: 결과를 메인 Claude에게 반환
+---END_SIGNAL---

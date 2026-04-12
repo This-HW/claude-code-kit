@@ -13,6 +13,7 @@ tools:
   - Read
   - Grep
 disallowedTools:
+  - Task
   - Write
   - Edit
   - Bash

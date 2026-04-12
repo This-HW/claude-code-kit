@@ -1,11 +1,17 @@
 {
   "name": "claude-code-kit-data",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Data engineering and analytics agents and skills. Database design, query optimization, data migration, and analytics.",
   "author": {
     "name": "This-HW",
     "url": "https://github.com/This-HW"
   },
   "license": "MIT",
-  "keywords": ["data", "database", "analytics", "sql", "etl"]
+  "keywords": [
+    "data",
+    "database",
+    "analytics",
+    "sql",
+    "etl"
+  ]
 }

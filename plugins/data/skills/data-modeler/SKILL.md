@@ -1,7 +1,7 @@
 ---
 name: data-modeler
 description: Data modeling specialist. Entity modeling, relationship design, constraint definition, and schema evolution patterns with ORM integration.
-domain: data-engineering
+domain: data
 model: sonnet
 effort: medium
 argument-hint: [SQL schema or entity description]

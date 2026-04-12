@@ -8,6 +8,7 @@ description: |
   OUTPUT: Webhook 처리 결과 + "DELEGATE_TO: [trigger-pipeline|sync-issues|notify-team]" 또는 "TASK_COMPLETE"
 model: haiku
 effort: low
+isolation: worktree
 tools:
   - Read
   - Write

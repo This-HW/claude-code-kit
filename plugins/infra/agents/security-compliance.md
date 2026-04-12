@@ -14,6 +14,7 @@ tools:
   - Grep
   - WebFetch
 disallowedTools:
+  - Task
   - Write
   - Edit
 permissionMode: default

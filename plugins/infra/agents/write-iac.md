@@ -14,6 +14,9 @@ tools:
   - Glob
   - Grep
   - Bash
+isolation: worktree
+disallowedTools:
+  - Task
 permissionMode: acceptEdits
 hooks:
   PreToolUse:

@@ -9,6 +9,7 @@ description: |
   Uses: Context7 for framework docs (Express, FastAPI, NestJS)
 model: sonnet
 effort: medium
+isolation: worktree
 tools:
   - Read
   - Write
@@ -16,6 +17,8 @@ tools:
   - Bash
   - Glob
   - Grep
+disallowedTools:
+  - Task
 ---
 
 # Backend API Implementation Expert

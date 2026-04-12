@@ -16,6 +16,9 @@ tools:
   - Bash
   - Glob
   - Grep
+isolation: worktree
+disallowedTools:
+  - Task
 ---
 
 # Frontend UI Implementation Expert

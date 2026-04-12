@@ -38,7 +38,6 @@ PYEOF
 # D-016: 옵션 파서 (ATK-004: while-loop, 복합 옵션 조합 지원)
 OPT_FORCE=false
 OPT_ALL=false
-OPT_FULL=false
 OPT_LIST=false
 OPT_STATUS=false
 OPT_MIGRATE=false
@@ -47,7 +46,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --force)   OPT_FORCE=true; shift;;
         --all)     OPT_ALL=true; shift;;
-        --full)    OPT_FULL=true; shift;;
         --list)    OPT_LIST=true; shift;;
         --status)  OPT_STATUS=true; shift;;
         --migrate) OPT_MIGRATE=true; shift;;

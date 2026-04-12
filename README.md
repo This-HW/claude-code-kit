@@ -35,7 +35,6 @@ Options:
 
 - `./setup.sh --list` — Show available domain plugins
 - `./setup.sh --status` — Check setup state
-- `./setup.sh --full` — Include additional workflow hooks
 - `./setup.sh --migrate` — Migrate from legacy `.claude/agents/` setup
 - `./setup.sh --force` — Reset and re-run setup
 

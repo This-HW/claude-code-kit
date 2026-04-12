@@ -14,6 +14,7 @@ tools:
   - Glob
   - Grep
 disallowedTools:
+  - Task
   - Bash
   - Edit
 hooks:

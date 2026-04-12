@@ -13,6 +13,7 @@ tools:
   - Grep
   - LSP
 disallowedTools:
+  - Task
   - Write
   - Edit
   - Bash

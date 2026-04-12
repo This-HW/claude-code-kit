@@ -8,6 +8,7 @@ description: |
   OUTPUT: 동기화 결과 + "DELEGATE_TO: notify-team" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+isolation: worktree
 tools:
   - Read
   - Write

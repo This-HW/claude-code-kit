@@ -7,12 +7,15 @@ description: |
   OUTPUT: 문서 동기화 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: haiku
 effort: low
+isolation: worktree
 tools:
   - Read
   - Write
   - Edit
   - Glob
   - Grep
+disallowedTools:
+  - Task
 permissionMode: acceptEdits
 hooks:
   PreToolUse:

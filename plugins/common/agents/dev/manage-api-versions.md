@@ -195,3 +195,10 @@ PATCH: 문서 수정, 버그 수정
 "deprecation 목록 보여줘"
 "호환성 매트릭스 생성해줘"
 ```
+
+---DELEGATION_SIGNAL---
+TYPE: TASK_COMPLETE
+TARGET: -
+REASON: 분석 완료
+CONTEXT: 결과를 메인 Claude에게 반환
+---END_SIGNAL---

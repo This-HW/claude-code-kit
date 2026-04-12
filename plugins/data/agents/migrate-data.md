@@ -9,6 +9,7 @@ description: |
   OUTPUT: 마이그레이션 스크립트 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+isolation: worktree
 tools:
   - Read
   - Write

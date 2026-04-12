@@ -19,7 +19,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|Read",
+        "matcher": "Edit|Write|Read|message|broadcast",
         "hooks": [
           {
             "type": "command",

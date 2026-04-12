@@ -2,8 +2,10 @@
 name: db-query
 description: Execute database queries using PostgreSQL MCP. Use when users want to run SQL queries, analyze data, check schema, or optimize queries.
 model: sonnet
-domain: data-engineering
-disable-model-invocation: true
+effort: medium
+domain: data
+argument-hint: "[SQL 쿼리 또는 자연어 설명]"
+allowed-tools: Read, Bash, Glob
 ---
 
 # Database Query
@@ -15,11 +17,8 @@ PostgreSQL MCP를 사용하여 데이터베이스 쿼리를 실행합니다.
 SSH 터널이 실행 중이어야 합니다:
 
 ```bash
-# 스크립트 사용 (권장)
-./scripts/db-tunnel.sh start
-
-# 또는 수동 실행 (프로젝트별 설정 필요)
-# ssh -i ~/.ssh/id_rsa -f -N -L 15432:localhost:5432 <REMOTE_HOST>
+# 수동으로 SSH 터널 시작 (프로젝트별 설정 필요)
+ssh -i ~/.ssh/id_rsa -f -N -L 15432:localhost:5432 <REMOTE_HOST>
 ```
 
 ## 사용법
