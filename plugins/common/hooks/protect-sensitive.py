@@ -38,114 +38,112 @@ sys.path.insert(0, hook_dir)
 try:
     from utils import debug_log, is_debug_mode
 except ImportError:
-    def debug_log(msg, error=None): pass
-    def is_debug_mode(): return False
+
+    def debug_log(msg, error=None):
+        pass
+
+    def is_debug_mode():
+        return False
 
 
 # 보호할 패턴 (정규식)
 PROTECTED_PATTERNS = [
     # 환경 변수
-    r'\.env($|\.)',           # .env, .env.local, .env.production 등
-
+    r"\.env($|\.)",  # .env, .env.local, .env.production 등
     # 시크릿/인증 디렉토리
-    r'/secrets/',              # secrets 디렉토리
-    r'credential',             # credential 포함 파일
-    r'secret[^s]',            # secret 포함 (secrets 제외)
-
+    r"/secrets/",  # secrets 디렉토리
+    r"credential",  # credential 포함 파일
+    r"(?<![a-z])secret(?!s/|s$|s\.)",  # secret 포함 (secrets 디렉토리 제외, secrets.ext 제외)
     # SSH
-    r'\.ssh/',                 # SSH 키 디렉토리
-    r'id_rsa',                 # SSH 개인키
-    r'id_ed25519',            # SSH 개인키
-    r'id_ecdsa',              # SSH 개인키
-    r'known_hosts',           # SSH known hosts
-
+    r"\.ssh/",  # SSH 키 디렉토리
+    r"id_rsa",  # SSH 개인키
+    r"id_ed25519",  # SSH 개인키
+    r"id_ecdsa",  # SSH 개인키
+    r"known_hosts",  # SSH known hosts
     # 클라우드 설정
-    r'\.aws/',                 # AWS 설정
-    r'\.gcp/',                 # GCP 설정
-    r'\.azure/',               # Azure 설정
-    r'\.kube/config',         # Kubernetes config
-    r'\.docker/config\.json', # Docker credentials
-
+    r"\.aws/",  # AWS 설정
+    r"\.gcp/",  # GCP 설정
+    r"\.azure/",  # Azure 설정
+    r"\.kube/config",  # Kubernetes config
+    r"\.docker/config\.json",  # Docker credentials
     # 패키지 관리자 토큰
-    r'\.npmrc$',              # npm 토큰
-    r'\.yarnrc$',             # yarn 설정
-    r'\.pypirc$',             # PyPI 토큰
-    r'\.netrc$',              # netrc 파일
-
+    r"\.npmrc$",  # npm 토큰
+    r"\.yarnrc$",  # yarn 설정
+    r"\.pypirc$",  # PyPI 토큰
+    r"\.netrc$",  # netrc 파일
     # 키 파일
-    r'\.pem$',                 # 인증서/키 파일
-    r'\.key$',                 # 키 파일
-    r'\.p12$',                 # PKCS#12 파일
-    r'\.pfx$',                 # PFX 파일
-    r'private.*key',          # 개인 키
-    r'.*_rsa$',               # RSA 키
-    r'.*_ecdsa$',             # ECDSA 키
-
+    r"\.pem$",  # 인증서/키 파일
+    r"\.key$",  # 키 파일
+    r"\.p12$",  # PKCS#12 파일
+    r"\.pfx$",  # PFX 파일
+    r"private.*key",  # 개인 키
+    r".*_rsa$",  # RSA 키
+    r".*_ecdsa$",  # ECDSA 키
     # 기타 민감 파일
-    r'(^|/|_|-)token($|\.|_|-)',     # api_token, my-token, token.json
-    r'(^|/|_|-)tokens($|\.|_|-)',    # api_tokens, my-tokens
-    r'(^|/|_|-)password($|\.|_|-)', # my_password, user-password
-    r'(^|/|_|-)passwords($|\.|_|-)', # my_passwords
-    r'\.htpasswd$',           # Apache htpasswd
+    r"(^|/|_|-)token($|\.|_|-)",  # api_token, my-token, token.json
+    r"(^|/|_|-)tokens($|\.|_|-)",  # api_tokens, my-tokens
+    r"(^|/|_|-)password($|\.|_|-)",  # my_password, user-password
+    r"(^|/|_|-)passwords($|\.|_|-)",  # my_passwords
+    r"\.htpasswd$",  # Apache htpasswd
 ]
 
 # 메시지 콘텐츠 내 민감 정보 패턴 (Agent Teams S-C-08)
 SENSITIVE_CONTENT_PATTERNS = [
     # API 키 패턴
-    (r'sk-[a-zA-Z0-9]{20,}', 'API 키 (sk-...)'),
-    (r'pk_[a-zA-Z0-9]{20,}', 'API 키 (pk_...)'),
-    (r'AKIA[0-9A-Z]{16}', 'AWS Access Key'),
-    (r'ghp_[a-zA-Z0-9]{36}', 'GitHub Personal Access Token'),
-    (r'gho_[a-zA-Z0-9]{36}', 'GitHub OAuth Token'),
-    (r'xoxb-[0-9]{10,13}-[a-zA-Z0-9-]+', 'Slack Bot Token'),
-    (r'xoxp-[0-9]{10,13}-[a-zA-Z0-9-]+', 'Slack User Token'),
-
+    (r"sk-[a-zA-Z0-9]{20,}", "API 키 (sk-...)"),
+    (r"pk_[a-zA-Z0-9]{20,}", "API 키 (pk_...)"),
+    (r"AKIA[0-9A-Z]{16}", "AWS Access Key"),
+    (r"ghp_[a-zA-Z0-9]{36}", "GitHub Personal Access Token"),
+    (r"gho_[a-zA-Z0-9]{36}", "GitHub OAuth Token"),
+    (r"xoxb-[0-9]{10,13}-[a-zA-Z0-9-]+", "Slack Bot Token"),
+    (r"xoxp-[0-9]{10,13}-[a-zA-Z0-9-]+", "Slack User Token"),
     # 비밀번호/토큰 할당 패턴
-    (r'(?:password|passwd|pwd)\s*[=:]\s*["\']?[^\s"\']{8,}', '비밀번호 리터럴'),
-    (r'(?:api_key|apikey|api-key)\s*[=:]\s*["\']?[^\s"\']{8,}', 'API 키 리터럴'),
-    (r'(?:secret|token)\s*[=:]\s*["\']?[^\s"\']{16,}', '시크릿/토큰 리터럴'),
-
+    (r'(?:password|passwd|pwd)\s*[=:]\s*["\']?[^\s"\']{8,}', "비밀번호 리터럴"),
+    (r'(?:api_key|apikey|api-key)\s*[=:]\s*["\']?[^\s"\']{8,}', "API 키 리터럴"),
+    (r'(?:secret|token)\s*[=:]\s*["\']?[^\s"\']{16,}', "시크릿/토큰 리터럴"),
     # SSH 개인키 블록
-    (r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----', 'SSH 개인키'),
-    (r'-----BEGIN CERTIFICATE-----', '인증서'),
-
+    (r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", "SSH 개인키"),
+    (r"-----BEGIN CERTIFICATE-----", "인증서"),
     # 데이터베이스 연결 문자열
-    (r'(?:postgres|mysql|mongodb)://\S+:\S+@', 'DB 연결 문자열 (인증 정보 포함)'),
-    (r'(?:redis|amqp)://:\S+@', 'Redis/AMQP 연결 문자열'),
-
+    (r"(?:postgres|mysql|mongodb)://\S+:\S+@", "DB 연결 문자열 (인증 정보 포함)"),
+    (r"(?:redis|amqp)://:\S+@", "Redis/AMQP 연결 문자열"),
     # JWT 토큰
-    (r'eyJ[a-zA-Z0-9_-]{20,}\.eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}', 'JWT 토큰'),
+    (r"eyJ[a-zA-Z0-9_-]{20,}\.eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}", "JWT 토큰"),
 ]
 
 # 차단 메시지
 BLOCK_MESSAGES = {
-    'env': '환경 변수 파일은 직접 수정할 수 없습니다. 수동으로 설정하세요.',
-    'secrets': '시크릿 파일/디렉토리는 보호됩니다.',
-    'credential': '인증 정보 파일은 보호됩니다.',
-    'ssh': 'SSH 키는 보호됩니다.',
-    'key': '개인 키 파일은 보호됩니다.',
-    'cloud': '클라우드 설정 파일은 보호됩니다.',
-    'token': '토큰/패스워드 파일은 보호됩니다.',
-    'package': '패키지 관리자 인증 파일은 보호됩니다.',
+    "env": "환경 변수 파일은 직접 수정할 수 없습니다. 수동으로 설정하세요.",
+    "secrets": "시크릿 파일/디렉토리는 보호됩니다.",
+    "credential": "인증 정보 파일은 보호됩니다.",
+    "ssh": "SSH 키는 보호됩니다.",
+    "key": "개인 키 파일은 보호됩니다.",
+    "cloud": "클라우드 설정 파일은 보호됩니다.",
+    "token": "토큰/패스워드 파일은 보호됩니다.",
+    "package": "패키지 관리자 인증 파일은 보호됩니다.",
 }
 
 
 def check_content_sensitive(content: str) -> tuple[bool, str]:
     """메시지/broadcast 콘텐츠에 민감 정보가 포함되어 있는지 확인 (S-C-08)"""
     if not content:
-        return False, ''
+        return False, ""
 
     for pattern, description in SENSITIVE_CONTENT_PATTERNS:
         match = re.search(pattern, content, re.IGNORECASE)
         if match:
             # 매칭된 값은 마스킹하여 로깅
             matched_text = match.group(0)
-            masked = matched_text[:4] + '***' + matched_text[-2:] if len(matched_text) > 6 else '***'
+            masked = (
+                matched_text[:4] + "***" + matched_text[-2:]
+                if len(matched_text) > 6
+                else "***"
+            )
             debug_log(f"Sensitive content detected: {description} ({masked})")
-            msg = f'메시지에 민감 정보가 포함되어 있습니다: {description}. 민감 정보를 제거한 후 다시 시도하세요.'
+            msg = f"메시지에 민감 정보가 포함되어 있습니다: {description}. 민감 정보를 제거한 후 다시 시도하세요."
             return True, msg
 
-    return False, ''
+    return False, ""
 
 
 def check_protected(file_path: str) -> tuple[bool, str]:
@@ -157,26 +155,37 @@ def check_protected(file_path: str) -> tuple[bool, str]:
             debug_log(f"Pattern matched: {pattern} for {file_path}")
 
             # 어떤 유형인지 파악
-            if '.env' in path_lower:
-                return True, BLOCK_MESSAGES['env']
-            elif 'secret' in path_lower:
-                return True, BLOCK_MESSAGES['secrets']
-            elif 'credential' in path_lower:
-                return True, BLOCK_MESSAGES['credential']
-            elif '.ssh' in path_lower or 'id_rsa' in path_lower or 'id_ed25519' in path_lower:
-                return True, BLOCK_MESSAGES['ssh']
-            elif any(k in path_lower for k in ['.kube', '.docker', '.aws', '.gcp', '.azure']):
-                return True, BLOCK_MESSAGES['cloud']
-            elif any(k in path_lower for k in ['.npmrc', '.yarnrc', '.pypirc', '.netrc']):
-                return True, BLOCK_MESSAGES['package']
-            elif any(k in path_lower for k in ['token', 'password']):
-                return True, BLOCK_MESSAGES['token']
-            elif any(k in path_lower for k in ['.pem', '.key', '.p12', '.pfx', 'private', '_rsa', '_ecdsa']):
-                return True, BLOCK_MESSAGES['key']
+            if ".env" in path_lower:
+                return True, BLOCK_MESSAGES["env"]
+            elif "secret" in path_lower:
+                return True, BLOCK_MESSAGES["secrets"]
+            elif "credential" in path_lower:
+                return True, BLOCK_MESSAGES["credential"]
+            elif (
+                ".ssh" in path_lower
+                or "id_rsa" in path_lower
+                or "id_ed25519" in path_lower
+            ):
+                return True, BLOCK_MESSAGES["ssh"]
+            elif any(
+                k in path_lower for k in [".kube", ".docker", ".aws", ".gcp", ".azure"]
+            ):
+                return True, BLOCK_MESSAGES["cloud"]
+            elif any(
+                k in path_lower for k in [".npmrc", ".yarnrc", ".pypirc", ".netrc"]
+            ):
+                return True, BLOCK_MESSAGES["package"]
+            elif any(k in path_lower for k in ["token", "password"]):
+                return True, BLOCK_MESSAGES["token"]
+            elif any(
+                k in path_lower
+                for k in [".pem", ".key", ".p12", ".pfx", "private", "_rsa", "_ecdsa"]
+            ):
+                return True, BLOCK_MESSAGES["key"]
             else:
-                return True, '이 파일은 보안상 보호됩니다.'
+                return True, "이 파일은 보안상 보호됩니다."
 
-    return False, ''
+    return False, ""
 
 
 def main():
@@ -184,16 +193,20 @@ def main():
         # stdin에서 JSON 입력 읽기
         input_data = json.load(sys.stdin)
 
-        tool_name = input_data.get('tool_name', '')
-        tool_input = input_data.get('tool_input', {})
+        tool_name = input_data.get("tool_name", "")
+        tool_input = input_data.get("tool_input", {})
 
         # Agent Teams 메시지 콘텐츠 스캔 (S-C-08)
-        if tool_name in ('message', 'broadcast'):
-            content = tool_input.get('content', '') or tool_input.get('message', '') or tool_input.get('prompt', '')
+        if tool_name in ("message", "broadcast"):
+            content = (
+                tool_input.get("content", "")
+                or tool_input.get("message", "")
+                or tool_input.get("prompt", "")
+            )
             if not content and isinstance(tool_input, dict):
                 # 다양한 필드명에서 콘텐츠 추출 시도
-                for key in ('text', 'body', 'data'):
-                    content = tool_input.get(key, '')
+                for key in ("text", "body", "data"):
+                    content = tool_input.get(key, "")
                     if content:
                         break
 
@@ -206,23 +219,26 @@ def main():
             sys.exit(0)
 
         # Edit, Write, Read 도구인 경우만 파일 경로 검사
-        if tool_name not in ('Edit', 'Write', 'Read'):
+        if tool_name not in ("Edit", "Write", "Read"):
             sys.exit(0)
 
-        file_path = tool_input.get('file_path', '')
+        file_path = tool_input.get("file_path", "")
         if not file_path:
             sys.exit(0)
 
-        # 심볼릭 링크 탐지: 실제 경로도 검사
-        if file_path and os.path.islink(file_path):
-            real_path = os.path.realpath(file_path)
+        # 실제 경로(resolved) 항상 검사 — 중간 경로 symlink 우회 방지 (ATK-007)
+        real_path = os.path.realpath(file_path)
+        if real_path != os.path.abspath(file_path):
             is_protected_real, message_real = check_protected(real_path)
             if is_protected_real:
-                print(f"🔒 차단됨 (심볼릭 링크 대상): {file_path} → {real_path}", file=sys.stderr)
+                print(
+                    f"🔒 차단됨 (심볼릭 링크 대상): {file_path} → {real_path}",
+                    file=sys.stderr,
+                )
                 print(f"   {message_real}", file=sys.stderr)
                 sys.exit(2)
 
-        # 보호 대상 확인
+        # 원본 경로 검사
         is_protected, message = check_protected(file_path)
 
         if is_protected:
@@ -234,12 +250,14 @@ def main():
         sys.exit(0)  # 0 = 허용
 
     except json.JSONDecodeError:
+        # fail-open: stdin 파싱 실패 시 허용 (Claude Code 런타임 제공 JSON이므로 실제 위험 낮음)
         debug_log("JSON decode error in stdin")
         sys.exit(0)
     except Exception as e:
+        # fail-open: 예기치 않은 오류 시 허용 (가용성 우선 설계)
         debug_log(f"Hook error: {e}", e)
         sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

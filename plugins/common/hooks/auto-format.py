@@ -31,7 +31,14 @@ except ImportError:
         pass
 
     def safe_path(path):
-        return bool(path) and ".." not in path
+        if not path:
+            return False
+        try:
+            from pathlib import PurePath
+
+            return ".." not in PurePath(path).parts
+        except Exception:
+            return False
 
     FORMATTER_TIMEOUT_SECONDS = 30
 
@@ -41,7 +48,13 @@ STEP_TIMEOUT = 10
 _MAX_PARENT_DEPTH = 10
 
 # ESLint config 파일명 목록
-_ESLINT_CONFIGS = [".eslintrc", ".eslintrc.js", ".eslintrc.json", ".eslintrc.yml", "eslint.config.js"]
+_ESLINT_CONFIGS = [
+    ".eslintrc",
+    ".eslintrc.js",
+    ".eslintrc.json",
+    ".eslintrc.yml",
+    "eslint.config.js",
+]
 
 
 @lru_cache(maxsize=16)
@@ -139,7 +152,9 @@ def _ruff_feedback(file_path, feedback):
     )
     if result.returncode != 0 and result.stdout.strip():
         lines = result.stdout.strip().split("\n")[:5]
-        feedback.append(f"ruff 에러 ({file_path}):\n" + "\n".join(f"  {line}" for line in lines))
+        feedback.append(
+            f"ruff 에러 ({file_path}):\n" + "\n".join(f"  {line}" for line in lines)
+        )
 
 
 def _prettier(file_path, feedback):
@@ -191,9 +206,14 @@ def _eslint_feedback(file_path, feedback):
         cwd=_get_file_dir(file_path),
     )
     if result.returncode != 0 and result.stdout.strip():
-        error_lines = [ln for ln in result.stdout.strip().split("\n") if ": error " in ln][:5]
+        error_lines = [
+            ln for ln in result.stdout.strip().split("\n") if ": error " in ln
+        ][:5]
         if error_lines:
-            feedback.append(f"eslint 에러 ({file_path}):\n" + "\n".join(f"  {ln}" for ln in error_lines))
+            feedback.append(
+                f"eslint 에러 ({file_path}):\n"
+                + "\n".join(f"  {ln}" for ln in error_lines)
+            )
 
 
 def _gofmt(file_path, feedback):
@@ -241,7 +261,10 @@ def _shellcheck_feedback(file_path, feedback):
     )
     if result.returncode != 0 and result.stdout.strip():
         lines = result.stdout.strip().split("\n")[:5]
-        feedback.append(f"shellcheck 에러 ({file_path}):\n" + "\n".join(f"  {line}" for line in lines))
+        feedback.append(
+            f"shellcheck 에러 ({file_path}):\n"
+            + "\n".join(f"  {line}" for line in lines)
+        )
 
 
 # ── Pipeline Definitions ─────────────────────────────────────

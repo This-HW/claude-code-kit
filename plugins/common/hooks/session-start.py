@@ -25,14 +25,25 @@ except ImportError:
         proj = os.environ.get("CLAUDE_PROJECT_DIR", "")
         if proj:
             return proj
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
-        )
-        return result.stdout.strip() if result.returncode == 0 else os.getcwd()
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.stdout.strip() if result.returncode == 0 else os.getcwd()
+        except subprocess.TimeoutExpired:
+            return os.getcwd()
 
 
 def parse_frontmatter(filepath: Path) -> dict:
-    """Work 파일 YAML frontmatter 파싱 (외부 의존성 없음)."""
+    """Work 파일 YAML frontmatter 파싱 (외부 의존성 없음).
+
+    제한사항: 단순 'key: value' 형식만 지원.
+    멀티라인 값(|, >), 리스트(-), 중첩 객체는 미지원.
+    값에 ':' 포함 시 첫 번째 ':' 기준으로만 분리 (나머지는 값으로 포함됨).
+    """
     fm: dict = {}
     try:
         lines = filepath.read_text(encoding="utf-8").splitlines()
@@ -179,6 +190,8 @@ def summarize_work(work_dir: Path) -> Optional[str]:
     return "\n".join(lines)
 
 
+_MAX_ACTIVE_WORKS = 10
+
 ALWAYS_RULES = [
     "agent-system.md",
     "tool-usage-priority.md",
@@ -229,13 +242,19 @@ def main() -> None:
     has_active_work = False
 
     if works_active.exists():
-        active_dirs = sorted(d for d in works_active.iterdir() if d.is_dir())
+        all_active_dirs = sorted(d for d in works_active.iterdir() if d.is_dir())
+        active_dirs = all_active_dirs[:_MAX_ACTIVE_WORKS]
+        overflow = len(all_active_dirs) - _MAX_ACTIVE_WORKS
         if active_dirs:
             summaries = []
             for work_dir in active_dirs:
                 summary = summarize_work(work_dir)
                 if summary:
                     summaries.append(summary)
+            if overflow > 0:
+                summaries.append(
+                    f"(+ {overflow}개 active work 생략 — 상한 {_MAX_ACTIVE_WORKS}개)"
+                )
 
             if summaries:
                 has_active_work = True
@@ -250,12 +269,21 @@ def main() -> None:
                 )
 
     # Rules 주입
+    # __file__ 기반으로 plugin_root 결정 (H-1: 환경변수 신뢰 제거)
+    # session-start.py는 plugins/common/hooks/ 에 위치
+    _file_based_root = Path(__file__).resolve().parent.parent  # plugins/common/
     plugin_root_env = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
-    rules_text = ""
-    if plugin_root_env:
-        rules_text = load_rules(
-            Path(plugin_root_env), include_task_resume=has_active_work
+
+    # 환경변수가 있으면 __file__ 기반 경로와 일치하는지 확인 (경고만, 차단 안 함)
+    if plugin_root_env and Path(plugin_root_env).resolve() != _file_based_root:
+        print(
+            f"[claude-code-kit] CLAUDE_PLUGIN_ROOT 불일치: "
+            f"env={plugin_root_env!r}, file={_file_based_root}. "
+            "__file__ 기반 경로를 사용합니다.",
+            file=sys.stderr,
         )
+
+    rules_text = load_rules(_file_based_root, include_task_resume=has_active_work)
 
     # context 조합
     parts = []
@@ -281,7 +309,8 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        # SessionStart는 fail-open — 오류가 세션을 막으면 안 됨
+        # fail-open 설계: SessionStart 오류가 세션을 막으면 안 됨
+        # 오류가 있어도 빈 context로 세션을 허용
         print(f"[claude-code-kit] session-start warning: {e}", file=sys.stderr)
         print(
             json.dumps(
