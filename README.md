@@ -11,7 +11,12 @@ A structured, multi-domain AI agent system built for Claude Code. Covers the ful
 **Prerequisites:** [Claude Code CLI](https://code.claude.com) installed (`claude --version`)
 
 ```bash
-# Core toolkit (common domain)
+# Via official marketplace (core toolkit only)
+/plugin install claude-code-kit@claude-plugins-official
+```
+
+```bash
+# Via custom marketplace (core + all domain plugins)
 /plugin marketplace add This-HW/claude-code-kit
 /plugin install claude-code-kit@This-HW/claude-code-kit
 
