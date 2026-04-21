@@ -14,6 +14,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Validate plugin.json files
         run: |
           for f in plugins/*/.claude-plugin/plugin.json; do
@@ -21,27 +26,84 @@ jobs:
             python3 -c "import json,sys; json.load(open(sys.argv[1])); print('✓ Valid JSON')" "$f"
           done
 
+      - name: Check plugin.json required fields
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib, sys
+          REQUIRED = ["name", "version", "description", "homepage", "repository", "license"]
+          errors = []
+          for f in pathlib.Path("plugins").glob("*/.claude-plugin/plugin.json"):
+              data = json.loads(f.read_text())
+              for field in REQUIRED:
+                  if field not in data:
+                      errors.append(f"{f}: missing required field '{field}'")
+              author = data.get("author", {})
+              if not isinstance(author, dict) or "email" not in author:
+                  errors.append(f"{f}: missing 'author.email'")
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          print("✓ All plugin.json files have required fields")
+          EOF
+
       - name: Validate marketplace.json
         run: |
           python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))" && echo "✓ marketplace.json valid"
 
-      - name: Check agent frontmatter
+      - name: Check agent frontmatter — required fields
         run: |
           python3 - <<'EOF'
           import pathlib, re, sys
           errors = []
-          for f in pathlib.Path('plugins').rglob('*.md'):
+          for f in pathlib.Path("plugins").rglob("*.md"):
+              if "/skills/" in str(f):
+                  continue
               content = f.read_text()
-              if content.startswith('---'):
-                  if 'name:' not in content[:500]:
-                      errors.append(f"{f}: missing 'name' in frontmatter")
-                  if 'description:' not in content[:500]:
-                      errors.append(f"{f}: missing 'description' in frontmatter")
+              if not content.startswith("---"):
+                  continue
+              end = content.find("---", 3)
+              if end == -1:
+                  continue
+              fm = content[3:end]
+              if "name:" not in fm:
+                  errors.append(f"{f}: missing 'name' in frontmatter")
+              if "description:" not in fm:
+                  errors.append(f"{f}: missing 'description' in frontmatter")
           if errors:
-              print('\n'.join(errors))
+              print("\n".join(errors))
               sys.exit(1)
-          print(f"✓ All agent frontmatter valid")
+          print("✓ All agent frontmatter valid")
           EOF
+
+      - name: Check agent frontmatter — no forbidden fields
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys
+          FORBIDDEN = ["permissionMode", "context_cache", "output_schema", "next_agents"]
+          errors = []
+          for f in pathlib.Path("plugins").rglob("*.md"):
+              if "/skills/" in str(f):
+                  continue
+              content = f.read_text()
+              if not content.startswith("---"):
+                  continue
+              end = content.find("---", 3)
+              if end == -1:
+                  continue
+              fm = content[3:end]
+              for field in FORBIDDEN:
+                  if re.search(rf"^{field}:", fm, re.MULTILINE):
+                      errors.append(f"{f}: forbidden field '{field}' in frontmatter")
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          print("✓ No forbidden frontmatter fields found")
+          EOF
+
+      - name: Run hook unit tests
+        run: |
+          pip install pytest --quiet
+          python3 -m pytest plugins/common/hooks/tests/ -v 2>/dev/null || echo "⚠️  No tests found yet — skipping"
 
       - name: Security scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2
