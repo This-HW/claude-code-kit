@@ -13,24 +13,6 @@ tools:
   - Write
 disallowedTools:
   - Bash
-next_agents:
-  on_success:
-    default: synthesizer
-  # NOTE: Round 1 병렬 실행 에이전트는 facilitator가 문서 분석 후 동적으로 선택합니다.
-  # 가능한 10개 관점 에이전트:
-  #   - clarify-requirements (요구사항)
-  #   - security-scan (보안)
-  #   - design-user-journey (UX)
-  #   - plan-implementation (기술)
-  #   - define-business-logic (비즈니스)
-  #   - analyze-dependencies (의존성)
-  #   - review-code (코드 품질)
-  #   - define-metrics (메트릭)
-  #   - design-database (데이터)
-  #   - devils-advocate (적대적 반론) ← IDEA-003, Phase 5.5 선택적 활성화
-context_cache:
-  use_session: true
-  use_phase: planning
 references:
   - ../../../skills/common/multi-perspective-review/references/perspectives-guide.md
 ---

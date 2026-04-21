@@ -14,12 +14,6 @@ disallowedTools:
   - Bash
   - Write
   - Edit
-next_agents:
-  on_success:
-    default: synthesizer
-context_cache:
-  use_session: true
-  use_phase: planning
 ---
 
 # 역할: Multi-Perspective Review 영향도 분석자
