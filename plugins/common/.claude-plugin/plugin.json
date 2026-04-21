@@ -1,18 +1,22 @@
 {
   "name": "claude-code-kit",
-  "version": "1.1.5",
+  "version": "2.0.0",
   "description": "Universal AI agents and skills for software development. 33 agents + 12 skills across planning, development, review, and operations.",
   "author": {
     "name": "This-HW",
+    "email": "thisyj.work@gmail.com",
     "url": "https://github.com/This-HW"
   },
-  "license": "MIT",
+  "homepage": "https://github.com/This-HW/claude-code-kit",
   "repository": "https://github.com/This-HW/claude-code-kit",
+  "license": "MIT",
   "keywords": [
     "agents",
     "skills",
     "development",
     "planning",
-    "review"
+    "review",
+    "tdd",
+    "debugging"
   ]
 }
