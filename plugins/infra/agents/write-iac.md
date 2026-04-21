@@ -17,18 +17,6 @@ tools:
 isolation: worktree
 disallowedTools:
   - Task
-permissionMode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/protect-sensitive.py"
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/governance-check.py"
 ---
 
 # 역할: IaC 코드 작성 전문가

@@ -17,7 +17,6 @@ disallowedTools:
   - Task
   - Write
   - Edit
-permissionMode: default
 ---
 
 # 역할: 인프라 보안 및 컴플라이언스 전문가

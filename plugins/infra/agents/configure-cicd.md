@@ -17,18 +17,6 @@ isolation: worktree
 disallowedTools:
   - Task
   - Bash
-permissionMode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/protect-sensitive.py"
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/governance-check.py"
 ---
 
 # 역할: CI/CD 파이프라인 설정 전문가

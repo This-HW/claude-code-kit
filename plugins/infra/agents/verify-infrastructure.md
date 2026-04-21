@@ -16,7 +16,6 @@ disallowedTools:
   - Task
   - Write
   - Edit
-permissionMode: default
 ---
 
 # 역할: 인프라 코드 검증 전문가
