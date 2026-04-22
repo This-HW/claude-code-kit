@@ -233,6 +233,36 @@ def load_rules(plugin_root: Path, include_task_resume: bool) -> str:
     return "=== RULES ===\n" + "\n---\n".join(sections) + "\n=== END RULES ==="
 
 
+def load_workflow_skill(plugin_root: Path) -> str:
+    """using-claude-code-kit SKILL.md를 읽어 WORKFLOW 섹션으로 반환.
+
+    frontmatter(--- ... ---) 제거 후 본문만 포함.
+    파일 없거나 읽기 실패 시 빈 문자열 반환 (fail-open).
+    """
+    skill_path = plugin_root / "skills" / "using-claude-code-kit" / "SKILL.md"
+    try:
+        raw = skill_path.read_text(encoding="utf-8")
+    except Exception:
+        return ""
+
+    # frontmatter 제거
+    lines = raw.splitlines()
+    if lines and lines[0].strip() == "---":
+        end = -1
+        for i, line in enumerate(lines[1:], 1):
+            if line.strip() == "---":
+                end = i
+                break
+        if end != -1:
+            lines = lines[end + 1 :]
+
+    body = "\n".join(lines).strip()
+    if not body:
+        return ""
+
+    return "=== WORKFLOW ===\n" + body + "\n=== END WORKFLOW ==="
+
+
 def main() -> None:
     project_root = Path(get_project_root())
     works_active = project_root / "docs" / "works" / "active"
@@ -284,9 +314,12 @@ def main() -> None:
         )
 
     rules_text = load_rules(_file_based_root, include_task_resume=has_active_work)
+    workflow_text = load_workflow_skill(_file_based_root)
 
     # context 조합
     parts = []
+    if workflow_text:
+        parts.append(workflow_text)
     if active_work_text:
         parts.append(active_work_text)
     if rules_text:
