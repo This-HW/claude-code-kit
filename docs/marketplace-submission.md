@@ -18,7 +18,7 @@ Submit at: https://platform.claude.com/plugins/submit
 |---|---|
 | Plugin Name | `claude-code-kit` |
 | Version | `2.0.0` |
-| Description | Universal AI toolkit: 33 agents + 12 skills for planning, development, code review, and multi-agent workflows. |
+| Description | Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack. |
 | Source Type | `git-subdir` |
 | Repository | `This-HW/claude-code-kit` |
 | Path | `plugins/common` |

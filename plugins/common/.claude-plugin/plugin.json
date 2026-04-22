@@ -1,7 +1,7 @@
 {
   "name": "claude-code-kit",
   "version": "2.0.0",
-  "description": "Universal AI agents and skills for software development. 33 agents + 12 skills across planning, development, review, and operations.",
+  "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
   "author": {
     "name": "This-HW",
     "email": "thisyj.work@gmail.com",

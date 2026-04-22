@@ -1,6 +1,6 @@
 # claude-code-kit
 
-> 33 agents + 12 skills for the full software development lifecycle
+> Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.
 
 ## Install
 

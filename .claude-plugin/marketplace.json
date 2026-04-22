@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-code-kit",
-  "description": "Universal AI toolkit: agents and skills for planning, development, review, and operations.",
+  "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
   "owner": {
     "name": "This-HW",
     "url": "https://github.com/This-HW"
@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "claude-code-kit",
-      "description": "Core toolkit: 33 agents + 12 skills for planning, development, review, and meta workflows.",
+      "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
       "category": "development",
       "source": "./plugins/common",
       "homepage": "https://github.com/This-HW/claude-code-kit"
