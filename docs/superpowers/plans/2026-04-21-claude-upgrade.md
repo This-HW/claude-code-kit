@@ -1,6 +1,6 @@
-# Claude Code Kit Upgrade Implementation Plan
+# Claude Code Kit Upgrade Implementation Plan — ✅ COMPLETED 2026-04-22
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Upgrade claude-code-kit to latest Claude Code plugin spec, fix all broken frontmatter fields, harden Python hooks, and add tests — targeting v2.0.0 and official marketplace submission.
 
@@ -60,7 +60,7 @@
 - Modify: `plugins/integration/.claude-plugin/plugin.json`
 - Modify: `plugins/ops/.claude-plugin/plugin.json`
 
-- [ ] **Step 1: Update plugins/common/.claude-plugin/plugin.json**
+- [x] **Step 1: Update plugins/common/.claude-plugin/plugin.json**
 
 Replace entire file with:
 
@@ -89,7 +89,7 @@ Replace entire file with:
 }
 ```
 
-- [ ] **Step 2: Update plugins/data/.claude-plugin/plugin.json**
+- [x] **Step 2: Update plugins/data/.claude-plugin/plugin.json**
 
 ```json
 {
@@ -114,7 +114,7 @@ Replace entire file with:
 }
 ```
 
-- [ ] **Step 3: Update plugins/frontend/.claude-plugin/plugin.json**
+- [x] **Step 3: Update plugins/frontend/.claude-plugin/plugin.json**
 
 ```json
 {
@@ -139,7 +139,7 @@ Replace entire file with:
 }
 ```
 
-- [ ] **Step 4: Update plugins/infra/.claude-plugin/plugin.json**
+- [x] **Step 4: Update plugins/infra/.claude-plugin/plugin.json**
 
 ```json
 {
@@ -164,7 +164,7 @@ Replace entire file with:
 }
 ```
 
-- [ ] **Step 5: Update plugins/integration/.claude-plugin/plugin.json**
+- [x] **Step 5: Update plugins/integration/.claude-plugin/plugin.json**
 
 ```json
 {
@@ -189,7 +189,7 @@ Replace entire file with:
 }
 ```
 
-- [ ] **Step 6: Update plugins/ops/.claude-plugin/plugin.json**
+- [x] **Step 6: Update plugins/ops/.claude-plugin/plugin.json**
 
 ```json
 {
@@ -214,7 +214,7 @@ Replace entire file with:
 }
 ```
 
-- [ ] **Step 7: Verify all plugin.json files are valid JSON**
+- [x] **Step 7: Verify all plugin.json files are valid JSON**
 
 Run:
 ```bash
@@ -224,7 +224,7 @@ done
 ```
 Expected: 6 lines starting with `✓`
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add plugins/*/.claude-plugin/plugin.json
@@ -246,7 +246,7 @@ git commit -m "feat: add missing manifest fields to all plugin.json files (v2.0.
 - Modify: `plugins/common/agents/planning/define-business-logic.md`
 - Modify: `plugins/common/agents/planning/design-user-journey.md`
 
-- [ ] **Step 1: Strip non-standard fields from meta agents**
+- [x] **Step 1: Strip non-standard fields from meta agents**
 
 Run this script to remove `next_agents:`, `context_cache:`, and `permissionMode:` blocks from frontmatter in meta agents:
 
@@ -293,7 +293,7 @@ for f in files:
 PYEOF
 ```
 
-- [ ] **Step 2: Strip non-standard fields from planning agents**
+- [x] **Step 2: Strip non-standard fields from planning agents**
 
 ```bash
 python3 - <<'PYEOF'
@@ -333,7 +333,7 @@ for f in files:
 PYEOF
 ```
 
-- [ ] **Step 3: Verify no forbidden fields remain in meta/planning agents**
+- [x] **Step 3: Verify no forbidden fields remain in meta/planning agents**
 
 ```bash
 grep -rn "^permissionMode:\|^hooks:\|^context_cache:\|^output_schema:\|^next_agents:" \
@@ -341,7 +341,7 @@ grep -rn "^permissionMode:\|^hooks:\|^context_cache:\|^output_schema:\|^next_age
 ```
 Expected: no output
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add plugins/common/agents/meta/ plugins/common/agents/planning/
@@ -362,7 +362,7 @@ git commit -m "fix: remove unsupported frontmatter fields from meta and planning
 - Modify: `plugins/common/agents/dev/verify-code.md`
 - Modify: `plugins/common/agents/backend/write-api-tests.md`
 
-- [ ] **Step 1: Strip dev agents**
+- [x] **Step 1: Strip dev agents**
 
 ```bash
 python3 - <<'PYEOF'
@@ -416,7 +416,7 @@ for path in agent_files:
 PYEOF
 ```
 
-- [ ] **Step 2: Verify no forbidden fields remain in dev/backend agents**
+- [x] **Step 2: Verify no forbidden fields remain in dev/backend agents**
 
 ```bash
 grep -rn "^permissionMode:\|^hooks:\|^context_cache:\|^output_schema:\|^next_agents:" \
@@ -424,7 +424,7 @@ grep -rn "^permissionMode:\|^hooks:\|^context_cache:\|^output_schema:\|^next_age
 ```
 Expected: no output
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add plugins/common/agents/dev/ plugins/common/agents/backend/
@@ -440,7 +440,7 @@ git commit -m "fix: remove unsupported frontmatter fields from dev and backend a
 - Modify: `plugins/frontend/agents/{design-components,write-ui-tests}.md`
 - Modify: `plugins/ops/agents/deploy.md`
 
-- [ ] **Step 1: Strip domain plugin agents**
+- [x] **Step 1: Strip domain plugin agents**
 
 ```bash
 python3 - <<'PYEOF'
@@ -488,7 +488,7 @@ for f in files:
 PYEOF
 ```
 
-- [ ] **Step 2: Verify no forbidden fields remain in domain plugins**
+- [x] **Step 2: Verify no forbidden fields remain in domain plugins**
 
 ```bash
 grep -rn "^permissionMode:\|^hooks:\|^context_cache:\|^output_schema:\|^next_agents:" \
@@ -496,7 +496,7 @@ grep -rn "^permissionMode:\|^hooks:\|^context_cache:\|^output_schema:\|^next_age
 ```
 Expected: no output
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add plugins/infra/ plugins/frontend/ plugins/ops/
@@ -510,7 +510,7 @@ git commit -m "fix: remove unsupported frontmatter fields from infra/frontend/op
 **Files:**
 - Modify: `.github/workflows/validate.yml`
 
-- [ ] **Step 1: Update validate.yml with new checks**
+- [x] **Step 1: Update validate.yml with new checks**
 
 Replace the entire file content with:
 
@@ -628,7 +628,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-- [ ] **Step 2: Run the new checks locally to verify they pass**
+- [x] **Step 2: Run the new checks locally to verify they pass**
 
 ```bash
 python3 - <<'EOF'
@@ -656,7 +656,7 @@ EOF
 ```
 Expected: `✓ No forbidden fields`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/validate.yml
@@ -672,13 +672,13 @@ git commit -m "ci: strengthen validation — manifest required fields + forbidde
 **Files:**
 - Modify: All `plugins/*/skills/*/SKILL.md` files that have `domain:`, `argument-hint:`, or `allowed-tools:` in frontmatter
 
-- [ ] **Step 1: Find skills with non-standard fields**
+- [x] **Step 1: Find skills with non-standard fields**
 
 ```bash
 grep -rn "^domain:\|^argument-hint:\|^allowed-tools:" plugins --include="SKILL.md"
 ```
 
-- [ ] **Step 2: Strip non-standard skill frontmatter fields**
+- [x] **Step 2: Strip non-standard skill frontmatter fields**
 
 ```bash
 python3 - <<'PYEOF'
@@ -718,14 +718,14 @@ for f in pathlib.Path("plugins").rglob("SKILL.md"):
 PYEOF
 ```
 
-- [ ] **Step 3: Verify no non-standard skill fields remain**
+- [x] **Step 3: Verify no non-standard skill fields remain**
 
 ```bash
 grep -rn "^domain:\|^argument-hint:\|^allowed-tools:" plugins --include="SKILL.md"
 ```
 Expected: no output
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add plugins/
@@ -738,7 +738,7 @@ git commit -m "fix: remove non-standard frontmatter fields from skill SKILL.md f
 
 **Files:** Agent `.md` files by category
 
-- [ ] **Step 1: Add maxTurns to implementation agents**
+- [x] **Step 1: Add maxTurns to implementation agents**
 
 Implementation agents (modify files, complex work) → `maxTurns: 20`:
 - `plugins/common/agents/dev/implement-code/implement-code.md`
@@ -779,7 +779,7 @@ for path in impl_agents:
 PYEOF
 ```
 
-- [ ] **Step 2: Add maxTurns to exploration/review agents**
+- [x] **Step 2: Add maxTurns to exploration/review agents**
 
 Exploration/review agents (read-only, lighter work) → `maxTurns: 10`:
 
@@ -819,7 +819,7 @@ for path in explore_agents:
 PYEOF
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add plugins/
@@ -833,7 +833,7 @@ git commit -m "feat: add maxTurns field to agents for loop prevention"
 **Files:**
 - Modify: `plugins/common/hooks/hooks.json`
 
-- [ ] **Step 1: Update hooks.json with new lifecycle events**
+- [x] **Step 1: Update hooks.json with new lifecycle events**
 
 Replace entire `plugins/common/hooks/hooks.json` with:
 
@@ -924,7 +924,7 @@ Replace entire `plugins/common/hooks/hooks.json` with:
 }
 ```
 
-- [ ] **Step 2: Create plugins/common/hooks/agent-lifecycle.py**
+- [x] **Step 2: Create plugins/common/hooks/agent-lifecycle.py**
 
 ```python
 #!/usr/bin/env python3
@@ -967,14 +967,14 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 3: Verify hooks.json is valid JSON**
+- [x] **Step 3: Verify hooks.json is valid JSON**
 
 ```bash
 python3 -c "import json; json.load(open('plugins/common/hooks/hooks.json')); print('✓ hooks.json valid')"
 ```
 Expected: `✓ hooks.json valid`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add plugins/common/hooks/hooks.json plugins/common/hooks/agent-lifecycle.py
@@ -990,7 +990,7 @@ git commit -m "feat: add SubagentStart/Stop and PreCompact hook events"
 **Files:**
 - Modify: `plugins/common/hooks/session-start.py`
 
-- [ ] **Step 1: Write failing test for PLUGIN_ROOT fallback**
+- [x] **Step 1: Write failing test for PLUGIN_ROOT fallback**
 
 Create `plugins/common/hooks/tests/__init__.py` (empty):
 ```bash
@@ -1058,14 +1058,14 @@ def test_no_unhandled_exception_on_bad_stdin():
     assert result.returncode == 0, f"Crashed on bad stdin: {result.stderr}"
 ```
 
-- [ ] **Step 2: Run test to verify it fails (or passes — record baseline)**
+- [x] **Step 2: Run test to verify it fails (or passes — record baseline)**
 
 ```bash
 python3 -m pytest plugins/common/hooks/tests/test_session_start.py -v
 ```
 Record which tests pass/fail before hardening.
 
-- [ ] **Step 3: Harden session-start.py stdin handling**
+- [x] **Step 3: Harden session-start.py stdin handling**
 
 In `plugins/common/hooks/session-start.py`, locate the `main()` function and wrap the JSON parse:
 
@@ -1084,14 +1084,14 @@ Also ensure `CLAUDE_PLUGIN_ROOT` fallback exists — add near top of file if not
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ```
 
-- [ ] **Step 4: Run tests again — all must pass**
+- [x] **Step 4: Run tests again — all must pass**
 
 ```bash
 python3 -m pytest plugins/common/hooks/tests/test_session_start.py -v
 ```
 Expected: All tests PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugins/common/hooks/session-start.py plugins/common/hooks/tests/
@@ -1105,7 +1105,7 @@ git commit -m "test: add session-start hook tests + harden stdin/PLUGIN_ROOT han
 **Files:**
 - Create: `plugins/common/hooks/tests/test_protect_sensitive.py`
 
-- [ ] **Step 1: Write tests**
+- [x] **Step 1: Write tests**
 
 ```python
 import json
@@ -1216,14 +1216,14 @@ def test_handles_empty_stdin():
     assert result.returncode == 0, "Should fail-open on empty stdin"
 ```
 
-- [ ] **Step 2: Run tests — all should pass (protect-sensitive.py already hardened)**
+- [x] **Step 2: Run tests — all should pass (protect-sensitive.py already hardened)**
 
 ```bash
 python3 -m pytest plugins/common/hooks/tests/test_protect_sensitive.py -v
 ```
 Expected: All PASS. If any fail, fix the regex in `protect-sensitive.py` first.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add plugins/common/hooks/tests/test_protect_sensitive.py
@@ -1238,7 +1238,7 @@ git commit -m "test: add protect-sensitive hook unit tests (block/allow/robustne
 - Create: `plugins/common/hooks/tests/test_auto_format.py`
 - Create: `plugins/common/hooks/tests/test_utils.py`
 
-- [ ] **Step 1: Write auto-format tests**
+- [x] **Step 1: Write auto-format tests**
 
 Create `plugins/common/hooks/tests/test_auto_format.py`:
 
@@ -1309,7 +1309,7 @@ def test_python_file_triggers_ruff_attempt():
     assert result.returncode in (0, 2), f"Unexpected exit code: {result.returncode}"
 ```
 
-- [ ] **Step 2: Write utils tests**
+- [x] **Step 2: Write utils tests**
 
 Create `plugins/common/hooks/tests/test_utils.py`:
 
@@ -1341,14 +1341,14 @@ def test_safe_path_allows_nested():
     assert safe_path("/project/a/b/c/file.py") is True
 ```
 
-- [ ] **Step 3: Run all tests**
+- [x] **Step 3: Run all tests**
 
 ```bash
 python3 -m pytest plugins/common/hooks/tests/ -v
 ```
 Expected: All tests PASS (or identify any failures to fix)
 
-- [ ] **Step 4: Fix any failures found**
+- [x] **Step 4: Fix any failures found**
 
 If `test_safe_path_blocks_none` fails (safe_path doesn't handle None), update `utils.py`:
 
@@ -1363,14 +1363,14 @@ def safe_path(file_path: str) -> bool:
         return False
 ```
 
-- [ ] **Step 5: Run tests again — all must pass**
+- [x] **Step 5: Run tests again — all must pass**
 
 ```bash
 python3 -m pytest plugins/common/hooks/tests/ -v
 ```
 Expected: All PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add plugins/common/hooks/tests/ plugins/common/hooks/utils.py
@@ -1381,7 +1381,7 @@ git commit -m "test: add auto-format and utils unit tests"
 
 ### Task 12: Final Verification + Version Tag
 
-- [ ] **Step 1: Run full local validation**
+- [x] **Step 1: Run full local validation**
 
 ```bash
 # JSON validation
@@ -1417,13 +1417,13 @@ python3 -m pytest plugins/common/hooks/tests/ -v
 ```
 Expected: All ✓, all tests PASS
 
-- [ ] **Step 2: Verify hooks.json is valid**
+- [x] **Step 2: Verify hooks.json is valid**
 
 ```bash
 python3 -c "import json; json.load(open('plugins/common/hooks/hooks.json')); print('✓ hooks.json valid')"
 ```
 
-- [ ] **Step 3: Final commit and tag**
+- [x] **Step 3: Final commit and tag**
 
 ```bash
 git add -A
@@ -1431,13 +1431,13 @@ git commit -m "chore: v2.0.0 — complete Claude Code upgrade + official plugin 
 git tag v2.0.0
 ```
 
-- [ ] **Step 4: Submission checklist**
+- [x] **Step 4: Submission checklist**
 
 After all CI passes:
-- [ ] README.md updated with v2.0.0 changes and new installation instructions
-- [ ] CHANGELOG.md updated with all breaking changes
-- [ ] Test with `claude --plugin-dir ./plugins/common`
-- [ ] Submit at [platform.claude.com/plugins/submit](https://platform.claude.com/plugins/submit)
+- [x] README.md updated with v2.0.0 changes and new installation instructions
+- [x] CHANGELOG.md updated with all breaking changes
+- [x] Test with `claude --plugin-dir ./plugins/common`
+- [x] Submit at [platform.claude.com/plugins/submit](https://platform.claude.com/plugins/submit)
 
 ---
 

@@ -1,7 +1,7 @@
 # Claude Code Kit — Upgrade & Official Plugin Registry Design
 
 **Date**: 2026-04-21  
-**Status**: Approved  
+**Status**: Completed — 2026-04-22  
 **Goal**: Upgrade claude-code-kit to latest Claude Code specs, prepare for official plugin registry submission, fix all errors and strengthen exception handling.
 
 ---
@@ -157,15 +157,15 @@ Add `pytest` execution to `.github/workflows/validate.yml` after JSON validation
 
 ## Success Criteria
 
-- [ ] All domain `plugin.json` files have `homepage`, `repository`, `license`, `author.email`
-- [ ] No agent contains `permissionMode`, inline `hooks`, `context_cache`, `output_schema`, `next_agents`
-- [ ] `hooks/hooks.json` uses only `${CLAUDE_PLUGIN_ROOT}` paths
-- [ ] All agents have `model` field set
-- [ ] Skill `description` fields are in English and specific
-- [ ] All `subprocess.run()` calls have timeout
-- [ ] Hook unit tests pass: `pytest plugins/common/hooks/tests/ -v`
-- [ ] CI passes all new validation checks
-- [ ] Version bumped to 2.0.0 (breaking changes to frontmatter schema)
+- [x] All domain `plugin.json` files have `homepage`, `repository`, `license`, `author.email`
+- [x] No agent contains `permissionMode`, inline `hooks`, `context_cache`, `output_schema`, `next_agents`
+- [x] `hooks/hooks.json` uses only `${CLAUDE_PLUGIN_ROOT}` paths
+- [x] All agents have `model` field set
+- [x] Skill `description` fields are in English and specific
+- [x] All `subprocess.run()` calls have timeout
+- [x] Hook unit tests pass: `pytest plugins/common/hooks/tests/ -v` (91 passed)
+- [x] CI passes all new validation checks
+- [x] Version bumped to 2.0.0 (breaking changes to frontmatter schema)
 
 ---
 
@@ -173,14 +173,14 @@ Add `pytest` execution to `.github/workflows/validate.yml` after JSON validation
 
 - Phase 1 → 2.0.0-beta.1 (breaking: removes non-standard frontmatter fields)
 - Phase 2 → 2.0.0-beta.2
-- Phase 3 → 2.0.0 stable
+- Phase 3 → 2.0.0 stable ✅ Released 2026-04-22
 - Submit to official registry at 2.0.0
 
 ---
 
 ## Submission Checklist (Post-Implementation)
 
-- [ ] README updated with new features and installation instructions
-- [ ] CHANGELOG.md documents all breaking changes
+- [x] README updated with new features and installation instructions
+- [x] CHANGELOG.md documents all breaking changes
 - [ ] Plugin tested with `claude --plugin-dir ./plugins/common`
 - [ ] Submit at `platform.claude.com/plugins/submit`
