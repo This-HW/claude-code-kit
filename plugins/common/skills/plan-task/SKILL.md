@@ -15,6 +15,14 @@ effort: max
 /plan-task fix the auth bug         # 새 요청 (description 형식)
 ```
 
+## Phase Gate
+
+이 스킬은 **brainstorming** 이후에 실행되어야 합니다.
+
+`docs/specs/`에 관련 스펙 파일이 없으면:
+- 새 기능이라면 → 먼저 `brainstorming` 스킬을 invoke하세요
+- 버그 수정/소규모 작업이라면 → 계속 진행 가능 (단, 이 사실을 명시)
+
 ---
 
 Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합니다.
@@ -22,6 +30,22 @@ Work 파일과 Task 시스템을 통합하여 구조화된 Planning을 진행합
 ---
 
 ## Step 0: Work ID 확보 [건너뛰기 금지]
+
+### 체크리스트 초기화 [최우선]
+
+Step 0 진입 즉시, Work ID 확보 전에 스킬 자체 진행을 추적할 Tasks를 생성합니다:
+
+1. `ToolSearch("select:TaskCreate,TaskUpdate,TaskList")` 실행
+2. 다음 Tasks 생성 (이미 `[Planning]` Task 있으면 스킵):
+
+```
+TaskCreate: [Planning] Work ID 확보 및 초기화
+TaskCreate: [Planning] 요구사항 명확화
+TaskCreate: [Planning] 구현 계획 수립
+TaskCreate: [Planning] Planning 완료 처리
+```
+
+의존성 설정: 각 Task는 이전 Task가 완료되어야 시작 가능 (addBlockedBy).
 
 ### Work ID가 제공된 경우 (예: `/plan-task W-043`)
 
@@ -140,12 +164,13 @@ Work ID 확보 완료 후에만 Step 1로 진행.
 1. Work 파일 최종 업데이트 확인 (frontmatter, progress.md, planning-results.md)
 2. 다음 단계 안내:
 
-```
-Planning 완료: W-XXX
+Planning이 완료되었습니다. 바로 개발을 시작하겠습니다.
 
-다음 단계 옵션:
-  개발 시작  →  /auto-dev W-XXX
-  Phase 전환 →  ./scripts/work.sh next-phase W-XXX
+`auto-dev` 스킬을 즉시 invoke합니다. (사용자가 "나중에" 또는 "직접 실행"을 원하면 아래 명령을 안내하고 invoke를 건너뜁니다)
+
+```bash
+/auto-dev W-XXX        # 개발 파이프라인 시작
+./scripts/work.sh next-phase W-XXX  # Phase만 전환
 ```
 
 ---
