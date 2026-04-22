@@ -58,7 +58,6 @@ model: [sonnet|opus|haiku]
 effort: [low|medium|high|max]
 tools:
   - [도구 목록]
-permissionMode: [default|acceptEdits|plan]
 disallowedTools:
   - Task
 ---
