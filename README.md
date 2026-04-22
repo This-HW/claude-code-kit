@@ -4,6 +4,8 @@
 
 A structured, multi-domain AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, infrastructure, operations, and more.
 
+**Current version: 2.0.0** — Official plugin registry compliant. See [CHANGELOG.md](CHANGELOG.md) for breaking changes.
+
 ---
 
 ## Quick Install
@@ -42,6 +44,18 @@ Options:
 - `./setup.sh --status` — Check setup state
 - `./setup.sh --migrate` — Migrate from legacy `.claude/agents/` setup
 - `./setup.sh --force` — Reset and re-run setup
+
+---
+
+## What's New in v2.0.0
+
+- **Official plugin registry compliant** — all manifests meet `claude-plugins-official` marketplace standards (`homepage`, `repository`, `license`, `author.email`)
+- **Clean frontmatter** — removed non-standard fields (`permissionMode`, `context_cache`, `output_schema`, `next_agents`, inline `hooks`) from all 66 agents
+- **Loop prevention** — `maxTurns` added to all agents (20 for implementation, 10 for exploration/review)
+- **New lifecycle hooks** — `SubagentStart`, `SubagentStop`, `PreCompact` events via `agent-lifecycle.py`
+- **91 unit tests** — full test coverage for all hook scripts (`session-start`, `protect-sensitive`, `auto-format`, `utils`)
+- **CI strengthened** — manifest required-fields check, forbidden-frontmatter check, and pytest step added to CI
+- **English skill descriptions** — all skill `description` fields converted to English for correct Claude auto-invocation
 
 ---
 
@@ -369,12 +383,14 @@ Each domain contains:
 
 PRs welcome. Checklist:
 
-- [ ] Agent frontmatter has `name`, `description`, `model`
+- [ ] Agent frontmatter has `name`, `description`, `model`, `maxTurns`
 - [ ] Description includes `MUST USE when:` trigger conditions
+- [ ] No forbidden fields: `permissionMode`, `context_cache`, `output_schema`, `next_agents`, inline `hooks`
 - [ ] File-modifying agents have `isolation: worktree`
 - [ ] Regular agents have `disallowedTools: [Task]`
-- [ ] Registered in domain `plugin.json`
-- [ ] CI passes (JSON valid, frontmatter complete, no secrets)
+- [ ] Skill `description` field is in English
+- [ ] Registered in domain `plugin.json` (with `homepage`, `repository`, `license`, `author.email`)
+- [ ] CI passes (JSON valid, frontmatter complete, no forbidden fields, pytest green, no secrets)
 
 ---
 

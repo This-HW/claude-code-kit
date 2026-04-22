@@ -1,6 +1,6 @@
 ---
 name: debug
-description: 에러를 분석하고 수정합니다. 에러 메시지나 로그를 입력하세요.
+description: Analyze errors and apply fixes. Use when you have an error message, traceback, or failing log to diagnose.
 model: sonnet
 effort: high
 ---

@@ -1,6 +1,6 @@
 ---
 name: plan-task
-description: Work 파일 기반 구조화된 Planning. Work ID 또는 새 요청으로 호출.
+description: Structured task planning using Work files. Use for any new feature, bug fix, or project that needs a task breakdown before implementation.
 model: opus
 effort: max
 ---

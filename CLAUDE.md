@@ -72,6 +72,7 @@ description: | # Korean + English trigger conditions
   OUTPUT: result format
 model: sonnet # opus | sonnet | haiku
 effort: medium # low | medium | high | max
+maxTurns: 20 # 20 for implementation agents, 10 for exploration/review
 isolation: worktree # optional: run in isolated git worktree
 tools:
   - Read
@@ -79,17 +80,6 @@ tools:
   - Bash
 disallowedTools:
   - Task # regular agents cannot spawn sub-agents
-permissionMode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/protect-sensitive.py"
-context_cache:
-  use_session: true
-  session_includes:
-    - CLAUDE.md
 ---
 ```
 
@@ -200,9 +190,11 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 
 PRs welcome. Checklist:
 
-- [ ] Agent frontmatter has `name`, `description`, `model`
+- [ ] Agent frontmatter has `name`, `description`, `model`, `maxTurns`
+- [ ] No forbidden fields: `permissionMode`, `context_cache`, `output_schema`, `next_agents`, inline `hooks`
 - [ ] Description includes `MUST USE when:` trigger conditions
 - [ ] File-modifying agents have `isolation: worktree`
 - [ ] Regular agents have `disallowedTools: [Task]`
+- [ ] Skill `description` field is in English
 - [ ] Registered in domain `plugin.json`
-- [ ] CI passes (JSON valid, frontmatter complete, no secrets)
+- [ ] CI passes (JSON valid, frontmatter complete, no forbidden fields, pytest green, no secrets)

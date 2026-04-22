@@ -1,6 +1,6 @@
 ---
 name: multi-perspective-review
-description: 기획/문서를 여러 관점에서 협업 검토. 10개 관점의 전문가가 의견 교류하며 합의를 도출합니다.
+description: Multi-perspective collaborative review of plans or documents. Ten expert viewpoints deliberate in 3 rounds to reach consensus.
 model: opus
 effort: max
   - Read

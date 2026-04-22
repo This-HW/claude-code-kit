@@ -1,6 +1,6 @@
 ---
 name: mcp-builder
-description: MCP 서버 개발. Model Context Protocol 서버를 생성하고 설정합니다.
+description: Build and configure MCP servers. Use when scaffolding a new Model Context Protocol server or adding tools to an existing one.
 model: sonnet
 effort: medium
 ---

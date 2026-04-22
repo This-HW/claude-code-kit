@@ -1,6 +1,6 @@
 ---
 name: webapp-testing
-description: E2E 테스트 자동화. Playwright MCP를 사용하여 웹 애플리케이션을 테스트합니다.
+description: E2E test automation for web apps using Playwright MCP. Use when testing UI flows, form submissions, or visual regressions.
 model: sonnet
 effort: medium
 ---

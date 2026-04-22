@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: 배포 파이프라인. 검증 → 배포 → 모니터링 순서로 진행합니다.
+description: Deployment pipeline. Runs Validate → Deploy → Monitor in sequence with rollback on failure.
 model: sonnet
 effort: high
 ---

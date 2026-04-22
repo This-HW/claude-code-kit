@@ -1,6 +1,6 @@
 ---
 name: incident-response
-description: 인시던트 대응 파이프라인. 복구 최우선으로 대응 → 복구 → 분석 순으로 진행합니다.
+description: Incident response pipeline. Prioritizes recovery first, then runs Respond → Recover → Analyze in sequence.
 model: sonnet
 effort: medium
 ---

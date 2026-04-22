@@ -1,6 +1,6 @@
 ---
 name: review
-description: 현재 변경사항 또는 지정된 파일에 대한 코드 리뷰를 수행합니다.
+description: Run a full code review on current changes or specified files. Runs ruff lint, review-code agent, and security scan in sequence.
 model: opus
 effort: high
 ---

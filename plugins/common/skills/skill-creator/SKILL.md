@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Claude Code 스킬 생성을 간소화합니다. 템플릿과 베스트 프랙티스를 자동 적용합니다.
+description: Create new Claude Code skills. Applies standard templates and best practices to scaffold a skill file automatically.
 model: sonnet
 effort: medium
 ---

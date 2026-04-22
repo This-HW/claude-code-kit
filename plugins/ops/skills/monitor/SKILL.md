@@ -1,6 +1,6 @@
 ---
 name: monitor
-description: 시스템 모니터링. 현재 상태를 확인하고 이상 징후를 탐지합니다.
+description: System monitoring. Check current status and detect anomalies in running services, logs, and metrics.
 model: haiku
 effort: low
 ---

@@ -1,6 +1,6 @@
 ---
 name: auto-dev
-description: Work 기반 자동 개발 파이프라인. Planning 완료 Work를 Development → Validation까지 실행.
+description: Automated development pipeline. Runs a completed Planning Work through Development and Validation phases end-to-end.
 model: sonnet
 effort: high
 ---

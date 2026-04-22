@@ -1,6 +1,6 @@
 ---
 name: infra
-description: 인프라 작업 파이프라인. 탐색 → 계획 → 구현 → 검증 → 적용 순서로 진행합니다.
+description: Infrastructure task pipeline. Runs Explore → Plan → Implement → Verify → Apply in sequence.
 model: sonnet
 effort: medium
 ---

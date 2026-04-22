@@ -1,6 +1,6 @@
 ---
 name: doc-coauthoring
-description: 문서 협업. 문서 작성, 리뷰, 업데이트를 자동화합니다.
+description: AI-assisted documentation authoring. Use when writing, reviewing, or updating technical documents and READMEs.
 model: opus
 effort: medium
 ---

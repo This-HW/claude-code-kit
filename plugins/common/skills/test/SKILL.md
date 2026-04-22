@@ -1,6 +1,6 @@
 ---
 name: test
-description: 테스트를 실행하고 결과를 분석합니다.
+description: Run tests and auto-fix failures. Detects the test framework, executes tests, and iterates on fixes until all pass.
 model: sonnet
 effort: medium
 ---
