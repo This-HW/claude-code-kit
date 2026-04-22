@@ -19,10 +19,6 @@ disallowedTools:
   - Edit
   - Bash
   - Task
-permissionMode: plan
-context_cache:
-  use_session: true
-  use_phase: planning
 references:
   - ../../../skills/common/multi-perspective-review/references/perspectives-guide.md
   - ../../../skills/common/multi-perspective-review/references/deliberation-pattern.md

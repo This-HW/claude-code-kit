@@ -17,7 +17,6 @@ disallowedTools:
   - Task
   - Write
   - Edit
-permissionMode: default
 ---
 
 # 역할: 인프라 탐색 전문가

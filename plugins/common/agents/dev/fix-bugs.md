@@ -7,6 +7,7 @@ description: |
   OUTPUT: 수정 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+maxTurns: 20
 isolation: worktree
 tools:
   - Read
@@ -18,27 +19,6 @@ tools:
 disallowedTools:
   - Task
   - Write
-permissionMode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/protect-sensitive.py"
-  PostToolUse:
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/governance-check.py"
-context_cache:
-  use_session: true
-  use_phase: development
-  preload_agent: true
-  session_includes:
-    - CLAUDE.md
-  phase_includes:
-    - code-changes
-    - error-context
 ---
 
 # 역할: 버그 수정 전문가

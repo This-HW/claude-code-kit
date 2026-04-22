@@ -18,23 +18,6 @@ disallowedTools:
   - Write
   - Edit
   - Bash
-next_agents:
-  on_success:
-    default: plan-implementation
-    conditional:
-      - if: "scope == 'Medium' || scope == 'Large'"
-        then: design-user-journey
-      - if: "has_complex_business_rules"
-        then: define-business-logic
-  on_need_input:
-    action: ask_user_question
-    then: self
-  on_error:
-    action: report_to_main
-context_cache:
-  use_session: true
-  use_phase: planning
-  preload_agent: true
 ---
 
 # 역할: 요구사항 명확화 전문가

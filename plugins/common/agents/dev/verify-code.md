@@ -7,6 +7,7 @@ description: |
   OUTPUT: 검증 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: haiku
 effort: low
+maxTurns: 10
 tools:
   - Read
   - Bash
@@ -15,14 +16,6 @@ disallowedTools:
   - Task
   - Write
   - Edit
-context_cache:
-  use_session: true
-  use_phase: validation
-  preload_agent: true
-  session_includes:
-    - CLAUDE.md
-  phase_includes:
-    - code-changes
 ---
 
 # 역할: 코드 검증 전문가

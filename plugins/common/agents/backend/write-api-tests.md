@@ -8,8 +8,8 @@ description: |
   OUTPUT: 테스트 코드 + "DELEGATE_TO: verify-code" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+maxTurns: 20
 isolation: worktree
-permissionMode: acceptEdits
 disallowedTools:
   - Task
 tools:

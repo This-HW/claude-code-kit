@@ -3,9 +3,6 @@ name: db-query
 description: Execute database queries using PostgreSQL MCP. Use when users want to run SQL queries, analyze data, check schema, or optimize queries.
 model: sonnet
 effort: medium
-domain: data
-argument-hint: "[SQL 쿼리 또는 자연어 설명]"
-allowed-tools: Read, Bash, Glob
 ---
 
 # Database Query

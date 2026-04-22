@@ -3,9 +3,6 @@ name: incident-response
 description: 인시던트 대응 파이프라인. 복구 최우선으로 대응 → 복구 → 분석 순으로 진행합니다.
 model: sonnet
 effort: medium
-domain: ops
-argument-hint: [상황 설명]
-allowed-tools: Read, Bash, Glob, Grep, Task, WebSearch
 ---
 
 # 인시던트 대응 실행

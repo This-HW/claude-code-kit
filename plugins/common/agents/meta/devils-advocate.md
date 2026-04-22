@@ -13,12 +13,6 @@ tools:
 disallowedTools:
   - Bash
   - Task
-next_agents:
-  on_success:
-    default: synthesizer
-context_cache:
-  use_session: true
-  use_phase: planning
 references:
   - ../../../skills/common/multi-perspective-review/references/perspectives-guide.md
 ---

@@ -1,11 +1,14 @@
 {
   "name": "claude-code-kit-frontend",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Frontend development agents and skills. React, Vue, UI components, UX optimization, and web testing.",
   "author": {
     "name": "This-HW",
+    "email": "thisyj.work@gmail.com",
     "url": "https://github.com/This-HW"
   },
+  "homepage": "https://github.com/This-HW/claude-code-kit",
+  "repository": "https://github.com/This-HW/claude-code-kit",
   "license": "MIT",
   "keywords": [
     "frontend",

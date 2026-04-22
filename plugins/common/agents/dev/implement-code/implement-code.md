@@ -7,6 +7,7 @@ description: |
   OUTPUT: 구현 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+maxTurns: 20
 isolation: worktree
 tools:
   - Read
@@ -18,74 +19,6 @@ tools:
   - ExitWorktree
 disallowedTools:
   - Task
-permissionMode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/protect-sensitive.py"
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/governance-check.py"
-next_agents:
-  on_success:
-    default: write-tests
-    parallel:
-      - verify-code
-      - verify-integration
-  on_need_tests:
-    action: write-tests
-    then: verify-code
-  on_error:
-    action: fix-bugs
-    then: self
-output_schema:
-  required:
-    - status
-    - files_changed
-  properties:
-    status:
-      enum: [complete, need_tests, need_fix, architecture_limit]
-    files_changed:
-      type: array
-    test_needed:
-      type: boolean
-    # ─────────────────────────────────────────────────────────
-    # 조건부 필드: architecture_limit
-    # ─────────────────────────────────────────────────────────
-    # status=architecture_limit일 때만 필수 출력
-    # - trigger_reason: 트리거된 조건 (4가지 중 하나)
-    # - affected_files: 영향받는 파일 목록
-    # - description: 구체적인 설명
-    # ─────────────────────────────────────────────────────────
-    architecture_limit:
-      type: object
-      properties:
-        trigger_reason:
-          enum:
-            [
-              circular_dependency,
-              responsibility_overload,
-              interface_mismatch,
-              duplicate_workaround,
-            ]
-        affected_files:
-          type: array
-        description:
-          type: string
-context_cache:
-  use_session: true
-  use_phase: development
-  preload_agent: true
-  session_includes:
-    - CLAUDE.md
-    - agent-index.json
-  phase_includes:
-    - planning-artifacts
-    - implementation-plan
 references:
   - path: references/patterns.md
     description: "구현 패턴 및 아키텍처 가이드"

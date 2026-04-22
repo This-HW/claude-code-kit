@@ -4,9 +4,6 @@ description: |
   알림 규칙 설정 스킬. 모니터링 알림, SLA 위반 알림, 비용 알림을 설정합니다.
 model: sonnet
 effort: medium
-domain: ops
-argument-hint: [add|edit|delete|test] [rule-id]
-allowed-tools: Read, Write, Edit, Glob, Bash
 ---
 
 # /alert-setup - 알림 규칙 설정

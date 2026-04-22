@@ -17,18 +17,6 @@ disallowedTools:
   - Task
   - Write
   - Edit
-permissionMode: acceptEdits
-hooks:
-  PreToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/protect-sensitive.py"
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "python3 ~/.claude/hooks/governance-check.py"
 ---
 
 # 역할: 배포 전문가

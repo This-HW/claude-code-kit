@@ -3,7 +3,6 @@ name: auto-dev
 description: Work 기반 자동 개발 파이프라인. Planning 완료 Work를 Development → Validation까지 실행.
 model: sonnet
 effort: high
-domain: common
 ---
 
 # Auto-Dev 스킬

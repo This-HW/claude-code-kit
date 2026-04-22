@@ -17,7 +17,6 @@ disallowedTools:
   - Write
   - Edit
   - Bash
-permissionMode: default
 ---
 
 # 역할: 인프라 변경 계획 전문가
