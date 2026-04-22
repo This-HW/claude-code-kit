@@ -7,6 +7,7 @@ description: |
   OUTPUT: 의존성 분석 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: haiku
 effort: low
+maxTurns: 10
 tools:
   - Read
   - Glob

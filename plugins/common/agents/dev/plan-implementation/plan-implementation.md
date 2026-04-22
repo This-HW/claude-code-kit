@@ -7,6 +7,7 @@ description: |
   OUTPUT: 상세 구현 계획 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 20
 tools:
   - Read
   - Glob

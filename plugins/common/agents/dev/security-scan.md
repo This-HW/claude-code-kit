@@ -7,6 +7,7 @@ description: |
   OUTPUT: 보안 스캔 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: max
+maxTurns: 10
 tools:
   - Read
   - Glob

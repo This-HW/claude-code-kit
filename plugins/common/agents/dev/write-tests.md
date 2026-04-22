@@ -7,6 +7,7 @@ description: |
   OUTPUT: 테스트 코드 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+maxTurns: 20
 isolation: worktree
 disallowedTools:
   - Task

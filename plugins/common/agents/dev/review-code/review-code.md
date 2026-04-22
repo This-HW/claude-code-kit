@@ -7,6 +7,7 @@ description: |
   OUTPUT: 침투 테스트 형식 리뷰 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: opus
 effort: max
+maxTurns: 10
 tools:
   - Read
   - Glob
