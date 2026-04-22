@@ -3,9 +3,6 @@ name: skill-creator
 description: Claude Code 스킬 생성을 간소화합니다. 템플릿과 베스트 프랙티스를 자동 적용합니다.
 model: sonnet
 effort: medium
-domain: common
-argument-hint: "[스킬설명] [스킬이름]"
-allowed-tools: Write, Read, Glob
 ---
 
 # Skill Creator

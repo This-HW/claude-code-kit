@@ -3,9 +3,6 @@ name: doc-coauthoring
 description: 문서 협업. 문서 작성, 리뷰, 업데이트를 자동화합니다.
 model: opus
 effort: medium
-domain: common
-argument-hint: "[작업설명] [파일경로]"
-allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
 # Document Co-authoring

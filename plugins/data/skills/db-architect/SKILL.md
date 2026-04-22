@@ -1,11 +1,8 @@
 ---
 name: db-architect
 description: Database architecture design specialist. ERD design, normalization strategy, indexing optimization, and performance-oriented schema design.
-domain: data
 model: opus
 effort: high
-argument-hint: [business requirements or existing schema]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 ---
 
 # Database Architecture Design Specialist

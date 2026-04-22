@@ -3,9 +3,6 @@ name: mcp-builder
 description: MCP 서버 개발. Model Context Protocol 서버를 생성하고 설정합니다.
 model: sonnet
 effort: medium
-domain: common
-argument-hint: "[서버설명] [서버이름]"
-allowed-tools: Write, Read, Bash, Glob
 ---
 
 # MCP Server Builder

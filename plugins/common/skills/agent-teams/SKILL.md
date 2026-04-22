@@ -6,9 +6,6 @@ description: |
   Opus 4.6 필수, 환경변수 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 필요.
 model: opus
 effort: high
-domain: common
-argument-hint: "[작업설명]"
-allowed-tools: Read, Glob, Task
 ---
 
 # Agent Teams 스킬

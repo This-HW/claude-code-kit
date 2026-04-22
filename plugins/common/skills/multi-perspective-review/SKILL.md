@@ -3,9 +3,6 @@ name: multi-perspective-review
 description: 기획/문서를 여러 관점에서 협업 검토. 10개 관점의 전문가가 의견 교류하며 합의를 도출합니다.
 model: opus
 effort: max
-domain: common
-argument-hint: [문서 경로 또는 Work ID]
-allowed-tools:
   - Read
   - Glob
   - Grep

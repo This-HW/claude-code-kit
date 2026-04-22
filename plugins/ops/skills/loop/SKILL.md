@@ -6,9 +6,6 @@ description: |
   OUTPUT: 등록된 크론 작업 ID와 다음 실행 시각
 model: haiku
 effort: low
-domain: ops
-argument-hint: "[interval] [command] | list | stop <id>"
-allowed-tools: Read
 ---
 
 # Loop 스킬
