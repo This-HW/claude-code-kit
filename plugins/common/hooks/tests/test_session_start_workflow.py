@@ -42,14 +42,14 @@ class TestLoadWorkflowSkill:
         result = load_workflow_skill(tmp_path)
         assert result == ""
 
-    def test_fail_open_on_read_error(self, tmp_path):
+    def test_fail_open_on_read_error(self, tmp_path, monkeypatch):
         skill_dir = tmp_path / "skills" / "using-claude-code-kit"
         skill_dir.mkdir(parents=True)
-        skill_path = skill_dir / "SKILL.md"
-        skill_path.write_text("content")
-        skill_path.chmod(0o000)
-        try:
-            result = load_workflow_skill(tmp_path)
-            assert result == ""
-        finally:
-            skill_path.chmod(0o644)
+        (skill_dir / "SKILL.md").write_text("content")
+
+        def boom(*args, **kwargs):
+            raise OSError("simulated read error")
+
+        monkeypatch.setattr(Path, "read_text", boom)
+        result = load_workflow_skill(tmp_path)
+        assert result == ""

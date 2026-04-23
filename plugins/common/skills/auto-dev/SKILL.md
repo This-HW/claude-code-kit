@@ -25,7 +25,11 @@ ls docs/works/active/W-XXX-*/planning-results.md 2>/dev/null \
 - **파일 있음** → 계속
 - **파일 없음** → "planning-results.md를 찾을 수 없습니다. `/plan-task W-XXX`를 먼저 실행하세요." 출력 후 중단
 
-Fallback 모드(Work ID 없음)에서는 이 확인을 스킵합니다.
+Work ID 없이 새 요청으로 진입한 경우 (`/auto-dev 로그인 기능 추가` 형식):
+- `work.sh new`로 Work 생성 후 → **즉시 `/plan-task W-XXX`로 위임** (planning-results.md 없이 Step 1 진행 금지)
+- 이는 `brainstorming → plan-task → auto-dev` 체인 준수를 위함
+
+Fallback 모드(`docs/works/` 폴더 자체가 없는 경우)에서는 이 확인을 스킵합니다.
 
 ### Work ID가 제공된 경우 (예: `/auto-dev W-042`)
 
