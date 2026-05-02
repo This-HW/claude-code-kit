@@ -76,9 +76,9 @@
       {
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "개발 작업이 완료된 경우: 1) 빌드/테스트가 통과했는가? 2) 코드 리뷰가 완료되었는가? 3) 미완성 작업(TODO, 빈 구현체 등)이 있는가? 미완성이라면 {\"ok\": false, \"reason\": \"남은 작업 설명\"}으로 응답하고, 완료되었다면 {\"ok\": true}로 응답하세요. 개발 작업이 아닌 경우(질문 답변, 조사, 계획 등) {\"ok\": true}로 응답하세요.",
-            "timeout": 30
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-validator.py\"",
+            "timeout": 120
           }
         ]
       }

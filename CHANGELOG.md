@@ -6,6 +6,63 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.2.0] — 2026-05-03
+
+### ⚠️ Behavior Change — Stop Hook
+
+The `Stop` hook has been replaced with an automated validator (`stop-validator.py`).
+
+**What changed:** Previously, the Stop hook asked Claude to self-evaluate completion. Now it runs `ruff` and `pytest` automatically and **blocks the session from stopping if either fails.**
+
+**Who is affected:** All users with Python files modified in the current session.
+
+**How to disable** (per-session or globally):
+
+```json
+// plugins/common/hooks/hooks.json → restore the prompt-based hook:
+"Stop": [
+  {
+    "hooks": [
+      {
+        "type": "prompt",
+        "prompt": "개발 작업이 완료된 경우 ...",
+        "timeout": 30
+      }
+    ]
+  }
+]
+```
+
+Or remove the `Stop` section entirely to disable all stop validation.
+
+**How it works:**
+- No Python files modified → instant pass (no ruff/pytest run)
+- `ruff` not installed → warning to stderr, pass
+- `pytest` not installed → warning to stderr, pass
+- auto-dev pipeline already validated → marker file detected, skip (no double-validation)
+- Max 2 auto-fix retries before giving up
+
+### Added
+
+- **`stop-validator.py`** — automated Stop hook: detects Python changes, runs ruff (with auto-fix) and pytest, blocks on failure with structured JSON output
+- **7 unit tests** for `stop-validator.py` (`hooks/tests/test_stop_validator.py`):
+  - `test_no_py_changes_exits_zero`
+  - `test_lint_auto_fixed_prints_json_and_exits_zero`
+  - `test_lint_auto_fixed_json_structure`
+  - `test_test_failure_exits_two_with_correct_json`
+  - `test_marker_skip_exits_zero_and_consumes_marker`
+  - `test_lint_error_when_auto_fix_fails_exits_two`
+  - `test_max_retries_exceeded_exits_two`
+- **auto-dev SKILL.md** — T-merge step now creates a validation marker to prevent double-validation when auto-dev pipeline already ran lint/test
+
+### Fixed
+
+- Stop hook `PROJECT_ROOT` now derived from `git rev-parse --show-toplevel` (stable regardless of harness cwd)
+- git-relative paths resolved against `PROJECT_ROOT` before passing to ruff (fixes silent lint skip when hook cwd ≠ project root)
+- TOCTOU race condition in marker file check replaced with atomic `try/except unlink()`
+
+---
+
 ## [2.0.0] — 2026-04-22
 
 ### Breaking Changes

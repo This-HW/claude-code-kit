@@ -1,6 +1,6 @@
 {
   "name": "claude-code-kit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
   "author": {
     "name": "This-HW",

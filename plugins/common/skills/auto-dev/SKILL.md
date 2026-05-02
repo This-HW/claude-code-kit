@@ -227,8 +227,18 @@ T-review, T-security 결과를 구조적으로 검증:
 `T-merge` 실행:
 
 0. **[Guard]** 판정 기준 미충족 시: 미충족 항목 + 이슈 목록 + 권고사항을 사용자에게 보고하고 파이프라인을 중단한다. `TaskUpdate(T-merge, status="failed")`. 아래 단계를 실행하지 않는다.
-1. T-review, T-security 결과를 `review-results.md`에 통합 기록
-2. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
+1. **검증 마커 생성** — Stop hook 이중 검증 방지:
+   ```bash
+   touch "/tmp/.claude_validated_$(python3 -c '
+   import hashlib, subprocess
+   r = subprocess.run(["git","rev-parse","--show-toplevel"], capture_output=True, text=True, timeout=5)
+   root = r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else __import__("os").getcwd()
+   print(hashlib.md5(root.encode()).hexdigest()[:8])
+   ')"
+   ```
+   > 이 마커가 있으면 Stop hook이 동일한 lint/test를 다시 실행하지 않는다.
+2. T-review, T-security 결과를 `review-results.md`에 통합 기록
+3. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
 
    ```
    W-XXX Validation 통과. 다음 단계를 선택하세요:
@@ -244,7 +254,7 @@ T-review, T-security 결과를 구조적으로 검증:
    - **옵션 3 (코드 리뷰):** `/review` 실행 후 결과에 따라 옵션 1 또는 2 선택
    - **옵션 4 (브랜치 유지):** Work 상태 active 유지, progress.md에 "Validation 통과" 메모 기록
 
-3. `TaskUpdate(T-merge, status="completed")`
+4. `TaskUpdate(T-merge, status="completed")`
 
 ---
 
