@@ -17,15 +17,10 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-├── common/      — Core agents (33) + skills (14) + rules (12) + hooks
-├── frontend/    — Frontend agents (4) + skills (1)
-├── infra/       — Infrastructure agents (7) + skills (1)
-├── ops/         — Operations agents (14) + skills (5)
-├── data/        — Data agents (4) + skills (3)
-└── integration/ — Integration agents (4)
+└── common/      — Core agents (33) + skills (14) + rules (12) + hooks
 ```
 
-Each domain lives in `plugins/{domain}/` with:
+`plugins/common/` contains:
 
 - `.claude-plugin/plugin.json` — plugin manifest
 - `agents/` — agent `.md` files
@@ -52,12 +47,11 @@ Each domain lives in `plugins/{domain}/` with:
 
 ## Agent Architecture
 
-### 3-Tier Model
+### 2-Tier Model
 
 ```
-Tier 1: plugins/common/    — All projects (33 agents)
-Tier 2: plugins/{domain}/  — Domain-specific (33 agents)
-Tier 3: project-local/     — Project-specific (user-added)
+Tier 1: plugins/common/  — All projects (33 agents)
+Tier 2: project-local/   — Project-specific (user-added)
 ```
 
 ### Agent Frontmatter
@@ -115,22 +109,22 @@ CONTEXT: [handoff context]
 
 ### Adding a New Agent
 
-1. Create `plugins/{domain}/agents/{category}/{name}.md`
+1. Create `plugins/common/agents/{category}/{name}.md`
 2. Add required frontmatter (see template above)
 3. Write Korean description with `MUST USE when:` trigger conditions
 4. Add delegation chain at the end
-5. Register in `plugins/{domain}/.claude-plugin/plugin.json`
+5. Register in `plugins/common/.claude-plugin/plugin.json`
 
 ### Adding a New Skill
 
-1. Create `plugins/{domain}/skills/{name}/SKILL.md`
+1. Create `plugins/common/skills/{name}/SKILL.md`
 2. Optionally add `README.md` in the same directory
-3. Register in `plugins/{domain}/.claude-plugin/plugin.json`
+3. Register in `plugins/common/.claude-plugin/plugin.json`
 
 ### Naming Conventions
 
 - Agents: `verb-noun.md` (fix-bugs, plan-refactor, explore-codebase)
-- Skills: `noun-action` or `domain-task` (web-research, data-modeler)
+- Skills: `noun-action` (web-research, plan-task, auto-dev)
 - All agent names must be kebab-case and match the `name:` frontmatter field
 
 ### Sub-agent Rules
@@ -201,9 +195,9 @@ Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 
 Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update fetched = users never get the fix.
 
-- Patch bump (1.1.x) for bug fixes and hook changes
-- Minor bump (1.x.0) for new agents, skills, or features
-- Also bump domain plugin.json files if those domains changed
+- Patch bump (2.x.y) for bug fixes and hook changes
+- Minor bump (2.x.0) for new agents, skills, or features
+- Run `scripts/verify-done.sh` (green) before claiming a release ready (definition-of-done)
 
 ```bash
 # Before git commit — update version field:
@@ -220,5 +214,5 @@ PRs welcome. Checklist:
 - [ ] File-modifying agents have `isolation: worktree`
 - [ ] Regular agents have `disallowedTools: [Task]`
 - [ ] Skill `description` field is in English
-- [ ] Registered in domain `plugin.json`
+- [ ] Registered in `plugins/common/.claude-plugin/plugin.json`
 - [ ] CI passes (JSON valid, frontmatter complete, no forbidden fields, pytest green, no secrets)

@@ -37,16 +37,12 @@ PYEOF
 
 # D-016: 옵션 파서 (ATK-004: while-loop, 복합 옵션 조합 지원)
 OPT_FORCE=false
-OPT_ALL=false
-OPT_LIST=false
 OPT_STATUS=false
 OPT_MIGRATE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --force)   OPT_FORCE=true; shift;;
-        --all)     OPT_ALL=true; shift;;
-        --list)    OPT_LIST=true; shift;;
         --status)  OPT_STATUS=true; shift;;
         --migrate) OPT_MIGRATE=true; shift;;
         *) echo "Unknown option: $1"; exit 1;;
@@ -105,48 +101,7 @@ if ! _step_done "plugin-common"; then
 fi
 echo "  ℹ 훅(protect-sensitive, auto-format 등)은 플러그인이 자동으로 처리합니다"
 
-# D-016 (IM-06): 도메인 선택 UI에 설명 추가
-if $OPT_LIST; then
-    echo "frontend    — UI 컴포넌트, React/Vue (4 agents, 1 skill)"
-    echo "infra       — Terraform, Docker, K8s (7 agents, 1 skill)"
-    echo "ops         — 배포, 모니터링, 인시던트 (14 agents, 4 skills)"
-    echo "data        — DB 설계, 쿼리 최적화 (4 agents, 3 skills)"
-    echo "integration — Webhook, Slack, CI/CD 연동 (4 agents)"
-    exit 0
-fi
-
-if $OPT_ALL; then
-    DOMAINS="frontend infra ops data integration"
-elif [ -n "${DOMAINS:-}" ]; then
-    : # 환경변수에서 직접 지정
-elif [ -t 0 ] && [ "${CI:-}" != "true" ]; then
-    echo "도메인 플러그인 선택 (원하는 도메인을 space로 구분하여 입력, 없으면 Enter):"
-    echo "  frontend    — UI 컴포넌트, React/Vue (4 agents)"
-    echo "  infra       — Terraform, Docker, K8s (7 agents)"
-    echo "  ops         — 배포, 모니터링, 인시던트 (14 agents)"
-    echo "  data        — DB 설계, 쿼리 최적화 (4 agents)"
-    echo "  integration — Webhook, CI/CD 연동 (4 agents)"
-    read -r -p "선택: " DOMAINS
-else
-    DOMAINS=""  # 비대화형: common만
-fi
-
-ALLOWED_DOMAINS=(frontend infra ops data integration)
-for domain in $DOMAINS; do
-    # 화이트리스트 검증 (command injection 방지)
-    valid=false
-    for allowed in "${ALLOWED_DOMAINS[@]}"; do
-        [[ "$domain" == "$allowed" ]] && valid=true && break
-    done
-    if ! $valid; then
-        echo "  ⚠ Unknown domain: '$domain', 스킵됨"
-        continue
-    fi
-    if ! _step_done "plugin-$domain"; then
-        claude plugin install "claude-code-kit-${domain}@stable" --scope user
-        _mark_done "plugin-$domain"
-    fi
-done
+# (2.7.0) 도메인 플러그인은 제거됨 — core(claude-code-kit) 단일 플러그인 구성.
 
 # 2. ruff.toml 전역 설치
 echo "[2/5] ruff.toml 설치..."
@@ -226,4 +181,4 @@ fi
 
 echo ""
 echo "=== 셋업 완료 ==="
-echo "도메인 플러그인 목록: ./setup.sh --list"
+echo "상태 확인: ./setup.sh --status"

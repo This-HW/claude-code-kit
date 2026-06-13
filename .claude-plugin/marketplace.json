@@ -14,41 +14,6 @@
       "category": "development",
       "source": "./plugins/common",
       "homepage": "https://github.com/This-HW/claude-code-kit"
-    },
-    {
-      "name": "claude-code-kit-frontend",
-      "description": "Frontend agents and skills: React, Vue, UI/UX optimization, and E2E testing.",
-      "category": "development",
-      "source": "./plugins/frontend",
-      "homepage": "https://github.com/This-HW/claude-code-kit"
-    },
-    {
-      "name": "claude-code-kit-infra",
-      "description": "Infrastructure agents and skills: Terraform, Docker, Kubernetes, CI/CD.",
-      "category": "development",
-      "source": "./plugins/infra",
-      "homepage": "https://github.com/This-HW/claude-code-kit"
-    },
-    {
-      "name": "claude-code-kit-ops",
-      "description": "Operations agents and skills: deploy, monitor, incident response, rollback, SLA tracking.",
-      "category": "development",
-      "source": "./plugins/ops",
-      "homepage": "https://github.com/This-HW/claude-code-kit"
-    },
-    {
-      "name": "claude-code-kit-data",
-      "description": "Data engineering agents and skills: database design, query optimization, migration.",
-      "category": "development",
-      "source": "./plugins/data",
-      "homepage": "https://github.com/This-HW/claude-code-kit"
-    },
-    {
-      "name": "claude-code-kit-integration",
-      "description": "Integration agents: webhooks, Slack/Teams notifications, issue sync, CI/CD triggers.",
-      "category": "development",
-      "source": "./plugins/integration",
-      "homepage": "https://github.com/This-HW/claude-code-kit"
     }
   ]
 }
