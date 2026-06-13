@@ -17,7 +17,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-├── common/      — Core agents (33) + skills (12) + rules (9) + hooks
+├── common/      — Core agents (33) + skills (14) + rules (12) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
 ├── ops/         — Operations agents (14) + skills (5)
@@ -48,7 +48,7 @@ Each domain lives in `plugins/{domain}/` with:
 | agent-creator            | `/agent-creator`            | Generate plugin agents                          |
 | skill-creator            | `/skill-creator`            | Generate plugin skills                          |
 | mcp-builder              | `/mcp-builder`              | Scaffold MCP servers                            |
-| agent-teams              | `/agent-teams`              | Parallel tasks via Agent Teams (experimental)   |
+| agent-teams              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` |
 
 ## Agent Architecture
 
@@ -137,7 +137,23 @@ CONTEXT: [handoff context]
 
 - Regular agents: `disallowedTools: [Task]` — cannot spawn sub-agents
 - Meta agents (facilitator, synthesizer, devil's advocate, impact-analyzer): `disallowedTools: [Bash]`
-- Only the main Claude orchestrator coordinates agents
+- Skills (auto-dev, etc.) drive delegation; leaf agents stay flat.
+
+### Orchestration Model — Scale-Appropriate Primitives (Spec 2 / W-006)
+
+오케스트레이션은 전통이 아니라 **스케일별로 올바른 프리미티브**를 쓴다. leaf 에이전트가
+Task를 갖지 않는 이유는 "main만 조율" 도그마가 아니라, 우리 스케일에서 에이전트 중첩이
+성능 이득 없이 예측불가능성·디버깅 부채만 더하기 때문이다.
+
+| 작업 규모 | 오케스트레이션 |
+| --------- | -------------- |
+| Small / Medium | 스킬 주도 플랫 위임 (main이 Agent 병렬 dispatch → 결과 수집). 예측가능·검증된 경로 |
+| Large (10~100+) | 네이티브 `ultracode`(dynamic workflow)를 **사용자가 수동 트리거** — 백그라운드 오케스트레이션. auto-dev는 Large 작업을 청크로 분할해 안내 |
+
+> 네이티브 dynamic workflow / `/goal`은 대화형 전용이라 스킬에서 프로그래밍 트리거가
+> 불가하다(2026.6 기준). 따라서 자동 위임은 검증된 Task 시스템 + 스킬 루프로 하고,
+> 대규모 병렬은 사용자가 `ultracode`로 트리거한다. 실험적 자체 조율(구 agent-teams)은
+> 이 네이티브 경로로 대체됐다.
 
 ### Phase Gate Pattern
 
@@ -151,11 +167,19 @@ Phase 3 (Validation)  → review + security scan (parallel)
 
 Located in `plugins/common/hooks/`:
 
-- `protect-sensitive.py` — blocks commits/edits containing secrets
-- `auto-format.py` — auto-formats code after edits (uses ruff for Python)
+- `session-start.py` — injects rules + active Work status at `SessionStart`
+- `protect-sensitive.py` — blocks commits/edits containing secrets (`PreToolUse`)
+- `auto-format.py` — auto-formats code after edits (uses ruff for Python) (`PostToolUse`)
+- `stop-validator.py` — runs ruff + pytest on `Stop`; on failure emits native
+  `{"decision":"block","reason":...}` so Claude continues and auto-fixes
 - `utils.py` — shared utilities
 
-Hooks are defined in `plugins/common/hooks/hooks.json` and run via `SessionStart`.
+Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
+(`command` + `args[]`) so `${CLAUDE_PLUGIN_ROOT}` paths need no shell quoting.
+
+> Subagent lifecycle tracking is delegated to native OpenTelemetry
+> (`agent_id` / `parent_agent_id` spans, `/usage` breakdown) — the kit no longer
+> ships a custom `agent-lifecycle.py` (removed in 2.3.0, Spec 1 / W-005).
 
 ## Security
 

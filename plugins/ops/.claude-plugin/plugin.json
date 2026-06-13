@@ -1,6 +1,6 @@
 {
   "name": "claude-code-kit-ops",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Operations agents and skills. Deploy, monitor, incident response, rollback, and SLA tracking.",
   "author": {
     "name": "This-HW",
@@ -16,5 +16,8 @@
     "monitor",
     "incident",
     "sla"
+  ],
+  "dependencies": [
+    "claude-code-kit"
   ]
 }

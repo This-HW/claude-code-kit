@@ -112,7 +112,7 @@ T-dev-4: [W-042][Dev] 테스트 작성            ← blockedBy: T-dev-2, T-dev-
 
 각 Task를 `implement-code` 에이전트에 위임 (isolation: worktree):
 
-**병렬 실행 원칙:**
+**병렬 실행 원칙 (스케일별 — Spec 2 / W-006):**
 
 blockedBy 없는 Task가 2개 이상이면 동일 응답에서 동시 dispatch:
 
@@ -121,6 +121,11 @@ Agent(task_A) ─┐
 Agent(task_B) ─┼─ 동일 응답에서 동시 dispatch
 Agent(task_C) ─┘
 ```
+
+**Large 라우팅:** Work `size: Large`이고 unblocked 병렬 청크가 **10개 이상**이면,
+스킬 주도 dispatch는 main 컨텍스트에 부담이 큽니다. 이 경우 청크 목록을 정리해
+사용자에게 네이티브 `ultracode`(dynamic workflow) 트리거를 안내하세요
+(`ultracode`는 대화형 전용 — 스킬에서 자동 트리거 불가). 10개 미만이면 현행 dispatch.
 
 **Task 완료 시 매번 의무:**
 
@@ -200,6 +205,21 @@ TaskCreate 시 metadata:
 T-merge: [W-042][Validation] 결과 통합   — blockedBy: T-review, T-security
 ```
 
+### Feedback ledger 캡처 (Spec 3 / W-007) [건너뛰기 금지]
+
+review-code/security-scan 결과에 **발견된 결함이 있으면(pass·fail 무관)** 각 결함을 정규화해 ledger에 upsert합니다. 같은 실수를 다음 작업에서 사전 차단하는 학습 루프입니다.
+
+```bash
+# category ∈ {lint, security, architecture, test, convention}
+# severity ∈ {critical, high, medium, low}
+# (work.sh와 동일한 ./scripts 관례 — CLAUDE_PLUGIN_ROOT 의존 없음)
+./scripts/feedback.sh upsert <category> <severity> "<결함 요지>"
+```
+
+- 발견된 결함만 기록 (통과 시 회피 패턴은 노이즈라 기록 안 함)
+- ledger 로직(상한·중복제거·감쇠)은 헬퍼가 보장 — 직접 테이블 편집 금지
+- 다음 세션 session-start가 상위 빈도 교훈을 `=== LESSONS ===`로 주입
+
 ### T-merge 판정 기준 [건너뛰기 금지]
 
 #### Iron Law — 완료 주장 전 필수 실행
@@ -255,6 +275,32 @@ T-review, T-security 결과를 구조적으로 검증:
    - **옵션 4 (브랜치 유지):** Work 상태 active 유지, progress.md에 "Validation 통과" 메모 기록
 
 4. `TaskUpdate(T-merge, status="completed")`
+
+---
+
+## Step 5: 배치 모드 — 자율 완주 (Spec 5 / W-009) [opt-in]
+
+여러 Work가 계획되어 배치로 실행 요청된 경우(예: `/auto-dev W-005 W-006 W-007`,
+또는 "계획한 Work 전부 진행"), **설계 게이트 통과 후에는 P0·완료·가드 전까지 멈추지
+않고** 자율 완주합니다. (Loop Engineering — `rules/loop-engineering.md`)
+
+```
+배치 드라이버 (검증된 Task 시스템 + 스킬 루프, 자체 데몬 없음):
+  while (미완료 Work 존재):
+    1. 의존성(Depends on) 충족된 unblocked Work 선택
+    2. 해당 Work에 Step 0~3 (Development → Validation) 실행
+    3. validation 통과 → progress.md 래칫 → work.sh complete
+    4. 종료 가드 점검 → 다음 Work로 사람 확인 없이 전진
+  → 배치 완료 보고
+```
+
+**종료 가드 (필수):**
+- P0 모호함 → 즉시 `AskUserQuestion`, 루프 탈출
+- validation 실패가 continueOnBlock 재시도 후에도 잔존 → 보고 후 해당 Work 정지
+- 동일 Work에서 진전 없는 반복(2회+) → 에스컬레이션
+- 배치 전체 완료 → 종합 보고
+
+**단발 실행**(`/auto-dev W-XXX` 단일)은 기존 동작 유지 — 배치 드라이버 미발동.
 
 ---
 

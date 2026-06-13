@@ -59,8 +59,8 @@ def test_no_py_changes_exits_zero(monkeypatch):
     assert exc_info.value.code == 0
 
 
-# ── TC2a: lint_auto_fixed (stdout 확인) ──────────────────────────
-def test_lint_auto_fixed_prints_json_and_exits_zero(monkeypatch, capsys):
+# ── TC2a: lint_auto_fixed (stderr 정보 메시지 + exit 0) ───────────
+def test_lint_auto_fixed_reports_on_stderr_and_exits_zero(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["file.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (False, "E501 line too long"))
     monkeypatch.setattr(_mod, "auto_fix_lint", lambda files: (True, ["file.py"], ""))
@@ -70,11 +70,12 @@ def test_lint_auto_fixed_prints_json_and_exits_zero(monkeypatch, capsys):
         _mod.main()
 
     assert exc_info.value.code == 0
-    assert "auto_fixed" in capsys.readouterr().out
+    # 정보성 메시지는 stderr로 — stdout은 decision 프로토콜 전용.
+    assert "자동 수정" in capsys.readouterr().err
 
 
-# ── TC2b: lint_auto_fixed (JSON 구조 확인) ───────────────────────
-def test_lint_auto_fixed_json_structure(monkeypatch, capsys):
+# ── TC2b: lint_auto_fixed (수정 파일이 stderr에 보고) ────────────
+def test_lint_auto_fixed_lists_files_on_stderr(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["file.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (False, "E501 error"))
     monkeypatch.setattr(_mod, "auto_fix_lint", lambda files: (True, ["file.py"], ""))
@@ -83,13 +84,11 @@ def test_lint_auto_fixed_json_structure(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         _mod.main()
 
-    payload = _extract_json(capsys.readouterr().out)
-    assert payload["action"] == "auto_fixed"
-    assert "file.py" in payload["fixed_files"]
+    assert "file.py" in capsys.readouterr().err
 
 
-# ── TC3: test_failure ────────────────────────────────────────────
-def test_test_failure_exits_two_with_correct_json(monkeypatch, capsys):
+# ── TC3: test_failure (decision:block + exit 0) ──────────────────
+def test_test_failure_emits_block_decision(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (True, ""))
     monkeypatch.setattr(
@@ -99,10 +98,12 @@ def test_test_failure_exits_two_with_correct_json(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
 
-    assert exc_info.value.code == 2
+    # 네이티브 스키마: decision 필드가 차단 제어, exit 0.
+    assert exc_info.value.code == 0
     payload = _extract_json(capsys.readouterr().out)
-    assert payload["failure_type"] == "test_failure"
-    assert "FAILED test_foo" in payload["details"]["output"]
+    assert payload["decision"] == "block"
+    assert "test_failure" in payload["reason"]
+    assert "FAILED test_foo" in payload["reason"]
 
 
 # ── TC4: marker_skip ─────────────────────────────────────────────
@@ -116,8 +117,8 @@ def test_marker_skip_exits_zero_and_consumes_marker(monkeypatch):
     assert not _mod.VALIDATED_MARKER.exists(), "마커 파일이 소비(삭제)되지 않았습니다."
 
 
-# ── TC5: lint_error (auto-fix 실패) ──────────────────────────────
-def test_lint_error_when_auto_fix_fails_exits_two(monkeypatch, capsys):
+# ── TC5: lint_error (auto-fix 실패 → decision:block) ─────────────
+def test_lint_error_when_auto_fix_fails_emits_block(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["bad.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (False, "E999 SyntaxError"))
     monkeypatch.setattr(
@@ -127,22 +128,24 @@ def test_lint_error_when_auto_fix_fails_exits_two(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
 
-    assert exc_info.value.code == 2
+    assert exc_info.value.code == 0
     payload = _extract_json(capsys.readouterr().out)
-    assert payload["failure_type"] == "lint_error"
+    assert payload["decision"] == "block"
+    assert "lint_error" in payload["reason"]
 
 
-# ── TC6: max_retries_exceeded ─────────────────────────────────────
-def test_max_retries_exceeded_exits_two(monkeypatch, capsys):
+# ── TC6: max_retries_exceeded (decision:block) ───────────────────
+def test_max_retries_exceeded_emits_block(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
     _mod.RETRY_COUNTER.write_text(str(_mod.MAX_RETRIES), encoding="utf-8")
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
 
-    assert exc_info.value.code == 2
+    assert exc_info.value.code == 0
     payload = _extract_json(capsys.readouterr().out)
-    assert payload["failure_type"] == "max_retries_exceeded"
+    assert payload["decision"] == "block"
+    assert "max_retries_exceeded" in payload["reason"]
     assert not _mod.RETRY_COUNTER.exists(), (
         "max_retries 후 카운터가 리셋되지 않았습니다."
     )

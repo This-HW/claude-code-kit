@@ -1,6 +1,6 @@
 {
   "name": "claude-code-kit-infra",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Infrastructure agents and skills. Terraform, Docker, Kubernetes, CI/CD, and cloud infrastructure.",
   "author": {
     "name": "This-HW",
@@ -16,5 +16,8 @@
     "docker",
     "kubernetes",
     "cicd"
+  ],
+  "dependencies": [
+    "claude-code-kit"
   ]
 }

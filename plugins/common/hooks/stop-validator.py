@@ -86,18 +86,31 @@ def allow(message: str = ""):
 
 def block(failure_type: str, reason: str, details: dict | None = None):
     """
-    Stop을 차단: Claude Code가 Claude에게 재응답을 요청.
-    stdout에 출력된 내용이 Claude의 컨텍스트에 주입된다.
+    Stop을 차단: 네이티브 Stop 훅 스키마(decision=block + reason)로
+    Claude에게 수정 컨텍스트를 전달해 자동 수정 턴을 유도한다.
+
+    참조: DEC-002 (W-005) — 미문서화 continueOnBlock 대신 공식 문서의
+    {"decision":"block","reason":...} + exit 0 사용. decision 필드가
+    exit code와 무관하게 차단을 제어하며, reason이 Claude 컨텍스트에 주입된다.
     """
-    payload = {
-        "failure_type": failure_type,
-        "reason": reason,
-        "details": details or {},
-        "retry_count": get_retry_count(),
-        "action_required": _get_action_hint(failure_type),
-    }
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
-    sys.exit(2)
+    retry = get_retry_count()
+    parts = [
+        reason,
+        f"[{failure_type}] {_get_action_hint(failure_type)}",
+        f"자동 수정 재시도: {retry}/{MAX_RETRIES}",
+    ]
+    details = details or {}
+    if details.get("errors"):
+        parts.append("린트 오류:\n" + str(details["errors"]))
+    if details.get("output"):
+        parts.append("테스트 출력:\n" + str(details["output"]))
+    if details.get("files"):
+        parts.append("대상 파일: " + ", ".join(details["files"]))
+    if details.get("modified_files"):
+        parts.append("변경 파일: " + ", ".join(details["modified_files"]))
+    full_reason = "\n\n".join(parts)
+    print(json.dumps({"decision": "block", "reason": full_reason}, ensure_ascii=False))
+    sys.exit(0)
 
 
 def _get_action_hint(failure_type: str) -> str:
@@ -277,16 +290,11 @@ def main():
     if not lint_passed:
         fixed, fixed_files, remaining = auto_fix_lint(modified_files)
         if fixed:
+            # 정보성 메시지는 stderr로 — stdout은 decision 프로토콜 전용으로 유지.
             print(
-                json.dumps(
-                    {
-                        "action": "auto_fixed",
-                        "fixed_files": fixed_files,
-                        "message": f"ruff가 {len(fixed_files)}개 파일을 자동 수정했습니다. "
-                        f"수정된 파일: {', '.join(fixed_files)}",
-                    },
-                    ensure_ascii=False,
-                )
+                f"[stop-validator] ruff가 {len(fixed_files)}개 파일을 자동 수정: "
+                f"{', '.join(fixed_files)}",
+                file=sys.stderr,
             )
         else:
             increment_retry()

@@ -1,10 +1,10 @@
 # claude-code-kit
 
-> Universal Claude Code toolkit — 66 agents + 22 skills for software development
+> Universal Claude Code toolkit — 66 agents + 24 skills for software development
 
 A structured, multi-domain AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, infrastructure, operations, and more.
 
-**Current version: 2.0.0** — Official plugin registry compliant. See [CHANGELOG.md](CHANGELOG.md) for breaking changes.
+**Current version: 2.6.0** — Native-first foundation, scale-appropriate orchestration, feedback learning loop, and loop engineering. See [CHANGELOG.md](CHANGELOG.md) and [docs/specs/](docs/specs/).
 
 ---
 
@@ -47,13 +47,75 @@ Options:
 
 ---
 
+## Architecture & Concepts
+
+claude-code-kit이 무엇을 어떻게 융합하는지 — 한눈에 보는 설계 원리.
+
+### 설계 철학 — 네이티브 우선, kit은 의견 레이어
+
+> **기술부채의 최대 원천은 Claude Code가 네이티브로 하는 일을 자체 구현으로 중복하는 것이다.**
+
+네이티브 프리미티브(agents·skills·hooks·dynamic workflows·OTEL·memory)는 거의 매주
+진화한다. 그래서 이 kit의 가치는 **인프라가 아니라, 그 위에 얹는 "의견이 담긴
+에이전트·스킬·규율 레이어"** 다. 관측·위임·훅 실행 같은 인프라는 네이티브에 위임하고,
+손으로 만든 대체물은 삭제한다 → zero-debt.
+
+### 네 갈래의 융합
+
+| 갈래 | 무엇을 가져왔나 | kit에서 |
+| --- | --- | --- |
+| **Claude Code 네이티브** | agents, skills, hooks, dynamic workflow, OTEL, memory | 토대 프리미티브 — 매니페스트 의존성, exec-form 훅, `decision:block` 자동수정, 네이티브 관측 |
+| **superpowers 규율** | brainstorming→plan→execute, phase gate, TDD, verification-before-completion | `brainstorming → plan-task → auto-dev` HARD-GATE 체인, Iron Law 검증 |
+| **Hermes 피드백 루프** | "메모리·피드백 루프가 코어" | validation 결함 → feedback ledger → 다음 구현 컨텍스트 주입 (학습 루프) |
+| **자체 Work 시스템** | 파일 기반 감사 가능 추적 | `docs/works/` Work ID·progress.md·decisions.md |
+
+### Harness × Loop Engineering
+
+두 상보 개념이 kit의 자율성을 만든다:
+
+- **Harness Engineering** — *어디서·무엇으로* 행동하는가. 컨텍스트 주입(session-start),
+  도구 큐레이션(per-agent tools), 가드레일(protect-sensitive·stop-validator), Work 메모리.
+- **Loop Engineering** — *얼마나 오래·끈질기게* 행동하는가. 승인된 배치를 P0·완료·가드
+  전까지 자율 완주. 게이트(설계·사람 멈춤)와 루프(실행·자율)를 분리한다.
+
+### 결합 방식
+
+```
+ [설계 게이트 — 사람 승인]              [실행 루프 — 자율 완주]
+ brainstorming → plan-task    ──승인──▶  auto-dev 배치 드라이버
+ (무엇을 만들지 HARD-GATE)               (TaskList 폴링 + 종료 가드)
+                                              │
+        ┌─────────────────────────────────────┤ 스케일별 오케스트레이션
+        ▼                                     ▼
+   Small/Medium: 스킬 주도 플랫 dispatch   Large: 네이티브 ultracode
+        │                                     │
+        ▼  validation (review + security)     ▼
+   continueOnBlock 자동수정 마이크로루프
+        │
+        ▼  결함 → feedback ledger → 다음 세션 LESSONS 주입  ◀─┐
+        └──────────────────── 학습 루프 ──────────────────────┘
+```
+
+세부는 SSOT 문서 참조: [CLAUDE.md](CLAUDE.md) (오케스트레이션·규율),
+[docs/specs/](docs/specs/) (설계 스펙), `plugins/common/rules/` (규칙).
+
+---
+
+## What's New in 2.6.0
+
+Native-first foundation + 자체 재구현 제거 (Spec 1~5). 전부 하위호환. 세부: [CHANGELOG.md](CHANGELOG.md).
+
+- **Native foundation** — 매니페스트 `dependencies` 선언, 훅 exec form, Stop 훅 `decision:block` 자동수정, `agent-lifecycle.py` 제거(→네이티브 OTEL 관측)
+- **Scale-appropriate orchestration** — Small/Medium 스킬 주도 플랫, Large 네이티브 `ultracode`. `agent-teams` → 네이티브 workflow 가이드
+- **Feedback learning loop** — validation 결함을 ledger에 누적 → 다음 세션 `=== LESSONS ===` 주입
+- **Loop engineering** — 게이트(설계·사람) vs 루프(실행·자율 완주) 분리, auto-dev 배치 드라이버 + 종료 가드
+- **Architecture & Concepts** — 위 "Architecture & Concepts" 섹션에 개념 융합 narrative 추가
+
 ## What's New in v2.0.0
 
 - **Official plugin registry compliant** — all manifests meet `claude-plugins-official` marketplace standards (`homepage`, `repository`, `license`, `author.email`)
 - **Clean frontmatter** — removed non-standard fields (`permissionMode`, `context_cache`, `output_schema`, `next_agents`, inline `hooks`) from all 66 agents
 - **Loop prevention** — `maxTurns` added to all agents (20 for implementation, 10 for exploration/review)
-- **New lifecycle hooks** — `SubagentStart`, `SubagentStop`, `PreCompact` events via `agent-lifecycle.py`
-- **91 unit tests** — full test coverage for all hook scripts (`session-start`, `protect-sensitive`, `auto-format`, `utils`)
 - **CI strengthened** — manifest required-fields check, forbidden-frontmatter check, and pytest step added to CI
 - **English skill descriptions** — all skill `description` fields converted to English for correct Claude auto-invocation
 
@@ -361,7 +423,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-├── common/      — Core agents (33) + skills (12) + rules (9) + hooks
+├── common/      — Core agents (33) + skills (14) + rules (12) + hooks
 ├── frontend/    — Frontend agents (4) + skills (1)
 ├── infra/       — Infrastructure agents (7) + skills (1)
 ├── ops/         — Operations agents (14) + skills (5)

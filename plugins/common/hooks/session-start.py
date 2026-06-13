@@ -201,6 +201,9 @@ ALWAYS_RULES = [
     "code-quality.md",
     "ssot.md",
     "mcp-usage.md",
+    "feedback-loop.md",
+    "loop-engineering.md",
+    "definition-of-done.md",
 ]
 
 
@@ -231,6 +234,23 @@ def load_rules(plugin_root: Path, include_task_resume: bool) -> str:
         return ""
 
     return "=== RULES ===\n" + "\n---\n".join(sections) + "\n=== END RULES ==="
+
+
+def load_lessons(project_root: Path) -> str:
+    """feedback ledger digest를 '=== LESSONS ===' 섹션으로 반환 (Spec 3 / W-007).
+
+    ledger 부재/파싱 실패 시 빈 문자열 (fail-open, opt-in).
+    """
+    try:
+        from feedback_ledger import load_digest
+
+        os.environ.setdefault("CLAUDE_PROJECT_DIR", str(project_root))
+        digest = load_digest(root=project_root)
+    except Exception:
+        return ""
+    if not digest:
+        return ""
+    return "=== LESSONS ===\n" + digest + "\n=== END LESSONS ==="
 
 
 def load_workflow_skill(plugin_root: Path) -> str:
@@ -315,6 +335,7 @@ def main() -> None:
 
     rules_text = load_rules(_file_based_root, include_task_resume=has_active_work)
     workflow_text = load_workflow_skill(_file_based_root)
+    lessons_text = load_lessons(project_root)
 
     # context 조합
     parts = []
@@ -322,6 +343,8 @@ def main() -> None:
         parts.append(workflow_text)
     if active_work_text:
         parts.append(active_work_text)
+    if lessons_text:
+        parts.append(lessons_text)
     if rules_text:
         parts.append(rules_text)
 
