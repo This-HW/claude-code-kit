@@ -12,7 +12,11 @@
       "name": "claude-code-kit",
       "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
       "category": "development",
-      "source": "./plugins/common",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/This-HW/claude-code-kit",
+        "path": "plugins/common"
+      },
       "homepage": "https://github.com/This-HW/claude-code-kit"
     }
   ]
