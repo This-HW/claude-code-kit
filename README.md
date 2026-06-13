@@ -13,18 +13,17 @@ A focused, single-plugin AI agent system built for Claude Code. Covers the full 
 **Prerequisites:** [Claude Code CLI](https://code.claude.com) installed (`claude --version`)
 
 ```bash
-# Via official marketplace (core toolkit only)
-/plugin install claude-code-kit@claude-plugins-official
-```
-
-```bash
-# Via custom marketplace
+# Add the marketplace and install (recommended — works today)
 /plugin marketplace add This-HW/claude-code-kit
 /plugin install claude-code-kit@This-HW/claude-code-kit
 
 # Updating: refresh the marketplace, then the new version is picked up
 /plugin marketplace update claude-code-kit
 ```
+
+> **Official registry:** submission to `claude-plugins-official` is pending Anthropic
+> review. Once approved, `/plugin install claude-code-kit@claude-plugins-official`
+> will also work. Until then, use the marketplace command above.
 
 ## Full Mode (Security Hooks + Auto-format)
 
