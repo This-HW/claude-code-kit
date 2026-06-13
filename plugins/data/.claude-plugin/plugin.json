@@ -1,6 +1,6 @@
 {
   "name": "claude-code-kit-data",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Data engineering and analytics agents and skills. Database design, query optimization, data migration, and analytics.",
   "author": {
     "name": "This-HW",
@@ -16,5 +16,8 @@
     "analytics",
     "sql",
     "etl"
+  ],
+  "dependencies": [
+    "claude-code-kit"
   ]
 }
