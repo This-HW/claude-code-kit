@@ -96,7 +96,8 @@ _check_version "gitleaks" "8.18.0"
 # 1. Plugin 설치 (common 필수)
 echo "[1/5] Plugin 설치..."
 if ! _step_done "plugin-common"; then
-    claude plugin install claude-code-kit@stable --scope user
+    claude plugin marketplace add This-HW/claude-code-kit 2>/dev/null || true
+    claude plugin install claude-code-kit@claude-code-kit --scope user
     _mark_done "plugin-common"
 fi
 echo "  ℹ 훅(protect-sensitive, auto-format 등)은 플러그인이 자동으로 처리합니다"
