@@ -9,8 +9,8 @@ Submit at: https://platform.claude.com/plugins/submit
 
 - **v2.7.0** tagged and ready — 2026-06-14 (core-only consolidation + native foundation + git-subdir distribution)
 - Recovery point before consolidation: tag `v2.6.0-with-domains`
-- [ ] Submit via web form
-- [ ] Await approval
+- [x] Submit via web form — 2026-06-14
+- [ ] Await approval (Anthropic 심사 대기)
 
 ## Submission Info
 
