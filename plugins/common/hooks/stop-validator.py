@@ -60,8 +60,14 @@ EXCLUDE_DIRS = {
 
 # ── 유틸 ────────────────────────────────────────────────────────
 def _read_input() -> dict:
-    """Stop 훅 stdin(JSON)을 파싱. 비어있거나 깨졌으면 빈 dict."""
+    """Stop 훅 stdin(JSON)을 파싱. 비어있거나 깨졌으면 빈 dict.
+
+    수동 실행(TTY) 시 read()가 EOF를 기다리며 멈추지 않도록 isatty 가드.
+    프로덕션 Stop 훅은 항상 이벤트 JSON을 stdin으로 파이프한다.
+    """
     try:
+        if sys.stdin.isatty():
+            return {}
         raw = sys.stdin.read()
         return json.loads(raw) if raw.strip() else {}
     except Exception:
@@ -126,7 +132,6 @@ def _get_action_hint(failure_type: str) -> str:
     hints = {
         "lint_error": "남은 린트 오류를 수동으로 수정하세요.",
         "test_failure": "실패한 테스트를 확인하고 코드를 수정하세요.",
-        "max_retries_exceeded": "자동 수정 한계 초과. 수동 확인이 필요합니다.",
     }
     return hints.get(failure_type, "확인이 필요합니다.")
 

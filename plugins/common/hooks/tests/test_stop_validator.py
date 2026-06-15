@@ -165,3 +165,25 @@ def test_stop_hook_active_short_circuits(monkeypatch, capsys):
 
     assert exc_info.value.code == 0
     assert '"decision"' not in capsys.readouterr().out
+
+
+# ── TC8: _read_input — TTY hang 가드 + JSON 파싱 ──────────────────
+def test_read_input_returns_empty_on_tty(monkeypatch):
+    """수동 실행(TTY)에서 stdin.read()로 멈추지 않고 빈 dict 반환."""
+
+    class _FakeStdin:
+        def isatty(self):
+            return True
+
+        def read(self):  # 호출되면 안 됨 (호출 시 hang을 의미)
+            raise AssertionError("TTY에서 read()를 호출하면 안 된다")
+
+    monkeypatch.setattr("sys.stdin", _FakeStdin())
+    assert _mod._read_input() == {}
+
+
+def test_read_input_parses_json(monkeypatch):
+    import io
+
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"stop_hook_active": true}'))
+    assert _mod._read_input() == {"stop_hook_active": True}
