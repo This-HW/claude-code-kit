@@ -21,6 +21,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.venv`/`venv` 인터프리터를 우선 사용하고, 모듈 부재는 차단이 아니라 스킵으로 처리.
 - **`stop_hook_active` 존중**: stdin을 읽어 stop-hook 재진입(`stop_hook_active=true`) 시
   즉시 통과 — 네이티브 무한 루프 가드.
+- **세션별 파일 스코핑(1차 트리거 제거)**: 기존엔 `git diff HEAD`로 레포 전체 dirty
+  `.py`를 검증 대상으로 삼아, *이 세션이 안 건드린* 병렬 세션 미커밋 `.py`에도 매 턴
+  pytest를 돌렸다(사건 1차 트리거). 이제 Stop 훅 `transcript_path`를 파싱해 이 세션이
+  Edit/Write로 실제 편집한 파일만 검증한다. transcript 부재 시 전체 검증으로 폴백.
+- **TTY hang 가드**: `_read_input()`이 수동 실행 시 `stdin.read()` EOF 대기로 멈추지
+  않도록 `isatty()` 체크 추가.
 
 ## [2.7.0] — 2026-06-14
 

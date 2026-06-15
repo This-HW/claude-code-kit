@@ -15,6 +15,7 @@ the prompt-based hook (see CHANGELOG.md [2.2.0]) or remove it entirely.
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -170,6 +171,58 @@ def get_modified_py_files() -> list[str]:
         return []
 
 
+def _real(f: str) -> str:
+    """git-relative/절대 경로를 심볼릭링크까지 정규화한 절대 경로로 변환."""
+    return os.path.realpath(f if os.path.isabs(f) else str(PROJECT_ROOT / f))
+
+
+def _session_edited_files(data: dict) -> set[str] | None:
+    """이번 세션이 Edit/Write 계열 도구로 만진 파일의 정규화 절대경로 집합.
+
+    Stop 훅 stdin의 transcript_path(JSONL 대화 기록)에서 tool_use 블록을 스캔한다.
+    이로써 '레포 전체 dirty .py'가 아니라 '이 세션이 실제로 편집한 파일'만 검증
+    대상으로 좁혀, 병렬 세션이 남긴 미커밋 .py에 의한 오탐(이번 사건 1차 트리거)을 막는다.
+
+    transcript_path가 없거나(구 하니스) 파싱 실패면 None을 반환 → 호출부는
+    기존 동작(전체 dirty .py 검증)으로 폴백한다(그레이스풀 디그레이드).
+    """
+    tp = data.get("transcript_path")
+    if not tp:
+        return None
+    path = Path(tp).expanduser()
+    if not path.exists():
+        return None
+    edit_tools = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+    edited: set[str] = set()
+    try:
+        # 대용량 transcript를 통째로 올리지 않도록 줄 단위 스트리밍.
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except Exception:
+                    continue
+                msg = event.get("message", event)
+                content = msg.get("content") if isinstance(msg, dict) else None
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if (
+                        isinstance(block, dict)
+                        and block.get("type") == "tool_use"
+                        and block.get("name") in edit_tools
+                    ):
+                        fp = (block.get("input") or {}).get("file_path")
+                        if fp:
+                            edited.add(_real(str(fp)))
+        return edited
+    except Exception:
+        return None
+
+
 # ── 린트 ────────────────────────────────────────────────────────
 def _resolve_paths(target_files: list[str]) -> list[str]:
     """git-relative 경로를 PROJECT_ROOT 기준 절대 경로로 변환.
@@ -308,12 +361,18 @@ def main():
     except FileNotFoundError:
         pass
 
-    # 2. Python 파일 변경 없음 → 스킵
+    # 2. 변경된 .py를 '이 세션이 편집한 파일'로 스코핑 → 병렬 세션의 미커밋 .py에
+    #    의한 오탐 차단. transcript 없으면 전체 dirty .py로 폴백.
     modified_files = get_modified_py_files()
+    session_edited = _session_edited_files(data)
+    if session_edited is not None:
+        modified_files = [f for f in modified_files if _real(f) in session_edited]
+
+    # 3. 검증 대상 .py 없음 → 스킵
     if not modified_files:
         allow()
 
-    # 3. max retries guard — 한계 도달 시 차단(block)이 아니라 중단(allow).
+    # 4. max retries guard — 한계 도달 시 차단(block)이 아니라 중단(allow).
     #    block()은 "턴을 끝내지 말라"는 신호라 cap에서 block+counter reset 하면
     #    test_failure↔max_retries 사이클로 영원히 반복됐다. cap = "검증 그만, 턴 종료".
     #    stop_hook_active 미전달 환경을 위한 백스톱이기도 하다.
@@ -325,7 +384,7 @@ def main():
             "남아 검증을 중단합니다. 수동 확인이 필요합니다."
         )
 
-    # 4. 린트 검사
+    # 5. 린트 검사
     lint_passed, lint_errors = check_lint(modified_files)
     if not lint_passed:
         fixed, fixed_files, remaining = auto_fix_lint(modified_files)
@@ -344,7 +403,7 @@ def main():
                 {"errors": remaining[:2000], "files": modified_files},
             )
 
-    # 5. 테스트 검사 (test_failure는 자동 수정 불가 → 바로 block)
+    # 6. 테스트 검사 (test_failure는 자동 수정 불가 → 바로 block)
     tests_passed, test_output = check_tests()
     if not tests_passed:
         increment_retry()

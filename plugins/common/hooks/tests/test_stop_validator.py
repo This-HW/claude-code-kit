@@ -187,3 +187,92 @@ def test_read_input_parses_json(monkeypatch):
 
     monkeypatch.setattr("sys.stdin", io.StringIO('{"stop_hook_active": true}'))
     assert _mod._read_input() == {"stop_hook_active": True}
+
+
+# ── TC9: _session_edited_files — 세션 편집 파일 스코핑 ─────────────
+def _write_transcript(tmp_path, edited_paths):
+    """tool_use(Edit) 이벤트 + 노이즈 라인(비 tool_use, 깨진 JSON)을 섞은 transcript."""
+    lines = [
+        json.dumps(
+            {
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Edit",
+                            "input": {"file_path": str(p)},
+                        }
+                    ]
+                }
+            }
+        )
+        for p in edited_paths
+    ]
+    lines.append("not valid json")  # 견고성: 깨진 줄 무시
+    lines.append(json.dumps({"message": {"content": "plain text"}}))  # content 비리스트
+    f = tmp_path / "transcript.jsonl"
+    f.write_text("\n".join(lines), encoding="utf-8")
+    return f
+
+
+def test_session_edited_none_without_transcript():
+    assert _mod._session_edited_files({}) is None
+
+
+def test_session_edited_none_when_file_missing(tmp_path):
+    data = {"transcript_path": str(tmp_path / "nope.jsonl")}
+    assert _mod._session_edited_files(data) is None
+
+
+def test_session_edited_parses_tool_use(tmp_path):
+    edited = _mod.PROJECT_ROOT / "app.py"
+    f = _write_transcript(tmp_path, [edited])
+    assert _mod._session_edited_files({"transcript_path": str(f)}) == {
+        _mod._real(str(edited))
+    }
+
+
+def test_main_skips_parallel_session_file(tmp_path, monkeypatch, capsys):
+    """사건 재현: 병렬 세션이 dirty 만든 .py는 transcript에 없어 검증에서 제외 → 통과."""
+    # git은 parallel 파일이 변경됐다 보고하지만, 이 세션은 docs(.md)만 편집했다.
+    monkeypatch.setattr(
+        _mod, "get_modified_py_files", lambda: ["scripts/resolve_approval.py"]
+    )
+    transcript = _write_transcript(tmp_path, [tmp_path / "docs" / "spec.md"])
+    monkeypatch.setattr(
+        _mod, "_read_input", lambda: {"transcript_path": str(transcript)}
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert '"decision"' not in capsys.readouterr().out  # 차단 없이 통과
+
+
+def test_main_validates_session_edited_file(tmp_path, monkeypatch):
+    """이 세션이 편집한 .py는 스코핑을 통과해 검증 단계로 진입한다."""
+    edited = _mod.PROJECT_ROOT / "app.py"
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
+    transcript = _write_transcript(tmp_path, [edited])
+    monkeypatch.setattr(
+        _mod, "_read_input", lambda: {"transcript_path": str(transcript)}
+    )
+    called = {"lint": False, "tests": False}
+
+    def _fake_lint(files):
+        called["lint"] = True
+        return True, ""
+
+    def _fake_tests():
+        called["tests"] = True
+        return True, ""
+
+    monkeypatch.setattr(_mod, "check_lint", _fake_lint)
+    monkeypatch.setattr(_mod, "check_tests", _fake_tests)
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert called["lint"] and called["tests"], "스코핑 통과 후 검증이 실행돼야 한다"
