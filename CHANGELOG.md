@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.7.1] — 2026-06-15
+
+### Fixed — stop-validator 무한 루프 + pytest 오탐
+
+턴 종료 시 도는 `stop-validator.py`가 외부 dirty `.py`(병렬 세션 미커밋 등)를 만나면
+무한 차단 루프에 빠지던 문제를 수정. 하니스의 연속 차단 cap이 강제 종료할 때까지 반복됐다.
+
+- **무한 루프 근본 차단**: `max_retries_exceeded` 분기가 `block()` + 카운터 reset 하던 것을
+  `allow()`로 전환. cap은 "검증 중단·턴 종료"가 정상인데 정반대로 동작해
+  `test_failure ↔ max_retries` 사이클을 영원히 돌렸다.
+- **pytest 오탐(#332)**: `check_tests()`가 시스템 `python3`로 pytest를 실행해
+  모듈 부재 시 `No module named pytest` → `test_failure`로 차단했다. 이제 프로젝트
+  `.venv`/`venv` 인터프리터를 우선 사용하고, 모듈 부재는 차단이 아니라 스킵으로 처리.
+- **`stop_hook_active` 존중**: stdin을 읽어 stop-hook 재진입(`stop_hook_active=true`) 시
+  즉시 통과 — 네이티브 무한 루프 가드.
+- **세션별 파일 스코핑(1차 트리거 제거)**: 기존엔 `git diff HEAD`로 레포 전체 dirty
+  `.py`를 검증 대상으로 삼아, *이 세션이 안 건드린* 병렬 세션 미커밋 `.py`에도 매 턴
+  pytest를 돌렸다(사건 1차 트리거). 이제 Stop 훅 `transcript_path`를 파싱해 이 세션이
+  Edit/Write로 실제 편집한 파일만 검증한다. transcript 부재 시 전체 검증으로 폴백.
+- **TTY hang 가드**: `_read_input()`이 수동 실행 시 `stdin.read()` EOF 대기로 멈추지
+  않도록 `isatty()` 체크 추가.
+
 ## [2.7.0] — 2026-06-14
 
 ### Removed — Core-only consolidation

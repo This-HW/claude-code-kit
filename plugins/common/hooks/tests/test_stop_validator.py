@@ -134,8 +134,11 @@ def test_lint_error_when_auto_fix_fails_emits_block(monkeypatch, capsys):
     assert "lint_error" in payload["reason"]
 
 
-# ── TC6: max_retries_exceeded (decision:block) ───────────────────
-def test_max_retries_exceeded_emits_block(monkeypatch, capsys):
+# ── TC6: max_retries 도달 → block이 아니라 allow (무한 루프 방지) ──
+def test_max_retries_exceeded_allows_not_blocks(monkeypatch, capsys):
+    """cap 도달 시 block()하면 test_failure↔max_retries 무한 루프가 된다.
+    cap = '검증 중단·턴 종료'이므로 allow(exit 0, decision JSON 없음)여야 한다.
+    """
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
     _mod.RETRY_COUNTER.write_text(str(_mod.MAX_RETRIES), encoding="utf-8")
 
@@ -143,9 +146,133 @@ def test_max_retries_exceeded_emits_block(monkeypatch, capsys):
         _mod.main()
 
     assert exc_info.value.code == 0
-    payload = _extract_json(capsys.readouterr().out)
-    assert payload["decision"] == "block"
-    assert "max_retries_exceeded" in payload["reason"]
+    out = capsys.readouterr().out
+    assert '"decision"' not in out, "cap에서 차단(block) JSON을 내면 안 된다."
     assert not _mod.RETRY_COUNTER.exists(), (
         "max_retries 후 카운터가 리셋되지 않았습니다."
     )
+
+
+# ── TC7: stop_hook_active=true → 즉시 통과 (네이티브 무한 루프 가드) ──
+def test_stop_hook_active_short_circuits(monkeypatch, capsys):
+    monkeypatch.setattr(_mod, "_read_input", lambda: {"stop_hook_active": True})
+    # 변경 파일/카운터가 차단 조건이어도 stop_hook_active가 우선해 통과해야 한다.
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
+    _mod.RETRY_COUNTER.write_text("1", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert '"decision"' not in capsys.readouterr().out
+
+
+# ── TC8: _read_input — TTY hang 가드 + JSON 파싱 ──────────────────
+def test_read_input_returns_empty_on_tty(monkeypatch):
+    """수동 실행(TTY)에서 stdin.read()로 멈추지 않고 빈 dict 반환."""
+
+    class _FakeStdin:
+        def isatty(self):
+            return True
+
+        def read(self):  # 호출되면 안 됨 (호출 시 hang을 의미)
+            raise AssertionError("TTY에서 read()를 호출하면 안 된다")
+
+    monkeypatch.setattr("sys.stdin", _FakeStdin())
+    assert _mod._read_input() == {}
+
+
+def test_read_input_parses_json(monkeypatch):
+    import io
+
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"stop_hook_active": true}'))
+    assert _mod._read_input() == {"stop_hook_active": True}
+
+
+# ── TC9: _session_edited_files — 세션 편집 파일 스코핑 ─────────────
+def _write_transcript(tmp_path, edited_paths):
+    """tool_use(Edit) 이벤트 + 노이즈 라인(비 tool_use, 깨진 JSON)을 섞은 transcript."""
+    lines = [
+        json.dumps(
+            {
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Edit",
+                            "input": {"file_path": str(p)},
+                        }
+                    ]
+                }
+            }
+        )
+        for p in edited_paths
+    ]
+    lines.append("not valid json")  # 견고성: 깨진 줄 무시
+    lines.append(json.dumps({"message": {"content": "plain text"}}))  # content 비리스트
+    f = tmp_path / "transcript.jsonl"
+    f.write_text("\n".join(lines), encoding="utf-8")
+    return f
+
+
+def test_session_edited_none_without_transcript():
+    assert _mod._session_edited_files({}) is None
+
+
+def test_session_edited_none_when_file_missing(tmp_path):
+    data = {"transcript_path": str(tmp_path / "nope.jsonl")}
+    assert _mod._session_edited_files(data) is None
+
+
+def test_session_edited_parses_tool_use(tmp_path):
+    edited = _mod.PROJECT_ROOT / "app.py"
+    f = _write_transcript(tmp_path, [edited])
+    assert _mod._session_edited_files({"transcript_path": str(f)}) == {
+        _mod._real(str(edited))
+    }
+
+
+def test_main_skips_parallel_session_file(tmp_path, monkeypatch, capsys):
+    """사건 재현: 병렬 세션이 dirty 만든 .py는 transcript에 없어 검증에서 제외 → 통과."""
+    # git은 parallel 파일이 변경됐다 보고하지만, 이 세션은 docs(.md)만 편집했다.
+    monkeypatch.setattr(
+        _mod, "get_modified_py_files", lambda: ["scripts/resolve_approval.py"]
+    )
+    transcript = _write_transcript(tmp_path, [tmp_path / "docs" / "spec.md"])
+    monkeypatch.setattr(
+        _mod, "_read_input", lambda: {"transcript_path": str(transcript)}
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert '"decision"' not in capsys.readouterr().out  # 차단 없이 통과
+
+
+def test_main_validates_session_edited_file(tmp_path, monkeypatch):
+    """이 세션이 편집한 .py는 스코핑을 통과해 검증 단계로 진입한다."""
+    edited = _mod.PROJECT_ROOT / "app.py"
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
+    transcript = _write_transcript(tmp_path, [edited])
+    monkeypatch.setattr(
+        _mod, "_read_input", lambda: {"transcript_path": str(transcript)}
+    )
+    called = {"lint": False, "tests": False}
+
+    def _fake_lint(files):
+        called["lint"] = True
+        return True, ""
+
+    def _fake_tests():
+        called["tests"] = True
+        return True, ""
+
+    monkeypatch.setattr(_mod, "check_lint", _fake_lint)
+    monkeypatch.setattr(_mod, "check_tests", _fake_tests)
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert called["lint"] and called["tests"], "스코핑 통과 후 검증이 실행돼야 한다"
