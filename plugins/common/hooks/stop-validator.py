@@ -59,6 +59,15 @@ EXCLUDE_DIRS = {
 
 
 # ── 유틸 ────────────────────────────────────────────────────────
+def _read_input() -> dict:
+    """Stop 훅 stdin(JSON)을 파싱. 비어있거나 깨졌으면 빈 dict."""
+    try:
+        raw = sys.stdin.read()
+        return json.loads(raw) if raw.strip() else {}
+    except Exception:
+        return {}
+
+
 def get_retry_count() -> int:
     try:
         return int(RETRY_COUNTER.read_text(encoding="utf-8").strip())
@@ -240,22 +249,39 @@ def find_test_files() -> list[str]:
     return test_files
 
 
+def _pytest_python() -> str:
+    """pytest 실행에 쓸 Python 인터프리터를 결정.
+    프로젝트 .venv/venv를 최우선 — 시스템 python3에 pytest가 없어
+    'No module named pytest'로 오판 차단되던 문제(#332) 방지.
+    """
+    for candidate in (".venv/bin/python", "venv/bin/python"):
+        p = PROJECT_ROOT / candidate
+        if p.exists():
+            return str(p)
+    return sys.executable or "python3"
+
+
 def check_tests() -> tuple[bool, str]:
     test_files = find_test_files()
     if not test_files:
         return True, ""
     try:
         result = subprocess.run(
-            ["python3", "-m", "pytest", "--tb=short", "-q", "--no-header"],
+            [_pytest_python(), "-m", "pytest", "--tb=short", "-q", "--no-header"],
             capture_output=True,
             text=True,
             timeout=60,
             cwd=str(PROJECT_ROOT),
         )
+        combined = result.stdout + result.stderr
+        # pytest 미설치 → 검증 불가. 차단이 아니라 스킵(통과)으로 처리(#332).
+        if "No module named pytest" in combined:
+            print("[WARN] pytest not installed — test check skipped", file=sys.stderr)
+            return True, ""
         # exit 5 = no tests collected — 통과로 처리
-        return result.returncode in (0, 5), result.stdout + result.stderr
+        return result.returncode in (0, 5), combined
     except FileNotFoundError:
-        print("[WARN] pytest not found — test check skipped", file=sys.stderr)
+        print("[WARN] python/pytest not found — test check skipped", file=sys.stderr)
         return True, ""
     except subprocess.TimeoutExpired:
         return False, "테스트 실행 시간 초과 (60초)"
@@ -263,6 +289,13 @@ def check_tests() -> tuple[bool, str]:
 
 # ── 메인 ────────────────────────────────────────────────────────
 def main():
+    # 0. 네이티브 무한 루프 가드: 이미 stop-hook 재진입 루프 중이면 재차단 금지.
+    #    (Claude는 직전 block 후 한 턴 수정을 시도했고, 그 턴의 Stop에서
+    #     stop_hook_active=true로 들어온다. 여기서 멈추지 않으면 무한 반복.)
+    data = _read_input()
+    if data.get("stop_hook_active"):
+        allow()
+
     # 1. auto-dev Phase 5 마커 확인 → 이중 검증 방지 (원자 연산으로 TOCTOU 방지)
     try:
         VALIDATED_MARKER.unlink()
@@ -275,14 +308,16 @@ def main():
     if not modified_files:
         allow()
 
-    # 3. max retries guard
+    # 3. max retries guard — 한계 도달 시 차단(block)이 아니라 중단(allow).
+    #    block()은 "턴을 끝내지 말라"는 신호라 cap에서 block+counter reset 하면
+    #    test_failure↔max_retries 사이클로 영원히 반복됐다. cap = "검증 그만, 턴 종료".
+    #    stop_hook_active 미전달 환경을 위한 백스톱이기도 하다.
     retry_count = get_retry_count()
     if retry_count >= MAX_RETRIES:
         reset_retry()
-        block(
-            "max_retries_exceeded",
-            f"자동 수정 {MAX_RETRIES}회 시도 후에도 문제가 남아있습니다.",
-            {"modified_files": modified_files},
+        allow(
+            f"[stop-validator] 자동 수정 {MAX_RETRIES}회 시도 후에도 문제가 "
+            "남아 검증을 중단합니다. 수동 확인이 필요합니다."
         )
 
     # 4. 린트 검사

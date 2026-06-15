@@ -134,8 +134,11 @@ def test_lint_error_when_auto_fix_fails_emits_block(monkeypatch, capsys):
     assert "lint_error" in payload["reason"]
 
 
-# ── TC6: max_retries_exceeded (decision:block) ───────────────────
-def test_max_retries_exceeded_emits_block(monkeypatch, capsys):
+# ── TC6: max_retries 도달 → block이 아니라 allow (무한 루프 방지) ──
+def test_max_retries_exceeded_allows_not_blocks(monkeypatch, capsys):
+    """cap 도달 시 block()하면 test_failure↔max_retries 무한 루프가 된다.
+    cap = '검증 중단·턴 종료'이므로 allow(exit 0, decision JSON 없음)여야 한다.
+    """
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
     _mod.RETRY_COUNTER.write_text(str(_mod.MAX_RETRIES), encoding="utf-8")
 
@@ -143,9 +146,22 @@ def test_max_retries_exceeded_emits_block(monkeypatch, capsys):
         _mod.main()
 
     assert exc_info.value.code == 0
-    payload = _extract_json(capsys.readouterr().out)
-    assert payload["decision"] == "block"
-    assert "max_retries_exceeded" in payload["reason"]
+    out = capsys.readouterr().out
+    assert '"decision"' not in out, "cap에서 차단(block) JSON을 내면 안 된다."
     assert not _mod.RETRY_COUNTER.exists(), (
         "max_retries 후 카운터가 리셋되지 않았습니다."
     )
+
+
+# ── TC7: stop_hook_active=true → 즉시 통과 (네이티브 무한 루프 가드) ──
+def test_stop_hook_active_short_circuits(monkeypatch, capsys):
+    monkeypatch.setattr(_mod, "_read_input", lambda: {"stop_hook_active": True})
+    # 변경 파일/카운터가 차단 조건이어도 stop_hook_active가 우선해 통과해야 한다.
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
+    _mod.RETRY_COUNTER.write_text("1", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert '"decision"' not in capsys.readouterr().out
