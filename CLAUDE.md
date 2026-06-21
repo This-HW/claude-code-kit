@@ -164,8 +164,10 @@ Located in `plugins/common/hooks/`:
 - `session-start.py` — injects rules + active Work status at `SessionStart`
 - `protect-sensitive.py` — blocks commits/edits containing secrets (`PreToolUse`)
 - `auto-format.py` — auto-formats code after edits (uses ruff for Python) (`PostToolUse`)
-- `stop-validator.py` — runs ruff + pytest on `Stop`; on failure emits native
-  `{"decision":"block","reason":...}` so Claude continues and auto-fixes
+- `stop-validator.py` — on `Stop`, lints edited `.py` (ruff) and runs pytest on
+  the test files this session edited (never the full suite — that's CI/`/test`'s
+  job); on failure emits native `{"decision":"block","reason":...}` so Claude
+  continues and auto-fixes. Timeouts are non-blocking (`CLAUDE_STOP_TEST_TIMEOUT`)
 - `utils.py` — shared utilities
 
 Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**

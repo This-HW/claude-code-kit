@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.7.2] — 2026-06-22
+
+### Fixed — stop-validator 테스트 타임아웃 오탐 (대형 레포) + 전체 스위트 실행 제거
+
+전체 테스트 스위트가 60초를 넘는 레포에서 `.py`를 편집할 때마다, 코드가 전부
+통과하는데도 `test_failure: 테스트 실행 시간 초과 (60초)`로 Stop이 거짓 차단되던
+문제를 수정. 근본 원인은 매 턴 종료마다 도는 Stop 훅이 **전체 pytest 스위트**를
+실행한 것 — 지연이 스위트 크기에 비례해 대형 레포에서 항상 타임아웃났다.
+
+- **전체 스위트 실행 제거(근본 차단)**: `check_tests()`는 이제 이번 세션이 편집한
+  `test_*.py`/`*_test.py`만 실행한다(lint의 스코프 철학과 동일). 소스만 편집했으면
+  테스트 검증을 스킵한다. 전체 회귀 검증은 CI(`validate.yml`)·`/test`·
+  `verify-done.sh`의 몫. 이로써 대형 레포 타임아웃 오탐이 **구조적으로 불가능**해진다.
+- **타임아웃 ≠ 실패**: 남는 단일 느린 테스트를 위해 `TimeoutExpired`는 차단이 아니라
+  비차단 `[WARN]`으로 강등(통과 반환). 실제 실패 테스트는 여전히 차단된다.
+- **타임아웃 설정 가능**: `CLAUDE_STOP_TEST_TIMEOUT` 환경변수로 한도 조절(기본 60초).
+- **죽은 코드 제거**: 전체 스위트 탐색용 `find_test_files()`·`EXCLUDE_DIRS` 삭제.
+- **부수**: `scripts/verify-done.sh`가 pytest 인터프리터 탐색 시 프로젝트
+  `.venv`/`venv`를 우선하도록 정렬(훅의 `_pytest_python()`과 일관).
+
+---
+
 ## [2.7.1] — 2026-06-15
 
 ### Fixed — stop-validator 무한 루프 + pytest 오탐
