@@ -21,7 +21,7 @@ hdr()   { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
 # Python 선택 — pytest 가용 인터프리터 탐색
 PYTEST_PY=""
-for cand in "python3" "/tmp/ckkit-venv/bin/python"; do
+for cand in ".venv/bin/python" "venv/bin/python" "python3" "/tmp/ckkit-venv/bin/python"; do
   if "$cand" -c "import pytest" 2>/dev/null; then PYTEST_PY="$cand"; break; fi
 done
 

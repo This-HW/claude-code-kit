@@ -64,7 +64,7 @@ def test_lint_auto_fixed_reports_on_stderr_and_exits_zero(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["file.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (False, "E501 line too long"))
     monkeypatch.setattr(_mod, "auto_fix_lint", lambda files: (True, ["file.py"], ""))
-    monkeypatch.setattr(_mod, "check_tests", lambda: (True, ""))
+    monkeypatch.setattr(_mod, "check_tests", lambda files: (True, ""))
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
@@ -79,7 +79,7 @@ def test_lint_auto_fixed_lists_files_on_stderr(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["file.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (False, "E501 error"))
     monkeypatch.setattr(_mod, "auto_fix_lint", lambda files: (True, ["file.py"], ""))
-    monkeypatch.setattr(_mod, "check_tests", lambda: (True, ""))
+    monkeypatch.setattr(_mod, "check_tests", lambda files: (True, ""))
 
     with pytest.raises(SystemExit):
         _mod.main()
@@ -92,7 +92,7 @@ def test_test_failure_emits_block_decision(monkeypatch, capsys):
     monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
     monkeypatch.setattr(_mod, "check_lint", lambda files: (True, ""))
     monkeypatch.setattr(
-        _mod, "check_tests", lambda: (False, "FAILED test_foo - AssertionError")
+        _mod, "check_tests", lambda files: (False, "FAILED test_foo - AssertionError")
     )
 
     with pytest.raises(SystemExit) as exc_info:
@@ -264,7 +264,7 @@ def test_main_validates_session_edited_file(tmp_path, monkeypatch):
         called["lint"] = True
         return True, ""
 
-    def _fake_tests():
+    def _fake_tests(files):
         called["tests"] = True
         return True, ""
 
@@ -276,3 +276,105 @@ def test_main_validates_session_edited_file(tmp_path, monkeypatch):
 
     assert exc_info.value.code == 0
     assert called["lint"] and called["tests"], "스코핑 통과 후 검증이 실행돼야 한다"
+
+
+# ── TC10: check_tests — 편집한 테스트 파일만 스코프 실행 ──────────
+def test_check_tests_scopes_to_edited_test_files(tmp_path, monkeypatch):
+    """편집한 test_*.py 만 pytest 인자로 넘긴다(전체 스위트 실행 금지)."""
+    test_file = tmp_path / "test_thing.py"
+    test_file.write_text("def test_ok():\n    assert True\n", encoding="utf-8")
+    monkeypatch.setattr(_mod, "_resolve_paths", lambda files: [str(test_file)])
+
+    captured = {}
+
+    def _fake_run(cmd, **kw):
+        captured["cmd"] = cmd
+
+        class _R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _R()
+
+    monkeypatch.setattr(_mod.subprocess, "run", _fake_run)
+    passed, _ = _mod.check_tests([str(test_file)])
+
+    assert passed
+    assert str(test_file) in captured["cmd"], "변경 테스트 파일이 pytest 인자에 없다"
+
+
+# ── TC10b: check_tests — 소스만 편집 시 pytest 실행 없이 스킵 ──────
+def test_check_tests_source_only_skips_without_running_pytest(tmp_path, monkeypatch):
+    """편집한 테스트 파일이 없으면(소스만 변경) 전체 스위트를 돌리지 않고
+    즉시 통과한다 — 매 턴 끝 지연이 스위트 크기에 비례하지 않게(이번 버그의 근본 차단).
+    전체 회귀는 CI/`/test`에 위임."""
+    monkeypatch.setattr(
+        _mod, "_resolve_paths", lambda files: [str(tmp_path / "app.py")]
+    )
+
+    def _boom(*a, **k):
+        raise AssertionError("소스만 변경 시 pytest를 실행하면 안 된다")
+
+    monkeypatch.setattr(_mod.subprocess, "run", _boom)
+    passed, output = _mod.check_tests(["app.py"])
+
+    assert passed is True and output == ""
+
+
+# ── TC11: check_tests — 타임아웃은 차단이 아니라 비차단 통과 ───────
+def test_check_tests_timeout_is_non_blocking(tmp_path, monkeypatch, capsys):
+    """스코프 실행이 타임아웃나도 (False, ...) 가 아니라 (True, "") 를 반환해
+    main()이 test_failure로 block 하지 않는다(오탐 차단 방지)."""
+    test_file = tmp_path / "test_slow.py"
+    test_file.write_text("def test_x():\n    assert True\n", encoding="utf-8")
+    monkeypatch.setattr(_mod, "_resolve_paths", lambda files: [str(test_file)])
+
+    def _timeout_run(cmd, **kw):
+        raise _mod.subprocess.TimeoutExpired(cmd, kw.get("timeout", 60))
+
+    monkeypatch.setattr(_mod.subprocess, "run", _timeout_run)
+    passed, output = _mod.check_tests([str(test_file)])
+
+    assert passed is True, "타임아웃을 실패로 보고하면 안 된다(오탐 차단)"
+    assert output == ""
+    assert "timeout" in capsys.readouterr().err.lower(), "비차단 WARN을 내야 한다"
+
+
+# ── TC12: check_tests — 실제 실패는 여전히 차단 신호 ──────────────
+def test_check_tests_real_failure_still_blocks(tmp_path, monkeypatch):
+    """타임아웃과 달리 실제 실패(returncode!=0,5)는 (False, output) 유지."""
+    test_file = tmp_path / "test_thing.py"
+    test_file.write_text("def test_no():\n    assert False\n", encoding="utf-8")
+    monkeypatch.setattr(_mod, "_resolve_paths", lambda files: [str(test_file)])
+
+    def _fail_run(cmd, **kw):
+        class _R:
+            returncode = 1
+            stdout = "FAILED test_thing::test_no"
+            stderr = ""
+
+        return _R()
+
+    monkeypatch.setattr(_mod.subprocess, "run", _fail_run)
+    passed, output = _mod.check_tests([str(test_file)])
+
+    assert passed is False
+    assert "FAILED" in output
+
+
+# ── TC13: _test_timeout — 환경변수 설정/폴백 ──────────────────────
+def test_test_timeout_default(monkeypatch):
+    monkeypatch.delenv("CLAUDE_STOP_TEST_TIMEOUT", raising=False)
+    assert _mod._test_timeout() == 60
+
+
+def test_test_timeout_env_override(monkeypatch):
+    monkeypatch.setenv("CLAUDE_STOP_TEST_TIMEOUT", "300")
+    assert _mod._test_timeout() == 300
+
+
+@pytest.mark.parametrize("bad", ["0", "-5", "abc", ""])
+def test_test_timeout_invalid_falls_back(monkeypatch, bad):
+    monkeypatch.setenv("CLAUDE_STOP_TEST_TIMEOUT", bad)
+    assert _mod._test_timeout() == 60

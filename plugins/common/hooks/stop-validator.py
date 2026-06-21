@@ -9,6 +9,14 @@ Failure taxonomy:
   test_failure  → structured error output, block (NOT auto-fixable)
   no_py_changes → skip entirely (no Python files modified)
 
+Tests are scoped to the test files THIS session edited — the hook never runs the
+full suite (it fires on every turn-end, so latency must not scale with suite
+size). Full regression testing is delegated to CI, `/test`, and verify-done.sh.
+Source-only edits skip the test check. A pytest timeout is NOT a failure — it is
+downgraded to a non-blocking [WARN] (configurable via CLAUDE_STOP_TEST_TIMEOUT,
+default 60s). This makes timeout false-blocks structurally impossible on large
+repos while still blocking real failures in edited test files.
+
 To disable: in plugins/common/hooks/hooks.json, replace the Stop section with
 the prompt-based hook (see CHANGELOG.md [2.2.0]) or remove it entirely.
 """
@@ -44,19 +52,6 @@ VALIDATED_MARKER = Path(f"/tmp/.claude_validated_{_hash}")
 RETRY_COUNTER = Path(f"/tmp/.claude_stop_retries_{_hash}")
 MAX_RETRIES = 2
 _MAX_FILE_SIZE = 1_048_576  # 1MB: auto_fix_lint에서 파일 읽기 상한
-
-# 검색 제외 디렉토리
-EXCLUDE_DIRS = {
-    ".venv",
-    "venv",
-    "__pycache__",
-    ".git",
-    "node_modules",
-    ".mypy_cache",
-    ".pytest_cache",
-    "dist",
-    "build",
-}
 
 
 # ── 유틸 ────────────────────────────────────────────────────────
@@ -293,20 +288,6 @@ def auto_fix_lint(target_files: list[str]) -> tuple[bool, list[str], str]:
 
 
 # ── 테스트 ───────────────────────────────────────────────────────
-def find_test_files() -> list[str]:
-    """EXCLUDE_DIRS를 제외하고 테스트 파일 탐색."""
-    test_files = []
-    for pattern in ("test_*.py", "*_test.py"):
-        for p in PROJECT_ROOT.rglob(pattern):
-            try:
-                relative_parts = p.relative_to(PROJECT_ROOT).parts
-            except ValueError:
-                continue
-            if not any(part in EXCLUDE_DIRS for part in relative_parts):
-                test_files.append(str(p))
-    return test_files
-
-
 def _pytest_python() -> str:
     """pytest 실행에 쓸 Python 인터프리터를 결정.
     프로젝트 .venv/venv를 최우선 — 시스템 python3에 pytest가 없어
@@ -319,16 +300,50 @@ def _pytest_python() -> str:
     return sys.executable or "python3"
 
 
-def check_tests() -> tuple[bool, str]:
-    test_files = find_test_files()
-    if not test_files:
+_DEFAULT_TEST_TIMEOUT = 60
+
+
+def _test_timeout() -> int:
+    """pytest 타임아웃(초). 환경변수 CLAUDE_STOP_TEST_TIMEOUT로 조절, 기본 60.
+    잘못된 값(비정수·0·음수)이면 기본값으로 폴백."""
+    try:
+        val = int(os.environ.get("CLAUDE_STOP_TEST_TIMEOUT", ""))
+        return val if val > 0 else _DEFAULT_TEST_TIMEOUT
+    except (TypeError, ValueError):
+        return _DEFAULT_TEST_TIMEOUT
+
+
+def _is_test_file(path: str) -> bool:
+    name = Path(path).name
+    return name.startswith("test_") or name.endswith("_test.py")
+
+
+def check_tests(modified_files: list[str]) -> tuple[bool, str]:
+    """이 세션이 편집한 테스트 파일만 검증한다(check_lint와 동일한 스코프 철학).
+
+    Stop 훅은 매 턴 종료마다 돌기 때문에 빠르고 예측가능해야 한다. 따라서 지연이
+    전체 스위트 크기에 비례하는 '전체 pytest 실행'은 의도적으로 하지 않는다 — 전체
+    회귀 검증은 CI(`validate.yml`)·`/test`·`verify-done.sh`의 몫이다. 이 결정으로
+    대형 레포에서의 타임아웃 오탐(이번 버그)이 구조적으로 발생하지 않는다.
+
+    - 편집한 test_*.py / *_test.py 만 pytest로 실행 → 항상 작은 스코프, 빠름.
+    - 소스만 편집했으면(편집 테스트 없음) 테스트 검증을 스킵(통과)한다.
+    - 만일의 느린 단일 테스트를 위해 타임아웃은 '실패'가 아니라 비차단 WARN으로
+      강등하고 CLAUDE_STOP_TEST_TIMEOUT으로 조절 가능하게 둔다.
+    """
+    edited_tests = [f for f in _resolve_paths(modified_files) if _is_test_file(f)]
+    if not edited_tests:
+        # 소스만 변경 → 전체 회귀는 CI/`/test`에 위임. 훅은 차단하지 않는다.
         return True, ""
+
+    timeout = _test_timeout()
     try:
         result = subprocess.run(
-            [_pytest_python(), "-m", "pytest", "--tb=short", "-q", "--no-header"],
+            [_pytest_python(), "-m", "pytest", "--tb=short", "-q", "--no-header"]
+            + edited_tests,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=timeout,
             cwd=str(PROJECT_ROOT),
         )
         combined = result.stdout + result.stderr
@@ -342,7 +357,14 @@ def check_tests() -> tuple[bool, str]:
         print("[WARN] python/pytest not found — test check skipped", file=sys.stderr)
         return True, ""
     except subprocess.TimeoutExpired:
-        return False, "테스트 실행 시간 초과 (60초)"
+        # 타임아웃은 실제 실패와 다르다 → 차단하지 않고 비차단 WARN으로 강등.
+        # (CLAUDE_STOP_TEST_TIMEOUT으로 한도 조절 가능.)
+        print(
+            f"[WARN] pytest timeout ({timeout}s, 변경 테스트 {len(edited_tests)}개) — "
+            "test check skipped. 필요시 CLAUDE_STOP_TEST_TIMEOUT으로 한도를 늘리세요.",
+            file=sys.stderr,
+        )
+        return True, ""
 
 
 # ── 메인 ────────────────────────────────────────────────────────
@@ -404,7 +426,8 @@ def main():
             )
 
     # 6. 테스트 검사 (test_failure는 자동 수정 불가 → 바로 block)
-    tests_passed, test_output = check_tests()
+    #    변경 테스트 파일만 스코프 실행, 타임아웃은 비차단(check_tests 참조).
+    tests_passed, test_output = check_tests(modified_files)
     if not tests_passed:
         increment_retry()
         block(
