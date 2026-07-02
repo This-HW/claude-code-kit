@@ -70,6 +70,23 @@ def _read_input() -> dict:
         return {}
 
 
+def _apply_session_scope(session_id) -> None:
+    """retry 카운터를 세션 단위로 격리한다.
+
+    카운터는 원래 repo 해시로만 키가 만들어져, 같은 프로젝트 루트에서 도는
+    병렬 세션들이 서로의 카운터를 덮어쓰거나 리셋할 수 있었다(크로스세션 오염).
+    Stop 훅 stdin의 session_id가 있으면 파일명에 세션 해시를 덧붙여 세션별로
+    분리한다. session_id 부재(구 하니스)면 기존 repo 스코프 유지(하위호환).
+
+    VALIDATED_MARKER는 auto-dev(T-merge)와의 크로스-프로세스 계약이라 이름을
+    바꾸지 않는다 — 대신 _consume_marker_if_valid()가 내용으로 유효성을 판정한다.
+    """
+    global RETRY_COUNTER
+    if session_id:
+        sid = hashlib.md5(str(session_id).encode()).hexdigest()[:8]
+        RETRY_COUNTER = RETRY_COUNTER.with_name(f"{RETRY_COUNTER.name}_{sid}")
+
+
 def get_retry_count() -> int:
     try:
         return int(RETRY_COUNTER.read_text(encoding="utf-8").strip())
@@ -77,9 +94,28 @@ def get_retry_count() -> int:
         return 0
 
 
+def _write_nofollow(path: Path, content: str) -> None:
+    """심볼릭링크를 따라가지 않는 쓰기 (CWE-59/377 방어).
+
+    /tmp의 예측 가능한 경로는 공유 호스트에서 다른 사용자가 심링크로 선점할 수
+    있다 — 직접 write_text 하면 링크가 가리키는 임의 파일을 덮어쓴다. O_NOFOLLOW
+    tmp 파일에 쓴 뒤 os.replace(rename)로 교체한다: rename은 목적지의 심링크
+    자체를 교체하므로 링크 대상 파일을 건드리지 않는다.
+    """
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.unlink(missing_ok=True)
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def increment_retry() -> int:
     count = get_retry_count() + 1
-    RETRY_COUNTER.write_text(str(count), encoding="utf-8")
+    _write_nofollow(RETRY_COUNTER, str(count))
     return count
 
 
@@ -367,21 +403,80 @@ def check_tests(modified_files: list[str]) -> tuple[bool, str]:
         return True, ""
 
 
+# ── auto-dev 검증 마커 ───────────────────────────────────────────
+def _worktree_state_hash() -> str:
+    """현재 작업트리 상태 지문: HEAD + `git diff HEAD` + `git status --porcelain`의 md5.
+
+    porcelain 출력을 포함해 untracked 파일의 등장/삭제도 지문에 반영한다 —
+    `git diff HEAD`만으로는 마커 생성 후 추가된 새 .py(untracked)가 지문을 바꾸지
+    않아 미검증 코드가 스킵될 수 있다(검증 스코프 get_modified_py_files와 동일 집합).
+    git 부재/타임아웃 시 '' 반환 → 마커는 항상 무효(보수적 재검증).
+
+    이 계산은 auto-dev SKILL.md T-merge의 마커 생성 스니펫과 정확히 일치해야
+    한다(입력·순서·타임아웃 10s). 한쪽만 바꾸면 마커가 항상 무효화된다.
+    """
+    try:
+        opts = {
+            "capture_output": True,
+            "text": True,
+            "timeout": 10,
+            "cwd": str(PROJECT_ROOT),
+        }
+        head = subprocess.run(["git", "rev-parse", "HEAD"], **opts).stdout.strip()
+        diff = subprocess.run(["git", "diff", "HEAD"], **opts).stdout
+        status = subprocess.run(["git", "status", "--porcelain"], **opts).stdout
+        return hashlib.md5((head + diff + status).encode()).hexdigest()
+    except Exception:
+        return ""
+
+
+def _consume_marker_if_valid() -> bool:
+    """auto-dev 검증 마커가 '현재 작업트리 상태'에 유효하면 소비하고 True.
+
+    마커 파일은 /tmp의 예측 가능한 repo 스코프 공유 경로라 병렬 세션 —
+    또는 공유 호스트의 다른 사용자 — 가 만든 것일 수 있다. 따라서:
+    - 심볼릭링크면 즉시 무효 (CWE-59: 링크 추적으로 임의 파일을 읽지 않는다)
+    - 내용이 현재 _worktree_state_hash()와 일치할 때만 유효
+      (auto-dev 검증 이후 파일이 바뀌었거나 다른 세션의 상태면 무효)
+    - 빈 내용(구버전 touch 마커)은 무효 — 내용 검증 없는 시간 기반 스킵은
+      마커 파일 생성만으로 검증을 우회할 수 있어 허용하지 않는다.
+    판정 후 마커는 항상 삭제한다. 무효면 검증을 계속한다.
+    """
+    if not VALIDATED_MARKER.exists() and not VALIDATED_MARKER.is_symlink():
+        return False
+    if VALIDATED_MARKER.is_symlink():
+        VALIDATED_MARKER.unlink(missing_ok=True)
+        return False
+    try:
+        content = VALIDATED_MARKER.read_text(encoding="utf-8").strip()
+    except Exception:
+        content = ""
+    valid = bool(content) and content == _worktree_state_hash()
+    VALIDATED_MARKER.unlink(missing_ok=True)
+    return valid
+
+
 # ── 메인 ────────────────────────────────────────────────────────
 def main():
     # 0. 네이티브 무한 루프 가드: 이미 stop-hook 재진입 루프 중이면 재차단 금지.
     #    (Claude는 직전 block 후 한 턴 수정을 시도했고, 그 턴의 Stop에서
     #     stop_hook_active=true로 들어온다. 여기서 멈추지 않으면 무한 반복.)
     data = _read_input()
+
+    # 0.1. retry 카운터 세션 스코프를 **모든 allow()/reset 경로보다 먼저** 적용.
+    #      stop_hook_active 가드보다 늦으면 그 경로의 reset_retry()가 스코프
+    #      미적용(repo 공유) 카운터를 지워, 세션 카운터가 리셋되지 않고 누적돼
+    #      cap 도달 후 실제 실패가 조용히 통과한다(fail-open) — ATK-001.
+    _apply_session_scope(data.get("session_id"))
+
     if data.get("stop_hook_active"):
         allow()
 
-    # 1. auto-dev Phase 5 마커 확인 → 이중 검증 방지 (원자 연산으로 TOCTOU 방지)
-    try:
-        VALIDATED_MARKER.unlink()
+    # 1. auto-dev Phase 5 마커 확인 → 이중 검증 방지.
+    #    마커는 이름이 아니라 내용(작업트리 상태 해시)으로 유효성을 판정한다 —
+    #    병렬 세션이 만든 마커나 검증 후 변경된 상태에서는 스킵하지 않는다.
+    if _consume_marker_if_valid():
         allow("auto-dev validation marker found. Skipping stop-validator.")
-    except FileNotFoundError:
-        pass
 
     # 2. 변경된 .py를 '이 세션이 편집한 파일'로 스코핑 → 병렬 세션의 미커밋 .py에
     #    의한 오탐 차단. transcript 없으면 전체 dirty .py로 폴백.

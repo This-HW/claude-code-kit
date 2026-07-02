@@ -6,6 +6,62 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.8.0] — 2026-07-02
+
+### Added — 병렬 worktree 병합 프로토콜 (W-011)
+
+kit은 "worktree 격리 진입" 정책은 있었지만 "병합 복귀" 규범이 없었다 — 격리 없이는
+충돌이 즉시 나고, 격리만 있으면 충돌이 병합 시점으로 이연될 뿐이다. 이번 릴리스가
+복귀 프로토콜을 명문화한다.
+
+- **`rules/parallel-worktree.md` 신설** (rules 1.3.0): 검증 그린 후에만 ExitWorktree,
+  순차 병합 원칙, dispatch 전 파일 소유권 확인, 충돌 시 `git-workflow`로
+  NEED_USER_INPUT 에스컬레이션, worktree 안 `docs/works/**` 갱신 금지.
+- **에이전트 8개 정비**: `optimize-logic`에 `isolation: worktree` + `maxTurns` +
+  `disallowedTools: [Task]` 추가(커버리지 누락). `implement-api`·`generate-boilerplate`·
+  `sync-docs`에 `ExitWorktree` 툴 추가(격리 진입만 있고 복귀 수단이 없었음). 파일 수정
+  에이전트 8개 전부에 "Worktree 복귀 프로토콜" 섹션 추가.
+- **auto-dev Step 2에 worktree 병합 절차 명시**: 하나 병합 → 검증 → 다음(동시 병합
+  금지), 동일 지점 충돌 2회 = 청크 재설계 신호.
+- **유령 참조 정리**: 존재하지 않는 `write-ui-tests`를 CLAUDE.md/README/
+  `rules/agent-system.md`의 isolation 목록에서 제거하고 실제 8개 에이전트로 교체.
+- **리서치 노트 게시**: `docs/research/2026-07-harness-loop-engineering.md` —
+  하네스/루프 엔지니어링 2026 중반 지형도(개념 계보·3대 루프 구현체·검증 원칙·
+  병렬 도구 생태계·kit 대조).
+
+### Fixed — 병렬 세션/프로세스 레이스 컨디션 3건 (W-011)
+
+- **stop-validator 크로스세션 오염**: retry 카운터가 repo 해시로만 키가 만들어져
+  같은 프로젝트의 병렬 세션들이 서로의 카운터를 덮어쓰거나 리셋할 수 있었다 —
+  stdin `session_id`로 세션 스코프 격리(부재 시 기존 동작). 스코프 적용은 모든
+  reset 경로(`stop_hook_active` 가드 포함)보다 선행한다. auto-dev 검증 마커는
+  이름 대신 **내용(작업트리 상태 해시 = HEAD + diff + porcelain)** 으로 유효성을
+  판정 — 병렬 세션의 마커, 검증 후 변경된 상태, untracked 추가에서는 스킵하지
+  않으며 빈 내용 마커(구버전 touch)는 무효다. 회귀 테스트 9개 추가.
+
+### Security — /tmp 예측 경로 하드닝 (W-011)
+
+- 마커/카운터/락/ledger 쓰기 전부 **심링크 비추적**으로 전환(CWE-59/377): `O_NOFOLLOW`
+  tmp 파일에 쓴 뒤 `os.replace`(rename은 목적지 심링크 자체를 교체) — 공유 호스트에서
+  예측 가능한 `/tmp` 경로를 심링크로 선점해 임의 파일을 덮어쓰는 공격 차단.
+  심링크 마커는 내용을 읽지 않고 즉시 무효 처리.
+- 시간(TTL) 기반 마커 스킵 제거 — 파일 생성만으로 Stop 검증을 30분 우회할 수 있던
+  경로 폐쇄. ledger `severity`는 화이트리스트(critical/high/medium/low) 강제 —
+  `|`/개행 주입으로 테이블 행을 깨고 세션 컨텍스트에 위조 행을 주입하는 벡터 차단.
+- ledger 락은 `LOCK_NB` + 5초 데드라인(초과 시 무락 진행) — 락 보유 프로세스 정지로
+  파이프라인이 무한 대기하지 않는다. `work.sh`는 claim 후 실패 시 trap으로
+  `.claimed` 고아 항목을 롤백해 Work 번호 영구 소각을 방지.
+- **feedback ledger lost-update**: auto-dev가 T-review/T-security를 병렬 실행하며
+  둘 다 `feedback.sh upsert`를 호출하는데 read-modify-write에 락이 없어 한쪽 기록
+  소실·`F-id` 중복 채번이 가능했다 — `fcntl.flock` 배타 락 + tmp 파일 `os.replace`
+  원자 교체로 수정. 동시 8프로세스 upsert 무손실 회귀 테스트 추가.
+- **work.sh Work ID TOCTOU**: 동시 `work.sh new` 실행 시 동일 `W-XXX`가 중복 발급될
+  수 있었다(번호 채번과 디렉토리 생성이 비원자적) — `.claimed/` 레지스트리에 원자적
+  `mkdir`로 ID를 선점(재시도 + 지터). `find_work_dir`는 중복 매치 시 `head -1`로
+  은폐하지 않고 명시적 에러. 동시 10회 생성 검증(중복 0).
+
+---
+
 ## [2.7.2] — 2026-06-22
 
 ### Fixed — stop-validator 테스트 타임아웃 오탐 (대형 레포) + 전체 스위트 실행 제거

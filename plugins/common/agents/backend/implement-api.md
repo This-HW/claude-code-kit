@@ -17,6 +17,7 @@ tools:
   - Bash
   - Glob
   - Grep
+  - ExitWorktree
 disallowedTools:
   - Task
 ---
@@ -149,3 +150,15 @@ ENDPOINTS: [생성/수정된 엔드포인트 목록]
 DELEGATE_TO: write-api-tests (테스트 작성 필요 시)
 ---END_SIGNAL---
 ```
+
+
+---
+
+## Worktree 복귀 프로토콜 (isolation: worktree)
+
+이 에이전트는 격리된 git worktree에서 실행됩니다. (규칙: `rules/parallel-worktree.md`)
+
+1. 작업 완료 후 worktree 안에서 검증(린트 + 관련 테스트)을 실행합니다.
+2. **검증 그린일 때만** `ExitWorktree`를 호출해 변경을 복귀(병합)시킵니다 — 레드 상태로 병합 금지.
+3. 병합 충돌 시 임의로 ours/theirs를 선택하지 않습니다 — `DELEGATE_TO: git-workflow`로 위임해 사용자 에스컬레이션 경로를 태웁니다.
+4. worktree 안에서 `docs/works/**`(progress, feedback ledger)를 갱신하지 않습니다 — Work 상태 갱신은 메인 세션의 몫입니다.

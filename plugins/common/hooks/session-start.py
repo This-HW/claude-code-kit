@@ -204,6 +204,7 @@ ALWAYS_RULES = [
     "feedback-loop.md",
     "loop-engineering.md",
     "definition-of-done.md",
+    "parallel-worktree.md",
 ]
 
 

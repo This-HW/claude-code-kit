@@ -106,15 +106,47 @@ def test_test_failure_emits_block_decision(monkeypatch, capsys):
     assert "FAILED test_foo" in payload["reason"]
 
 
-# ── TC4: marker_skip ─────────────────────────────────────────────
-def test_marker_skip_exits_zero_and_consumes_marker(monkeypatch):
-    _mod.VALIDATED_MARKER.touch()
+# ── TC4: marker_skip — 유효(상태 해시 일치) 마커만 스킵을 유발 ────
+def test_marker_skip_exits_zero_and_consumes_marker(monkeypatch, capsys):
+    monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "state-x")
+    _mod.VALIDATED_MARKER.write_text("state-x", encoding="utf-8")
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
 
     assert exc_info.value.code == 0
+    assert "marker found" in capsys.readouterr().out
     assert not _mod.VALIDATED_MARKER.exists(), "마커 파일이 소비(삭제)되지 않았습니다."
+
+
+def test_marker_empty_touch_never_skips(monkeypatch, capsys):
+    """빈 내용 마커(구버전 touch)는 무효 — 파일 생성만으로 검증을 우회할 수 없다(M-1)."""
+    _mod.VALIDATED_MARKER.touch()
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert "marker found" not in capsys.readouterr().out
+    assert not _mod.VALIDATED_MARKER.exists(), "무효 마커도 소비(삭제)돼야 한다"
+
+
+def test_marker_symlink_is_rejected(monkeypatch, tmp_path, capsys):
+    """심링크 마커는 내용을 읽지 않고 즉시 무효 처리한다(CWE-59, H-1)."""
+    target = tmp_path / "attacker_target"
+    monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "state-y")
+    target.write_text("state-y", encoding="utf-8")  # 내용이 일치해도 링크면 무효
+    _mod.VALIDATED_MARKER.symlink_to(target)
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert "marker found" not in capsys.readouterr().out
+    assert not _mod.VALIDATED_MARKER.is_symlink(), "심링크 마커는 제거돼야 한다"
+    assert target.exists(), "링크 대상 파일을 건드리면 안 된다"
 
 
 # ── TC5: lint_error (auto-fix 실패 → decision:block) ─────────────
@@ -378,3 +410,134 @@ def test_test_timeout_env_override(monkeypatch):
 def test_test_timeout_invalid_falls_back(monkeypatch, bad):
     monkeypatch.setenv("CLAUDE_STOP_TEST_TIMEOUT", bad)
     assert _mod._test_timeout() == 60
+
+
+# ── TC14: 마커 내용 검증 — 병렬 세션 크로스 오염 방지 (W-011) ──────
+def test_marker_with_matching_state_hash_skips(monkeypatch, capsys):
+    """마커 내용이 현재 작업트리 상태 해시와 일치하면 검증을 스킵한다."""
+    monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "abc123")
+    _mod.VALIDATED_MARKER.write_text("abc123", encoding="utf-8")
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
+    monkeypatch.setattr(_mod, "check_lint", lambda files: (False, "여기 오면 안 됨"))
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert "marker found" in capsys.readouterr().out
+    assert not _mod.VALIDATED_MARKER.exists()
+
+
+def test_marker_with_stale_state_hash_does_not_skip(monkeypatch, capsys):
+    """검증 후 파일이 바뀌었거나 다른 세션 상태의 마커는 스킵을 유발하지 않는다."""
+    monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "current-state")
+    _mod.VALIDATED_MARKER.write_text("other-session-state", encoding="utf-8")
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main()
+
+    assert exc_info.value.code == 0
+    assert "marker found" not in capsys.readouterr().out, (
+        "무효 마커로 검증을 스킵하면 안 된다"
+    )
+    assert not _mod.VALIDATED_MARKER.exists(), "무효 마커도 소비(삭제)돼야 한다"
+
+
+# ── TC15: retry 카운터 세션 스코프 (W-011) ────────────────────────
+def test_session_scope_isolates_retry_counter():
+    """session_id가 있으면 카운터 경로가 세션별로 분리된다."""
+    base = _mod.RETRY_COUNTER
+    try:
+        _mod._apply_session_scope("session-a")
+        path_a = _mod.RETRY_COUNTER
+        _mod.RETRY_COUNTER = base
+        _mod._apply_session_scope("session-b")
+        path_b = _mod.RETRY_COUNTER
+        _mod.RETRY_COUNTER = base
+        _mod._apply_session_scope(None)
+        path_none = _mod.RETRY_COUNTER
+
+        assert path_a != base and path_b != base
+        assert path_a != path_b, "세션이 다르면 카운터 경로도 달라야 한다"
+        assert path_none == base, "session_id 부재 시 기존 경로 유지(하위호환)"
+    finally:
+        _mod.RETRY_COUNTER = base
+
+
+def test_parallel_session_retry_counters_do_not_collide(monkeypatch, capsys):
+    """세션 B의 카운터가 max여도 세션 A(session_id 다름)는 영향받지 않는다."""
+    base = _mod.RETRY_COUNTER
+    # 세션 B가 남긴 카운터 (다른 세션 스코프)
+    sid_b = __import__("hashlib").md5(b"session-b").hexdigest()[:8]
+    counter_b = base.with_name(f"{base.name}_{sid_b}")
+    counter_b.write_text(str(_mod.MAX_RETRIES), encoding="utf-8")
+
+    monkeypatch.setattr(_mod, "_read_input", lambda: {"session_id": "session-a"})
+    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: ["app.py"])
+    monkeypatch.setattr(_mod, "check_lint", lambda files: (True, ""))
+    monkeypatch.setattr(_mod, "check_tests", lambda files: (True, ""))
+
+    try:
+        with pytest.raises(SystemExit) as exc_info:
+            _mod.main()
+
+        assert exc_info.value.code == 0
+        # 세션 A는 정상 검증 경로를 탔고(cap 조기중단 아님), B의 카운터는 보존.
+        assert "자동 수정" not in capsys.readouterr().out
+        assert counter_b.exists(), "다른 세션의 카운터를 건드리면 안 된다"
+    finally:
+        counter_b.unlink(missing_ok=True)
+        _mod.RETRY_COUNTER = base
+
+
+# ── TC16: stop_hook_active + session_id → 세션 스코프 카운터가 리셋 (ATK-001) ──
+def test_stop_hook_active_resets_session_scoped_counter(monkeypatch):
+    """세션 스코프 적용이 stop_hook_active 가드보다 늦으면, 이 경로의 reset이
+    repo 공유 카운터를 지우고 세션 카운터는 누적돼 cap 도달 후 실제 실패가
+    조용히 통과한다(fail-open). 스코프 적용이 반드시 선행돼야 한다."""
+    base = _mod.RETRY_COUNTER
+    sid = __import__("hashlib").md5(b"session-x").hexdigest()[:8]
+    session_counter = base.with_name(f"{base.name}_{sid}")
+    session_counter.write_text("1", encoding="utf-8")
+
+    monkeypatch.setattr(
+        _mod,
+        "_read_input",
+        lambda: {"stop_hook_active": True, "session_id": "session-x"},
+    )
+
+    try:
+        with pytest.raises(SystemExit) as exc_info:
+            _mod.main()
+
+        assert exc_info.value.code == 0
+        assert not session_counter.exists(), (
+            "stop_hook_active 경로의 reset은 세션 스코프 카운터를 지워야 한다 "
+            "(repo 공유 카운터가 아니라)"
+        )
+    finally:
+        session_counter.unlink(missing_ok=True)
+        _mod.RETRY_COUNTER = base
+
+
+# ── TC17: _write_nofollow — 심링크 카운터를 따라가지 않음 (H-1) ────
+def test_increment_retry_does_not_follow_symlink(tmp_path):
+    """RETRY_COUNTER가 심링크로 선점돼 있어도 링크 대상 파일을 덮어쓰지 않는다."""
+    target = tmp_path / "victim_file"
+    target.write_text("victim data", encoding="utf-8")
+    base = _mod.RETRY_COUNTER
+    base.unlink(missing_ok=True)
+    base.symlink_to(target)
+
+    try:
+        _mod.increment_retry()
+        assert target.read_text(encoding="utf-8") == "victim data", (
+            "심링크 대상 파일이 덮어써졌다 (CWE-59)"
+        )
+        assert not _mod.RETRY_COUNTER.is_symlink(), (
+            "os.replace가 심링크 자체를 교체해야 한다"
+        )
+        assert _mod.get_retry_count() == 1
+    finally:
+        _mod.RETRY_COUNTER.unlink(missing_ok=True)

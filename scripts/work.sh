@@ -54,7 +54,9 @@ print(t)
 PYEOF
 }
 
-# Find the next W-XXX number by scanning all three stage dirs
+# Find the next W-XXX number by scanning all three stage dirs.
+# .claimed/ (ID 선점 레지스트리, claim_work_id 참조)도 depth-2라 자동 포함된다 —
+# 아직 idea/ 디렉토리를 만들지 못한 동시 프로세스의 선점 번호도 건너뛴다.
 next_work_number() {
   local max="0"
   while IFS= read -r -d '' dir; do
@@ -69,16 +71,45 @@ next_work_number() {
   printf "%03d" $(( max + 1 ))
 }
 
+# Atomically claim a unique Work ID (TOCTOU 방지 — W-011).
+# next_work_number 계산과 디렉토리 생성 사이에 다른 프로세스가 같은 번호를
+# 받을 수 있다(동시 `work.sh new`). mkdir의 원자성으로 .claimed/W-XXX를
+# 선점해 번호를 확정한다 — 선점 실패 시 재채번 후 재시도.
+# .claimed 항목은 영구 레지스트리로 남아 next_work_number가 재사용을 막는다.
+claim_work_id() {
+  mkdir -p "${WORKS_DIR}/.claimed"
+  local attempt num
+  for attempt in $(seq 1 20); do
+    num="$(next_work_number)"
+    if mkdir "${WORKS_DIR}/.claimed/W-${num}" 2>/dev/null; then
+      printf "%s" "$num"
+      return 0
+    fi
+    # 경합 시 재채번 전 짧은 지터 — 동시 프로세스들이 같은 번호로 몰리는 것 완화
+    sleep "0.0$((RANDOM % 5 + 1))"
+  done
+  echo "Error: could not allocate a unique Work ID after 20 attempts" >&2
+  exit 1
+}
+
 # Locate the directory for a given Work ID across all stage dirs
 find_work_dir() {
   local id="$1"  # e.g. W-001
-  local result
-  result="$(find "$WORKS_DIR" -mindepth 2 -maxdepth 2 -type d -name "${id}-*" 2>/dev/null | head -1 || true)"
-  if [[ -z "$result" ]]; then
+  local matches
+  matches="$(find "$WORKS_DIR" -mindepth 2 -maxdepth 2 -type d -name "${id}-*" 2>/dev/null | sort || true)"
+  if [[ -z "$matches" ]]; then
     echo "Error: Work '$id' not found under $WORKS_DIR" >&2
     exit 1
   fi
-  echo "$result"
+  # 동일 ID가 여러 디렉토리와 매치되면(과거 TOCTOU 중복 등) 조용히 첫 항목을
+  # 고르지 않고 명시적으로 실패한다 — head -1 은폐가 잘못된 Work 조작을 낳는다.
+  if [[ "$(printf '%s\n' "$matches" | wc -l | tr -d ' ')" -gt 1 ]]; then
+    echo "Error: Work '$id' matches multiple directories (duplicate ID?):" >&2
+    printf '%s\n' "$matches" >&2
+    echo "Resolve the duplicate before continuing." >&2
+    exit 1
+  fi
+  echo "$matches"
 }
 
 # Locate the primary .md file inside a work directory
@@ -189,11 +220,15 @@ cmd_new() {
     exit 1
   fi
   local title="$*"
-  local num
-  num="$(next_work_number)"
-  local id="W-${num}"
   local slug
   slug="$(to_slug "$title")"
+  slug="${slug:-untitled}"  # 특수문자만 있는 제목이 빈 슬러그가 되는 것 방지
+  local num
+  num="$(claim_work_id)"  # 원자적 ID 선점 (동시 실행 시 중복 W-XXX 방지)
+  local id="W-${num}"
+  # claim 이후 실패(set -e) 시 고아 .claimed 잔존으로 번호가 영구 소각되는 것 방지 —
+  # Work 디렉토리 생성 성공 후에만 trap 해제.
+  trap 'rmdir "${WORKS_DIR}/.claimed/W-'"${num}"'" 2>/dev/null || true' EXIT
   local dir="${WORKS_DIR}/idea/${id}-${slug}"
   local now
   now="$(iso8601)"
@@ -204,6 +239,7 @@ cmd_new() {
   fi
 
   mkdir -p "$dir"
+  trap - EXIT  # Work 디렉토리 확보 — claim은 이제 실제 Work가 대표하므로 trap 해제
 
   # Escape special characters in title to prevent heredoc injection
   local title_esc

@@ -122,6 +122,23 @@ Agent(task_B) ─┼─ 동일 응답에서 동시 dispatch
 Agent(task_C) ─┘
 ```
 
+**dispatch 전 파일 소유권 확인 (rules/parallel-worktree.md):** 병렬 청크 간 수정
+대상 파일이 겹치면 해당 청크들을 순차로 강등한다. 공유 파일(설정·배럴 export 등)은
+병렬 청크에 배정하지 않고 마지막에 메인 세션이 단독 수정한다.
+
+**Worktree 병합 절차 (병렬 dispatch 후) [건너뛰기 금지]:**
+
+worktree 격리 에이전트들의 결과는 자동으로 합쳐지지 않는다. 순차 병합 원칙:
+
+1. 에이전트는 worktree 안 검증(린트+관련 테스트) 그린 후 `ExitWorktree`로 복귀한다
+   (각 에이전트 본문의 "Worktree 복귀 프로토콜" 참조).
+2. 메인 세션은 완료된 worktree를 **하나씩** 병합한다 — 하나 병합 → 검증 → 다음.
+   여러 worktree를 동시에 병합하지 않는다. 병합 순서는 의존성 상류(공유 타입/유틸) 먼저.
+3. 병합 충돌 발생 시: 임의 해결 금지 → `git-workflow` 에이전트에 위임해 충돌
+   파일/내용 보고 + NEED_USER_INPUT(ours/theirs/manual) 에스컬레이션.
+4. 같은 지점 충돌이 2회 반복되면 청크 분해 오류 → 남은 dispatch를 중단하고
+   plan 단계로 돌아가 청크 경계를 재설계한다.
+
 **Large 라우팅:** Work `size: Large`이고 unblocked 병렬 청크가 **10개 이상**이면,
 스킬 주도 dispatch는 main 컨텍스트에 부담이 큽니다. 이 경우 청크 목록을 정리해
 사용자에게 네이티브 `ultracode`(dynamic workflow) 트리거를 안내하세요
@@ -249,14 +266,31 @@ T-review, T-security 결과를 구조적으로 검증:
 0. **[Guard]** 판정 기준 미충족 시: 미충족 항목 + 이슈 목록 + 권고사항을 사용자에게 보고하고 파이프라인을 중단한다. `TaskUpdate(T-merge, status="failed")`. 아래 단계를 실행하지 않는다.
 1. **검증 마커 생성** — Stop hook 이중 검증 방지:
    ```bash
-   touch "/tmp/.claude_validated_$(python3 -c '
-   import hashlib, subprocess
-   r = subprocess.run(["git","rev-parse","--show-toplevel"], capture_output=True, text=True, timeout=5)
-   root = r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else __import__("os").getcwd()
-   print(hashlib.md5(root.encode()).hexdigest()[:8])
-   ')"
+   python3 - <<'PY'
+   import hashlib, os, subprocess, tempfile
+   root = None
+   def run(*a):
+       r = subprocess.run(a, capture_output=True, text=True, timeout=10, cwd=root)
+       return r.stdout if r.returncode == 0 else ""
+   root = run("git", "rev-parse", "--show-toplevel").strip() or os.getcwd()
+   key = hashlib.md5(root.encode()).hexdigest()[:8]
+   state = hashlib.md5(
+       (run("git", "rev-parse", "HEAD").strip()
+        + run("git", "diff", "HEAD")
+        + run("git", "status", "--porcelain")).encode()
+   ).hexdigest()
+   fd, tmp = tempfile.mkstemp(dir="/tmp")
+   with os.fdopen(fd, "w") as fh:
+       fh.write(state)
+   os.replace(tmp, f"/tmp/.claude_validated_{key}")  # rename은 심링크 자체를 교체(CWE-59 방어)
+   PY
    ```
-   > 이 마커가 있으면 Stop hook이 동일한 lint/test를 다시 실행하지 않는다.
+   > 마커에는 **작업트리 상태 해시**(HEAD + diff + porcelain)를 기록한다. Stop
+   > hook은 이름이 아니라 이 내용으로 유효성을 판정하므로, 병렬 세션이 만든
+   > 마커·검증 후 바뀐 상태·untracked 추가에서는 스킵이 일어나지 않는다.
+   > 빈 내용 마커(구버전 touch)는 무효. **이 계산은 stop-validator.py의
+   > `_worktree_state_hash()`와 입력·순서·타임아웃(10s)까지 정확히 일치해야
+   > 한다** — 한쪽만 바꾸면 마커가 항상 무효화된다.
 2. T-review, T-security 결과를 `review-results.md`에 통합 기록
 3. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
 

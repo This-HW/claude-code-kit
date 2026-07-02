@@ -126,3 +126,43 @@ def test_digest_char_cap(tmp_path, monkeypatch):
         )
     digest = _mod.load_digest(top_k=10, root=tmp_path)
     assert len(digest) <= 82  # cap + " …"
+
+
+# ── 동시 upsert: lost-update / F-id 충돌 방지 (W-011) ─────────────
+def test_concurrent_upserts_preserve_all_entries(tmp_path):
+    """auto-dev가 T-review/T-security를 병렬 실행하며 둘 다 upsert하는 시나리오.
+
+    CLI 프로세스 N개를 동시에 띄워 서로 다른 패턴을 upsert — 락이 없으면
+    read-modify-write 레이스로 일부 기록이 소실되고 F-id가 중복 채번된다.
+    """
+    import subprocess as sp
+    import sys
+
+    n = 8
+    env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    script = str(HOOKS_DIR / "feedback_ledger.py")
+    procs = [
+        sp.Popen(
+            [sys.executable, script, "upsert", "lint", "low", f"concurrent pattern {i}"],
+            env=env,
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        for i in range(n)
+    ]
+    for p in procs:
+        assert p.wait(timeout=30) == 0
+
+    entries = _mod.parse_ledger(_mod.ledger_path(tmp_path))
+    patterns = {e["pattern"] for e in entries}
+    ids = [e["id"] for e in entries]
+    assert len(entries) == n, f"동시 upsert 중 기록 소실: {n}개 중 {len(entries)}개만 보존"
+    assert patterns == {f"concurrent pattern {i}" for i in range(n)}
+    assert len(ids) == len(set(ids)), f"F-id 중복 채번: {sorted(ids)}"
+
+
+def test_write_ledger_leaves_no_tmp_files(tmp_path):
+    """원자 교체 후 tmp 파일이 잔존하지 않는다."""
+    _mod.upsert("lint", "low", "atomic write check", root=tmp_path)
+    leftovers = list(_mod.ledger_path(tmp_path).parent.glob("*.tmp.*"))
+    assert leftovers == []
