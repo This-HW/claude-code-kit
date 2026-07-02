@@ -1,0 +1,41 @@
+baseURL = "https://This-HW.github.io/claude-code-kit/"
+defaultContentLanguage = "ko"
+title = "claude-code-kit 로그"
+enableRobotsTXT = true
+enableEmoji = true
+
+# GitHub Pages 프로젝트 사이트: /claude-code-kit/ 하위 경로
+# 자체 최소 테마(layouts/) 사용 — 외부 테마/모듈 의존 없음.
+
+[params]
+  description = "claude-code-kit 개발 과정 · 프로젝트 업데이트 · AI 에이전트 엔지니어링 트렌드 기록"
+  author = "This-HW"
+  github = "https://github.com/This-HW/claude-code-kit"
+
+[markup.goldmark.renderer]
+  unsafe = true  # 포스트 내 인라인 HTML(다이어그램 등) 허용
+
+[markup.highlight]
+  noClasses = false
+  style = "github"
+
+[taxonomies]
+  category = "categories"
+  tag = "tags"
+
+[[menu.main]]
+  name = "홈"
+  url = "/"
+  weight = 1
+[[menu.main]]
+  name = "글"
+  url = "/posts/"
+  weight = 2
+[[menu.main]]
+  name = "소개"
+  url = "/about/"
+  weight = 3
+[[menu.main]]
+  name = "GitHub"
+  url = "https://github.com/This-HW/claude-code-kit"
+  weight = 4

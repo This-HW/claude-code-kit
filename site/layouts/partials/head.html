@@ -1,0 +1,12 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{ $title := .Title }}
+{{ if .IsHome }}{{ $title = site.Title }}{{ else }}{{ $title = printf "%s · %s" .Title site.Title }}{{ end }}
+<title>{{ $title }}</title>
+{{ $desc := or .Description .Summary site.Params.description }}
+<meta name="description" content="{{ $desc | plainify | truncate 160 }}">
+<meta property="og:title" content="{{ .Title }}">
+<meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
+<meta property="og:description" content="{{ $desc | plainify | truncate 200 }}">
+<link rel="stylesheet" href="{{ "css/main.css" | relURL }}">
+<link rel="canonical" href="{{ .Permalink }}">

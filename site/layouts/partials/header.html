@@ -1,0 +1,8 @@
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="{{ "/" | relURL }}">claude-code-kit 로그</a>
+    {{ range site.Menus.main }}
+      <a class="item" href="{{ .URL | relLangURL }}">{{ .Name }}</a>
+    {{ end }}
+  </div>
+</nav>
