@@ -166,3 +166,51 @@ def test_write_ledger_leaves_no_tmp_files(tmp_path):
     _mod.upsert("lint", "low", "atomic write check", root=tmp_path)
     leftovers = list(_mod.ledger_path(tmp_path).parent.glob("*.tmp.*"))
     assert leftovers == []
+
+
+# ── F7: 심링크된 ledger.md는 링크 대상을 보존하며 갱신 ──────────────
+def test_write_ledger_preserves_symlink_target(tmp_path):
+    """ledger.md가 공유 원장으로 심링크돼 있으면 링크를 파괴하지 않고 대상에 쓴다."""
+    import os
+    central = tmp_path / "central.md"
+    central.write_text("seed", encoding="utf-8")
+    ledger = _mod.ledger_path(tmp_path)
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    os.symlink(central, ledger)
+
+    _mod.upsert("lint", "low", "via symlink", root=tmp_path)
+
+    assert ledger.is_symlink(), "심링크가 일반 파일로 대체되면 안 된다(F7)"
+    assert "via symlink" in central.read_text(encoding="utf-8"), (
+        "실제 대상 파일(중앙 원장)이 갱신돼야 한다"
+    )
+
+
+# ── F10: 락 파일이 저장소 트리 밖(사용자 tmp)에 생성된다 ───────────
+def test_lock_file_not_in_repo_tree(tmp_path):
+    """ledger.md.lock이 docs/works 안이 아니라 사용자별 tmp에 생성돼 커밋 오염·
+    porcelain 교란을 일으키지 않는다."""
+    _mod.upsert("test", "low", "lock location check", root=tmp_path)
+    stray = list((tmp_path / "docs" / "works" / "feedback").glob("*.lock"))
+    assert stray == [], f"저장소 트리에 락 파일이 남았다: {stray}"
+
+
+# ── F9: 락 타임아웃 시 stderr 경고 ────────────────────────────────
+def test_lock_timeout_warns(tmp_path, monkeypatch, capsys):
+    """데드라인 초과로 무락 진행할 때 stderr 경고를 남겨 관측 가능하게 한다."""
+    monkeypatch.setattr(_mod, "_LOCK_TIMEOUT_SECONDS", 0)  # 즉시 데드라인
+
+    real_flock = _mod.fcntl.flock
+
+    def _always_busy(fh, flags):
+        if flags & _mod.fcntl.LOCK_NB:
+            raise OSError("locked")
+        return real_flock(fh, flags)
+
+    monkeypatch.setattr(_mod.fcntl, "flock", _always_busy)
+    _mod.upsert("lint", "low", "timeout warn", root=tmp_path)
+
+    assert "lock timeout" in capsys.readouterr().err
+    # 무락이어도 쓰기는 성공해야 한다(fail-open)
+    entries = _mod.parse_ledger(_mod.ledger_path(tmp_path))
+    assert any(e["pattern"] == "timeout warn" for e in entries)

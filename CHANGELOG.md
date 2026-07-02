@@ -51,6 +51,37 @@ kit은 "worktree 격리 진입" 정책은 있었지만 "병합 복귀" 규범이
 - ledger 락은 `LOCK_NB` + 5초 데드라인(초과 시 무락 진행) — 락 보유 프로세스 정지로
   파이프라인이 무한 대기하지 않는다. `work.sh`는 claim 후 실패 시 trap으로
   `.claimed` 고아 항목을 롤백해 Work 번호 영구 소각을 방지.
+
+### Fixed — 2차 적대적 리뷰(멀티에이전트) 지적 반영 (W-011)
+
+첫 리뷰 라운드가 놓친 결함을 멀티에이전트 워크플로우 리뷰(27 검증 finding)가
+잡아냈다. 특히 검증 마커 지문의 untracked 우회는 1차에서 "닫았다"고 본 것이 실제론
+남아 있던 케이스다.
+
+- **검증 마커 지문 재설계(F1/F2/F3)**: 지문을 `HEAD + git status --porcelain`에서
+  **검증 스코프(get_modified_py_files) 각 .py의 내용 sha256**으로 교체. porcelain은
+  untracked 파일의 '경로'만 반영해, 이미 untracked인 .py의 내용을 마커 생성 후
+  수정하면 지문이 그대로여서 미검증 코드가 스킵될 수 있었다(실제 검증 우회). 내용
+  해시로 그 우회를 닫고, 동시에 .py 아닌 파일(review-results.md) 변경엔 지문이
+  불변이라 마커가 불필요하게 무효화되지도 않는다. `git rev-parse HEAD` 실패 시 ''
+  반환(보수적 무효)로 훅/스니펫 정합.
+- **상태 파일을 사용자 전용 디렉토리로(F4/F10)**: 마커·retry 카운터·ledger 락을
+  world-writable `/tmp` 예측 경로에서 `$TMPDIR/claude-{uid}`(0700)로 이전 — 타
+  사용자가 심링크 없이 평범한 파일 선점만으로 카운터를 오염(cap 상시 발동)하거나
+  유효 마커를 심는 공격을 차단. ledger 락이 저장소 트리를 벗어나 커밋 오염·
+  porcelain 교란도 해소. stop-validator 엔트리포인트에 fail-safe try/except 추가
+  (타 소유 파일 접근 예외로 훅이 죽지 않고 통과).
+- **마커 소비 원자화(F8)**: `exists→read→unlink`를 `os.rename` claim으로 교체 —
+  같은 체크아웃의 두 병렬 Stop 훅 중 한쪽만 마커를 가져가고 나머지는 정상 검증.
+- **병합 정책 모순 해소(F5)**: "메인이 순차 병합"(강제 불가) 규범을 제거하고 "순차
+  **dispatch**"(메인이 실제 통제 가능)로 재정의. 병렬 안전은 dispatch 시점의 파일
+  disjoint 분리로 확보 — 각 에이전트는 green이면 스스로 ExitWorktree.
+- **feedback ledger 심링크 보존(F7)**: `os.replace`가 심링크를 파괴하던 것을
+  realpath 대상 교체로 바꿔 사용자의 공유 원장 심링크를 보존. 락 타임아웃 시
+  stderr 경고(F9)로 lost-update 재발을 관측 가능하게.
+- **work.sh 중복 가드 비브릭(F6)**: 동일 Work ID 다중 매치 시 exit 1로 모든
+  하위명령을 막던 것을 경고 + 결정론적 첫 항목 선택으로 완화(중복 정리용 명령까지
+  막던 문제 해소). cross-clone은 로컬로 직렬화 불가함을 스크립트에 명시.
 - **feedback ledger lost-update**: auto-dev가 T-review/T-security를 병렬 실행하며
   둘 다 `feedback.sh upsert`를 호출하는데 read-modify-write에 락이 없어 한쪽 기록
   소실·`F-id` 중복 채번이 가능했다 — `fcntl.flock` 배타 락 + tmp 파일 `os.replace`

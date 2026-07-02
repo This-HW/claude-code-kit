@@ -26,6 +26,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -46,10 +47,32 @@ def _get_project_root() -> Path:
     return Path(".").resolve()
 
 
+def _state_dir() -> Path:
+    """훅 상태(마커/카운터)를 담는 **현재 사용자 전용** 0700 디렉토리.
+
+    이전엔 상태를 world-writable /tmp의 예측 가능한 경로에 직접 뒀다 — 공유 호스트의
+    다른 사용자가 심링크 없이도 평범한 파일을 미리 만들어 두는 것만으로 카운터를
+    '999'로 오염(cap 상시 발동→검증 무력화)하거나 유효 마커를 심어 검증을 우회할 수
+    있었다. `$TMPDIR/claude-{uid}`(0700)로 격리하면 타 사용자가 경로 자체에 접근할 수
+    없다. auto-dev SKILL의 마커 생성 스니펫도 동일 경로를 계산해야 한다(MUST MATCH).
+    """
+    try:
+        uid = os.getuid()
+    except AttributeError:  # 비-POSIX(Windows 등) — kit 주 대상은 darwin/linux
+        uid = os.environ.get("USER", "user")
+    d = Path(tempfile.gettempdir()) / f"claude-{uid}"
+    try:
+        d.mkdir(mode=0o700, exist_ok=True)
+    except Exception:
+        return Path(tempfile.gettempdir())
+    return d
+
+
 PROJECT_ROOT = _get_project_root()
 _hash = hashlib.md5(str(PROJECT_ROOT).encode()).hexdigest()[:8]
-VALIDATED_MARKER = Path(f"/tmp/.claude_validated_{_hash}")
-RETRY_COUNTER = Path(f"/tmp/.claude_stop_retries_{_hash}")
+_STATE_DIR = _state_dir()
+VALIDATED_MARKER = _STATE_DIR / f".claude_validated_{_hash}"
+RETRY_COUNTER = _STATE_DIR / f".claude_stop_retries_{_hash}"
 MAX_RETRIES = 2
 _MAX_FILE_SIZE = 1_048_576  # 1MB: auto_fix_lint에서 파일 읽기 상한
 
@@ -405,54 +428,72 @@ def check_tests(modified_files: list[str]) -> tuple[bool, str]:
 
 # ── auto-dev 검증 마커 ───────────────────────────────────────────
 def _worktree_state_hash() -> str:
-    """현재 작업트리 상태 지문: HEAD + `git diff HEAD` + `git status --porcelain`의 md5.
+    """검증 스코프 지문: HEAD + 검증 대상 .py 각각의 (경로, 내용 sha256)의 md5.
 
-    porcelain 출력을 포함해 untracked 파일의 등장/삭제도 지문에 반영한다 —
-    `git diff HEAD`만으로는 마커 생성 후 추가된 새 .py(untracked)가 지문을 바꾸지
-    않아 미검증 코드가 스킵될 수 있다(검증 스코프 get_modified_py_files와 동일 집합).
-    git 부재/타임아웃 시 '' 반환 → 마커는 항상 무효(보수적 재검증).
+    지문 대상을 **훅이 실제 검증하는 파일 집합**(get_modified_py_files — tracked
+    수정 ∪ staged ∪ untracked .py)의 *내용*으로 잡는다. 이전 구현은 `git status
+    --porcelain`을 썼는데, porcelain은 untracked 파일의 '경로'만 찍고 '내용'은
+    반영하지 않아, 이미 untracked인 .py를 마커 생성 후 수정하면 지문이 그대로여서
+    미검증 코드가 스킵될 수 있었다(F1 — 검증 우회). 파일 내용을 직접 해시하면 그
+    우회가 닫히고, 동시에 .py가 아닌 파일(review-results.md 등)의 변경은 지문에
+    영향을 주지 않아 마커가 불필요하게 무효화되지도 않는다(F2).
 
-    이 계산은 auto-dev SKILL.md T-merge의 마커 생성 스니펫과 정확히 일치해야
-    한다(입력·순서·타임아웃 10s). 한쪽만 바꾸면 마커가 항상 무효화된다.
+    `git rev-parse HEAD` 실패(예: 최초 커밋 전) 시 '' 반환 → 마커 항상 무효(보수적
+    재검증). 이 계산은 auto-dev SKILL.md T-merge 스니펫과 정확히 일치해야 한다
+    (MUST MATCH — get_modified_py_files 3-쿼리, 정렬, sha256, 조인 형식, 타임아웃).
     """
     try:
-        opts = {
-            "capture_output": True,
-            "text": True,
-            "timeout": 10,
-            "cwd": str(PROJECT_ROOT),
-        }
-        head = subprocess.run(["git", "rev-parse", "HEAD"], **opts).stdout.strip()
-        diff = subprocess.run(["git", "diff", "HEAD"], **opts).stdout
-        status = subprocess.run(["git", "status", "--porcelain"], **opts).stdout
-        return hashlib.md5((head + diff + status).encode()).hexdigest()
+        r = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=str(PROJECT_ROOT),
+        )
+        if r.returncode != 0:
+            return ""
+        head = r.stdout.strip()
+        parts = [head]
+        for rel in sorted(get_modified_py_files()):
+            abs_p = Path(rel)
+            if not abs_p.is_absolute():
+                abs_p = PROJECT_ROOT / rel
+            try:
+                content_sha = hashlib.sha256(abs_p.read_bytes()).hexdigest()
+            except Exception:
+                content_sha = "MISSING"
+            parts.append(f"{rel}\0{content_sha}")
+        return hashlib.md5("\n".join(parts).encode()).hexdigest()
     except Exception:
         return ""
 
 
 def _consume_marker_if_valid() -> bool:
-    """auto-dev 검증 마커가 '현재 작업트리 상태'에 유효하면 소비하고 True.
+    """auto-dev 검증 마커가 '현재 검증 스코프 상태'에 유효하면 소비하고 True.
 
-    마커 파일은 /tmp의 예측 가능한 repo 스코프 공유 경로라 병렬 세션 —
-    또는 공유 호스트의 다른 사용자 — 가 만든 것일 수 있다. 따라서:
-    - 심볼릭링크면 즉시 무효 (CWE-59: 링크 추적으로 임의 파일을 읽지 않는다)
-    - 내용이 현재 _worktree_state_hash()와 일치할 때만 유효
-      (auto-dev 검증 이후 파일이 바뀌었거나 다른 세션의 상태면 무효)
-    - 빈 내용(구버전 touch 마커)은 무효 — 내용 검증 없는 시간 기반 스킵은
-      마커 파일 생성만으로 검증을 우회할 수 있어 허용하지 않는다.
-    판정 후 마커는 항상 삭제한다. 무효면 검증을 계속한다.
+    마커 파일은 repo 스코프 공유 경로라 같은 체크아웃의 병렬 세션이 만든 것일 수
+    있다. 따라서:
+    - **원자적 소비**: 먼저 os.rename으로 세션 고유 이름으로 옮겨 '가로챈다'. rename은
+      원자적이라 두 병렬 Stop 훅 중 한쪽만 성공하고, 진 쪽은 FileNotFoundError로
+      전체 검증 경로를 탄다(F8 — 이전 exists→read→unlink는 둘 다 읽고 둘 다 스킵 가능).
+    - 심볼릭링크면 즉시 무효 (CWE-59: 링크를 따라 임의 파일을 읽지 않는다).
+    - 가로챈 파일 내용이 현재 _worktree_state_hash()와 일치할 때만 유효.
+    - 빈 내용은 무효 — 파일 생성만으로 검증을 우회하지 못하게 한다.
     """
-    if not VALIDATED_MARKER.exists() and not VALIDATED_MARKER.is_symlink():
-        return False
     if VALIDATED_MARKER.is_symlink():
         VALIDATED_MARKER.unlink(missing_ok=True)
         return False
+    claimed = VALIDATED_MARKER.with_name(f"{VALIDATED_MARKER.name}.claim.{os.getpid()}")
     try:
-        content = VALIDATED_MARKER.read_text(encoding="utf-8").strip()
+        os.rename(VALIDATED_MARKER, claimed)
+    except (FileNotFoundError, OSError):
+        return False  # 마커 없음 또는 다른 프로세스가 이미 가로챔
+    try:
+        content = claimed.read_text(encoding="utf-8").strip()
     except Exception:
         content = ""
     valid = bool(content) and content == _worktree_state_hash()
-    VALIDATED_MARKER.unlink(missing_ok=True)
+    claimed.unlink(missing_ok=True)
     return valid
 
 
@@ -534,5 +575,18 @@ def main():
     allow()
 
 
+def entry():
+    """fail-safe 엔트리포인트: 예기치 못한 예외(예: 타 소유 상태파일 접근 시
+    PermissionError)로 훅이 트레이스백 종료하면 Stop이 애매하게 막힐 수 있다 —
+    안전망은 실패해도 턴을 통과시켜야 한다. allow()/block()의 SystemExit은
+    Exception이 아니라 그대로 전파(정상 통과)된다.
+    """
+    try:
+        main()
+    except Exception as e:
+        print(f"[stop-validator] unexpected error, allowing stop: {e}", file=sys.stderr)
+        sys.exit(0)
+
+
 if __name__ == "__main__":
-    main()
+    entry()

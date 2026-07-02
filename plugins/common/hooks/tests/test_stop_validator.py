@@ -541,3 +541,105 @@ def test_increment_retry_does_not_follow_symlink(tmp_path):
         assert _mod.get_retry_count() == 1
     finally:
         _mod.RETRY_COUNTER.unlink(missing_ok=True)
+
+
+# ── TC18: 지문이 검증 스코프 내용을 반영 (F1) — untracked .py 내용 변경 감지 ──
+def _git_init(tmp_path):
+    import subprocess as sp
+
+    env = {
+        **__import__("os").environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+    }
+
+    def g(*a):
+        sp.run(
+            ["git", *a],
+            cwd=tmp_path,
+            env=env,
+            check=True,
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+
+    g("init")
+    g("commit", "--allow-empty", "-m", "root")
+    return g
+
+
+def test_fingerprint_detects_untracked_py_content_change(tmp_path, monkeypatch):
+    """이미 untracked인 .py의 내용을 바꾸면 지문이 달라져야 한다(F1 우회 차단).
+    porcelain 기반 옛 구현은 경로만 봐서 이 변경을 놓쳤다."""
+    _git_init(tmp_path)
+    monkeypatch.setattr(_mod, "PROJECT_ROOT", tmp_path)
+    f = tmp_path / "new_mod.py"
+    f.write_text("x = 1\n", encoding="utf-8")  # untracked
+    h1 = _mod._worktree_state_hash()
+    assert h1, "커밋이 있으므로 지문이 계산돼야 한다"
+    f.write_text(
+        "x = 1\nBAD SYNTAX(\n", encoding="utf-8"
+    )  # 내용만 변경, 여전히 untracked
+    h2 = _mod._worktree_state_hash()
+    assert h1 != h2, "untracked .py 내용 변경이 지문에 반영돼야 한다"
+
+
+def test_fingerprint_stable_across_non_py_change(tmp_path, monkeypatch):
+    """.py 아닌 파일(review-results.md 등) 변경은 지문에 영향을 주지 않는다(F2)."""
+    _git_init(tmp_path)
+    monkeypatch.setattr(_mod, "PROJECT_ROOT", tmp_path)
+    (tmp_path / "app.py").write_text("y = 2\n", encoding="utf-8")
+    h1 = _mod._worktree_state_hash()
+    (tmp_path / "review-results.md").write_text("# report\n", encoding="utf-8")
+    h2 = _mod._worktree_state_hash()
+    assert h1 == h2, "비 .py 파일 변경으로 마커가 무효화되면 안 된다"
+
+
+def test_fingerprint_empty_before_first_commit(tmp_path, monkeypatch):
+    """최초 커밋 전(unborn HEAD)에는 '' 반환 → 마커 보수적 무효(F3)."""
+    import subprocess as sp
+
+    sp.run(
+        ["git", "init"], cwd=tmp_path, check=True, stdout=sp.DEVNULL, stderr=sp.DEVNULL
+    )
+    monkeypatch.setattr(_mod, "PROJECT_ROOT", tmp_path)
+    assert _mod._worktree_state_hash() == ""
+
+
+# ── TC19: 원자적 consume — 두 번째 소비자는 검증 경로로 폴백 (F8) ──
+def test_consume_marker_is_atomic(monkeypatch):
+    """os.rename 기반 claim으로 첫 호출만 마커를 가져가고, 두 번째는 False."""
+    monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "s")
+    _mod.VALIDATED_MARKER.write_text("s", encoding="utf-8")
+    first = _mod._consume_marker_if_valid()
+    second = _mod._consume_marker_if_valid()
+    assert first is True and second is False, "마커는 정확히 한 번만 소비돼야 한다"
+
+
+# ── TC20: entry() fail-safe — 예기치 못한 예외는 통과(F4) ──
+def test_entry_fail_safe_on_unexpected_error(monkeypatch, capsys):
+    """main()이 PermissionError(타 소유 상태파일 접근 등)를 던져도 entry()가
+    트레이스백으로 죽지 않고 exit 0으로 통과시킨다(안전망은 fail-safe)."""
+
+    def _boom():
+        raise PermissionError("Operation not permitted")
+
+    monkeypatch.setattr(_mod, "main", _boom)
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.entry()
+    assert exc_info.value.code == 0
+    assert "unexpected error" in capsys.readouterr().err
+
+
+def test_entry_passes_through_normal_exit(monkeypatch):
+    """정상 경로의 SystemExit(allow/block)은 entry()가 삼키지 않고 전파한다."""
+
+    def _normal():
+        raise SystemExit(0)
+
+    monkeypatch.setattr(_mod, "main", _normal)
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.entry()
+    assert exc_info.value.code == 0

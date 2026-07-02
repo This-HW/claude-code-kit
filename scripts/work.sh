@@ -76,6 +76,11 @@ next_work_number() {
 # 받을 수 있다(동시 `work.sh new`). mkdir의 원자성으로 .claimed/W-XXX를
 # 선점해 번호를 확정한다 — 선점 실패 시 재채번 후 재시도.
 # .claimed 항목은 영구 레지스트리로 남아 next_work_number가 재사용을 막는다.
+#
+# 범위 한계: 이 원자성은 **하나의 체크아웃을 공유하는** 프로세스들만 직렬화한다.
+# 별도 worktree/clone의 동시 세션은 각자의 docs/works만 보므로 같은 W-XXX를 받을
+# 수 있다(.claimed는 커밋되지 않는 빈 디렉토리라 git이 추적/병합하지 못한다). 그런
+# 중복은 병합 후 find_work_dir가 경고로 표면화한다(치명 실패 아님).
 claim_work_id() {
   mkdir -p "${WORKS_DIR}/.claimed"
   local attempt num
@@ -101,13 +106,14 @@ find_work_dir() {
     echo "Error: Work '$id' not found under $WORKS_DIR" >&2
     exit 1
   fi
-  # 동일 ID가 여러 디렉토리와 매치되면(과거 TOCTOU 중복 등) 조용히 첫 항목을
-  # 고르지 않고 명시적으로 실패한다 — head -1 은폐가 잘못된 Work 조작을 낳는다.
+  # 동일 ID가 여러 디렉토리와 매치되면(cross-clone 중복 병합 등) 사용자에게
+  # 경고하되 CLI를 브릭하지 않는다 — exit 1로 모든 하위명령을 막으면 정작 중복을
+  # 정리할 complete/show조차 못 쓴다. 결정론적으로 첫 항목(정렬순)을 선택하고
+  # 사용자가 수동 정리하도록 stderr로 알린다.
   if [[ "$(printf '%s\n' "$matches" | wc -l | tr -d ' ')" -gt 1 ]]; then
-    echo "Error: Work '$id' matches multiple directories (duplicate ID?):" >&2
-    printf '%s\n' "$matches" >&2
-    echo "Resolve the duplicate before continuing." >&2
-    exit 1
+    echo "Warning: Work '$id'가 여러 디렉토리와 매치됩니다(중복 ID). 첫 항목을 사용합니다 — 수동 정리 권장:" >&2
+    printf '  %s\n' $matches >&2
+    matches="$(printf '%s\n' "$matches" | head -1)"
   fi
   echo "$matches"
 }

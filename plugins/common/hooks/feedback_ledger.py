@@ -19,9 +19,11 @@ ledger 부재/파싱 실패 시 전 구간 무동작 (fail-open, opt-in).
 """
 
 import fcntl
+import hashlib
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from datetime import date
@@ -130,13 +132,15 @@ def _ledger_lock(path: Path):
     fcntl.flock은 darwin/linux 전용(kit 대상 플랫폼). 락 파일 생성/획득 실패 시
     무락으로 진행한다 — ledger는 학습 보조 데이터라 가용성 우선(fail-open).
 
-    - 락 파일은 O_NOFOLLOW로 연다 — 심링크로 선점돼 있으면 열지 않는다(CWE-59).
+    - 락 파일은 저장소 트리가 아니라 사용자별 `$TMPDIR/claude-{uid}`(0700)에 둔다 —
+      repo 안 `.lock`은 커밋 오염 + auto-dev 마커 지문(porcelain) 교란을 낳았다(F10).
+    - 락 파일은 O_NOFOLLOW로 연다(CWE-59).
     - 블로킹 flock 대신 LOCK_NB + 재시도(_LOCK_TIMEOUT_SECONDS 데드라인) —
-      락 보유 프로세스가 정지해도 파이프라인이 무한 대기하지 않는다.
+      락 보유 프로세스가 정지해도 파이프라인이 무한 대기하지 않는다. 데드라인 초과 시
+      무락으로 진행하되 **stderr 경고**를 남겨 lost-update 재발을 관측 가능하게 한다(F9).
     """
-    lock_file = path.with_name(path.name + ".lock")
+    lock_file = _lock_path_for(path)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(str(lock_file), os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         fh = os.fdopen(fd, "w")
     except Exception:
@@ -152,6 +156,11 @@ def _ledger_lock(path: Path):
                 break
             except OSError:
                 if time.monotonic() >= deadline:
+                    print(
+                        "[feedback_ledger] lock timeout — proceeding unlocked "
+                        "(동시 upsert 시 기록 유실 가능)",
+                        file=sys.stderr,
+                    )
                     break  # 데드라인 초과 → 무락 진행(fail-open)
                 time.sleep(0.05)
         yield
@@ -163,22 +172,42 @@ def _ledger_lock(path: Path):
             fh.close()
 
 
+def _lock_path_for(path: Path) -> Path:
+    """ledger 경로에 대응하는 사용자별 락 파일 경로 (repo 트리 밖)."""
+    try:
+        uid = os.getuid()
+    except AttributeError:
+        uid = os.environ.get("USER", "user")
+    key = hashlib.md5(str(path.resolve()).encode()).hexdigest()[:12]
+    d = Path(tempfile.gettempdir()) / f"claude-{uid}"
+    try:
+        d.mkdir(mode=0o700, exist_ok=True)
+        return d / f"ledger_{key}.lock"
+    except Exception:
+        return path.with_name(path.name + ".lock")  # 폴백: 기존 위치
+
+
 def _write_ledger(path: Path, entries: list[dict]) -> None:
-    """tmp 파일 작성 후 os.replace로 원자 교체 — 부분 쓰기 상태 노출 방지."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    """tmp 파일 작성 후 os.replace로 원자 교체 — 부분 쓰기 상태 노출 방지.
+
+    대상이 심링크면 링크 자체가 아니라 **링크가 가리키는 실제 파일**을 교체한다 —
+    사용자가 ledger.md를 공유 원장으로 심링크해 둔 경우를 보존한다(F7). ledger.md는
+    저장소 내부의 사용자 통제 파일이라 /tmp와 달리 심링크 추적이 안전하다.
+    """
+    real = Path(os.path.realpath(path))
+    real.parent.mkdir(parents=True, exist_ok=True)
     rows = [
         f"| {e['id']} | {e['category']} | {e['pattern']} | "
         f"{e['frequency']} | {e['last_seen']} | {e['severity']} |"
         for e in entries
     ]
-    tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}")
+    tmp = real.with_name(f"{real.name}.tmp.{os.getpid()}")
     tmp.unlink(missing_ok=True)
-    # O_EXCL|O_NOFOLLOW: 예측 가능한 tmp 경로가 심링크로 선점돼 있어도 따라가지 않는다.
-    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(_HEADER + "\n".join(rows) + ("\n" if rows else ""))
-        os.replace(tmp, path)
+        os.replace(tmp, real)
     finally:
         tmp.unlink(missing_ok=True)
 

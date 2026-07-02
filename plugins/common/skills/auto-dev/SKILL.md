@@ -122,22 +122,26 @@ Agent(task_B) ─┼─ 동일 응답에서 동시 dispatch
 Agent(task_C) ─┘
 ```
 
-**dispatch 전 파일 소유권 확인 (rules/parallel-worktree.md):** 병렬 청크 간 수정
-대상 파일이 겹치면 해당 청크들을 순차로 강등한다. 공유 파일(설정·배럴 export 등)은
-병렬 청크에 배정하지 않고 마지막에 메인 세션이 단독 수정한다.
+**dispatch 전 파일 소유권 확인 (rules/parallel-worktree.md) [건너뛰기 금지]:**
+병렬 안전은 병합 직렬화가 아니라 **dispatch 시점의 파일 분리**로 확보한다(메인은
+서브에이전트의 ExitWorktree 타이밍을 직렬화할 수 없다). 따라서:
 
-**Worktree 병합 절차 (병렬 dispatch 후) [건너뛰기 금지]:**
+1. 병렬 청크의 수정 대상 파일이 disjoint한지 확인한다. disjoint하면 각 에이전트가
+   언제 복귀하든 트리 충돌이 없다.
+2. 겹침을 피할 수 없으면 해당 청크들을 **순차 dispatch**로 강등한다(하나 dispatch →
+   ExitWorktree까지 완료 확인 → 다음). 의존성 상류(공유 타입/유틸) 청크를 먼저.
+3. 공유 파일(설정·배럴 export·라우트 등록부)은 병렬 청크에 배정하지 않고 마지막에
+   메인 세션이 단독 수정한다.
 
-worktree 격리 에이전트들의 결과는 자동으로 합쳐지지 않는다. 순차 병합 원칙:
+**Worktree 복귀 (병렬 dispatch 후):**
 
-1. 에이전트는 worktree 안 검증(린트+관련 테스트) 그린 후 `ExitWorktree`로 복귀한다
-   (각 에이전트 본문의 "Worktree 복귀 프로토콜" 참조).
-2. 메인 세션은 완료된 worktree를 **하나씩** 병합한다 — 하나 병합 → 검증 → 다음.
-   여러 worktree를 동시에 병합하지 않는다. 병합 순서는 의존성 상류(공유 타입/유틸) 먼저.
-3. 병합 충돌 발생 시: 임의 해결 금지 → `git-workflow` 에이전트에 위임해 충돌
-   파일/내용 보고 + NEED_USER_INPUT(ours/theirs/manual) 에스컬레이션.
-4. 같은 지점 충돌이 2회 반복되면 청크 분해 오류 → 남은 dispatch를 중단하고
-   plan 단계로 돌아가 청크 경계를 재설계한다.
+- 각 에이전트가 worktree 안 검증(린트+관련 테스트) 그린 후 **스스로** `ExitWorktree`로
+  복귀한다(각 에이전트 본문 "Worktree 복귀 프로토콜"). disjoint 전제가 지켜지면 동시
+  복귀도 안전하다.
+- 병합 충돌 발생 시(전제가 깨진 경우): 임의 해결 금지 → `git-workflow`에 위임해 충돌
+  파일/내용 보고 + NEED_USER_INPUT(ours/theirs/manual) 에스컬레이션.
+- 같은 지점 충돌 2회 반복 = 청크 분해 오류 → 남은 dispatch 중단, plan 단계로 돌아가
+  청크 경계(파일 소유권)를 재설계한다.
 
 **Large 라우팅:** Work `size: Large`이고 unblocked 병렬 청크가 **10개 이상**이면,
 스킬 주도 dispatch는 main 컨텍스트에 부담이 큽니다. 이 경우 청크 목록을 정리해
@@ -274,23 +278,37 @@ T-review, T-security 결과를 구조적으로 검증:
        return r.stdout if r.returncode == 0 else ""
    root = run("git", "rev-parse", "--show-toplevel").strip() or os.getcwd()
    key = hashlib.md5(root.encode()).hexdigest()[:8]
-   state = hashlib.md5(
-       (run("git", "rev-parse", "HEAD").strip()
-        + run("git", "diff", "HEAD")
-        + run("git", "status", "--porcelain")).encode()
-   ).hexdigest()
-   fd, tmp = tempfile.mkstemp(dir="/tmp")
+   # 검증 스코프 = tracked 수정 ∪ staged ∪ untracked .py (stop-validator의
+   # get_modified_py_files와 동일). 각 파일 '내용'을 해시해 지문화 → untracked .py
+   # 내용 변경도 감지되고, .py 아닌 파일(review-results.md) 변경엔 불변.
+   files = set()
+   for a in (["git","diff","--name-only","HEAD"],
+             ["git","diff","--cached","--name-only"],
+             ["git","ls-files","--others","--exclude-standard"]):
+       files.update(f for f in run(*a).splitlines() if f.endswith(".py"))
+   head = run("git", "rev-parse", "HEAD").strip()
+   parts = [head]
+   for rel in sorted(files):
+       try:
+           sha = hashlib.sha256(open(os.path.join(root, rel), "rb").read()).hexdigest()
+       except OSError:
+           sha = "MISSING"
+       parts.append(f"{rel}\0{sha}")
+   state = hashlib.md5("\n".join(parts).encode()).hexdigest() if head else ""
+   d = os.path.join(tempfile.gettempdir(), f"claude-{os.getuid()}")
+   os.makedirs(d, mode=0o700, exist_ok=True)
+   fd, tmp = tempfile.mkstemp(dir=d)
    with os.fdopen(fd, "w") as fh:
        fh.write(state)
-   os.replace(tmp, f"/tmp/.claude_validated_{key}")  # rename은 심링크 자체를 교체(CWE-59 방어)
+   os.replace(tmp, os.path.join(d, f".claude_validated_{key}"))  # rename은 심링크 자체를 교체(CWE-59)
    PY
    ```
-   > 마커에는 **작업트리 상태 해시**(HEAD + diff + porcelain)를 기록한다. Stop
-   > hook은 이름이 아니라 이 내용으로 유효성을 판정하므로, 병렬 세션이 만든
-   > 마커·검증 후 바뀐 상태·untracked 추가에서는 스킵이 일어나지 않는다.
-   > 빈 내용 마커(구버전 touch)는 무효. **이 계산은 stop-validator.py의
-   > `_worktree_state_hash()`와 입력·순서·타임아웃(10s)까지 정확히 일치해야
-   > 한다** — 한쪽만 바꾸면 마커가 항상 무효화된다.
+   > 마커에는 **검증 스코프 지문**(HEAD + 검증 대상 .py들의 내용 sha256)을 기록하고
+   > 사용자별 `$TMPDIR/claude-{uid}`(0700)에 둔다. Stop hook은 이름이 아니라 이
+   > 내용으로 판정하므로, 병렬 세션 마커·검증 후 .py 변경(untracked 내용 포함)에서는
+   > 스킵이 일어나지 않고, .py 아닌 파일 변경엔 불필요하게 무효화되지 않는다. 빈 내용
+   > 마커는 무효. **이 계산은 stop-validator.py `_worktree_state_hash()`와 파일 집합·
+   > 정렬·sha256·조인 형식·경로까지 정확히 일치해야 한다**(MUST MATCH).
 2. T-review, T-security 결과를 `review-results.md`에 통합 기록
 3. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
 
