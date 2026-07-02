@@ -142,7 +142,10 @@ name: explore-codebase
 | `fix-bugs`            | ✅ 필요   | 버그 수정 = 파일 변경             |
 | `write-tests`         | ✅ 필요   | 테스트 파일 생성                  |
 | `write-api-tests`     | ✅ 필요   | API 테스트 파일 생성              |
-| `write-ui-tests`      | ✅ 필요   | UI 테스트 파일 생성               |
+| `implement-api`       | ✅ 필요   | API 코드 생성/수정                |
+| `generate-boilerplate`| ✅ 필요   | 보일러플레이트 파일 생성          |
+| `sync-docs`           | ✅ 필요   | 문서 파일 생성/수정               |
+| `optimize-logic`      | ✅ 필요   | 소스 코드 Edit                    |
 | `explore-codebase`    | ❌ 불필요 | 읽기 전용 탐색                    |
 | `review-code`         | ❌ 불필요 | 읽기 전용 검토                    |
 | `plan-implementation` | ❌ 불필요 | 계획 문서 작성만 (md 파일은 허용) |

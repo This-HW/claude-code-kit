@@ -126,3 +126,91 @@ def test_digest_char_cap(tmp_path, monkeypatch):
         )
     digest = _mod.load_digest(top_k=10, root=tmp_path)
     assert len(digest) <= 82  # cap + " …"
+
+
+# ── 동시 upsert: lost-update / F-id 충돌 방지 (W-011) ─────────────
+def test_concurrent_upserts_preserve_all_entries(tmp_path):
+    """auto-dev가 T-review/T-security를 병렬 실행하며 둘 다 upsert하는 시나리오.
+
+    CLI 프로세스 N개를 동시에 띄워 서로 다른 패턴을 upsert — 락이 없으면
+    read-modify-write 레이스로 일부 기록이 소실되고 F-id가 중복 채번된다.
+    """
+    import subprocess as sp
+    import sys
+
+    n = 8
+    env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    script = str(HOOKS_DIR / "feedback_ledger.py")
+    procs = [
+        sp.Popen(
+            [sys.executable, script, "upsert", "lint", "low", f"concurrent pattern {i}"],
+            env=env,
+            stdout=sp.DEVNULL,
+            stderr=sp.DEVNULL,
+        )
+        for i in range(n)
+    ]
+    for p in procs:
+        assert p.wait(timeout=30) == 0
+
+    entries = _mod.parse_ledger(_mod.ledger_path(tmp_path))
+    patterns = {e["pattern"] for e in entries}
+    ids = [e["id"] for e in entries]
+    assert len(entries) == n, f"동시 upsert 중 기록 소실: {n}개 중 {len(entries)}개만 보존"
+    assert patterns == {f"concurrent pattern {i}" for i in range(n)}
+    assert len(ids) == len(set(ids)), f"F-id 중복 채번: {sorted(ids)}"
+
+
+def test_write_ledger_leaves_no_tmp_files(tmp_path):
+    """원자 교체 후 tmp 파일이 잔존하지 않는다."""
+    _mod.upsert("lint", "low", "atomic write check", root=tmp_path)
+    leftovers = list(_mod.ledger_path(tmp_path).parent.glob("*.tmp.*"))
+    assert leftovers == []
+
+
+# ── F7: 심링크된 ledger.md는 링크 대상을 보존하며 갱신 ──────────────
+def test_write_ledger_preserves_symlink_target(tmp_path):
+    """ledger.md가 공유 원장으로 심링크돼 있으면 링크를 파괴하지 않고 대상에 쓴다."""
+    import os
+    central = tmp_path / "central.md"
+    central.write_text("seed", encoding="utf-8")
+    ledger = _mod.ledger_path(tmp_path)
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    os.symlink(central, ledger)
+
+    _mod.upsert("lint", "low", "via symlink", root=tmp_path)
+
+    assert ledger.is_symlink(), "심링크가 일반 파일로 대체되면 안 된다(F7)"
+    assert "via symlink" in central.read_text(encoding="utf-8"), (
+        "실제 대상 파일(중앙 원장)이 갱신돼야 한다"
+    )
+
+
+# ── F10: 락 파일이 저장소 트리 밖(사용자 tmp)에 생성된다 ───────────
+def test_lock_file_not_in_repo_tree(tmp_path):
+    """ledger.md.lock이 docs/works 안이 아니라 사용자별 tmp에 생성돼 커밋 오염·
+    porcelain 교란을 일으키지 않는다."""
+    _mod.upsert("test", "low", "lock location check", root=tmp_path)
+    stray = list((tmp_path / "docs" / "works" / "feedback").glob("*.lock"))
+    assert stray == [], f"저장소 트리에 락 파일이 남았다: {stray}"
+
+
+# ── F9: 락 타임아웃 시 stderr 경고 ────────────────────────────────
+def test_lock_timeout_warns(tmp_path, monkeypatch, capsys):
+    """데드라인 초과로 무락 진행할 때 stderr 경고를 남겨 관측 가능하게 한다."""
+    monkeypatch.setattr(_mod, "_LOCK_TIMEOUT_SECONDS", 0)  # 즉시 데드라인
+
+    real_flock = _mod.fcntl.flock
+
+    def _always_busy(fh, flags):
+        if flags & _mod.fcntl.LOCK_NB:
+            raise OSError("locked")
+        return real_flock(fh, flags)
+
+    monkeypatch.setattr(_mod.fcntl, "flock", _always_busy)
+    _mod.upsert("lint", "low", "timeout warn", root=tmp_path)
+
+    assert "lock timeout" in capsys.readouterr().err
+    # 무락이어도 쓰기는 성공해야 한다(fail-open)
+    entries = _mod.parse_ledger(_mod.ledger_path(tmp_path))
+    assert any(e["pattern"] == "timeout warn" for e in entries)

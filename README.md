@@ -114,6 +114,9 @@ kit에 녹아 있는 개념과 그 장점 — *어떻게* 구현되는지와 함
 | **Harness engineering** | 컨텍스트 주입(session-start)·도구 큐레이션·가드레일 훅·Work 메모리 | 환경이 모델을 올바른 궤도로 유지 |
 | **SSOT governance** | `rules/` + decisions 추적 + 거버넌스/시크릿 보호 훅 | 일관성·감사 가능성 |
 
+> 심화 리서치 노트: [하네스 엔지니어링 & 루프 엔지니어링 — 2026 중반 지형도](docs/research/2026-07-harness-loop-engineering.md)
+> (개념 계보 · 3대 루프 구현체 · 검증 원칙 · 병렬 에이전트 도구 생태계 · kit 대조)
+
 ## Works with superpowers
 
 [obra/superpowers](https://github.com/obra/superpowers) 플러그인과 **상호보완**하도록 설계됐습니다 — 둘을 같이 켜도 충돌·중복이 없습니다.
@@ -178,8 +181,11 @@ CONTEXT: [handoff context]
 
 File-modifying agents run in an isolated git worktree to prevent conflicts:
 
-- `implement-code`, `fix-bugs`, `write-tests`
-- `write-api-tests`, `write-ui-tests`
+- `implement-code`, `fix-bugs`, `write-tests`, `write-api-tests`
+- `implement-api`, `generate-boilerplate`, `sync-docs`, `optimize-logic`
+
+Merge-back rules (verify-then-exit, sequential merge, conflict escalation to
+`git-workflow`) live in `rules/parallel-worktree.md`.
 
 ---
 
@@ -305,7 +311,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (14) + rules (12) + hooks
+└── common/      — Core agents (33) + skills (14) + rules (13) + hooks
 ```
 
 The plugin contains:

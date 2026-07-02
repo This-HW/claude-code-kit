@@ -40,8 +40,9 @@ CONTEXT: [handoff context]
 
 ## isolation: worktree
 
-ALWAYS set `isolation: worktree` for file-modifying agents: implement-code, fix-bugs, write-tests, write-api-tests, write-ui-tests.
+ALWAYS set `isolation: worktree` for file-modifying agents: implement-code, fix-bugs, write-tests, write-api-tests, implement-api, generate-boilerplate, sync-docs, optimize-logic.
 NEVER set `isolation: worktree` on read-only agents: explore-codebase, review-code, plan-implementation.
+Merge-back protocol: see parallel-worktree.md (verify-then-exit, sequential merge, conflict → git-workflow).
 
 ## background: true
 

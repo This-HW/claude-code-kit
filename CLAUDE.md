@@ -17,7 +17,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (14) + rules (12) + hooks
+└── common/      — Core agents (33) + skills (14) + rules (13) + hooks
 ```
 
 `plugins/common/` contains:
@@ -89,8 +89,11 @@ disallowedTools:
 
 Apply to agents that **modify files** — prevents filesystem conflicts:
 
-- ✅ implement-code, fix-bugs, write-tests, write-api-tests, write-ui-tests
+- ✅ implement-code, fix-bugs, write-tests, write-api-tests, implement-api, generate-boilerplate, sync-docs, optimize-logic
 - ❌ explore-codebase, review-code, plan-implementation (read-only)
+
+Merge-back protocol (exit conditions, sequential merge, conflict escalation) is
+governed by `plugins/common/rules/parallel-worktree.md`.
 
 ### Delegation Signal
 

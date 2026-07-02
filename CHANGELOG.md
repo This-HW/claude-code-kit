@@ -6,6 +6,93 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.8.0] — 2026-07-02
+
+### Added — 병렬 worktree 병합 프로토콜 (W-011)
+
+kit은 "worktree 격리 진입" 정책은 있었지만 "병합 복귀" 규범이 없었다 — 격리 없이는
+충돌이 즉시 나고, 격리만 있으면 충돌이 병합 시점으로 이연될 뿐이다. 이번 릴리스가
+복귀 프로토콜을 명문화한다.
+
+- **`rules/parallel-worktree.md` 신설** (rules 1.3.0): 검증 그린 후에만 ExitWorktree,
+  순차 병합 원칙, dispatch 전 파일 소유권 확인, 충돌 시 `git-workflow`로
+  NEED_USER_INPUT 에스컬레이션, worktree 안 `docs/works/**` 갱신 금지.
+- **에이전트 8개 정비**: `optimize-logic`에 `isolation: worktree` + `maxTurns` +
+  `disallowedTools: [Task]` 추가(커버리지 누락). `implement-api`·`generate-boilerplate`·
+  `sync-docs`에 `ExitWorktree` 툴 추가(격리 진입만 있고 복귀 수단이 없었음). 파일 수정
+  에이전트 8개 전부에 "Worktree 복귀 프로토콜" 섹션 추가.
+- **auto-dev Step 2에 worktree 병합 절차 명시**: 하나 병합 → 검증 → 다음(동시 병합
+  금지), 동일 지점 충돌 2회 = 청크 재설계 신호.
+- **유령 참조 정리**: 존재하지 않는 `write-ui-tests`를 CLAUDE.md/README/
+  `rules/agent-system.md`의 isolation 목록에서 제거하고 실제 8개 에이전트로 교체.
+- **리서치 노트 게시**: `docs/research/2026-07-harness-loop-engineering.md` —
+  하네스/루프 엔지니어링 2026 중반 지형도(개념 계보·3대 루프 구현체·검증 원칙·
+  병렬 도구 생태계·kit 대조).
+
+### Fixed — 병렬 세션/프로세스 레이스 컨디션 3건 (W-011)
+
+- **stop-validator 크로스세션 오염**: retry 카운터가 repo 해시로만 키가 만들어져
+  같은 프로젝트의 병렬 세션들이 서로의 카운터를 덮어쓰거나 리셋할 수 있었다 —
+  stdin `session_id`로 세션 스코프 격리(부재 시 기존 동작). 스코프 적용은 모든
+  reset 경로(`stop_hook_active` 가드 포함)보다 선행한다. auto-dev 검증 마커는
+  이름 대신 **내용(작업트리 상태 해시 = HEAD + diff + porcelain)** 으로 유효성을
+  판정 — 병렬 세션의 마커, 검증 후 변경된 상태, untracked 추가에서는 스킵하지
+  않으며 빈 내용 마커(구버전 touch)는 무효다. 회귀 테스트 9개 추가.
+
+### Security — /tmp 예측 경로 하드닝 (W-011)
+
+- 마커/카운터/락/ledger 쓰기 전부 **심링크 비추적**으로 전환(CWE-59/377): `O_NOFOLLOW`
+  tmp 파일에 쓴 뒤 `os.replace`(rename은 목적지 심링크 자체를 교체) — 공유 호스트에서
+  예측 가능한 `/tmp` 경로를 심링크로 선점해 임의 파일을 덮어쓰는 공격 차단.
+  심링크 마커는 내용을 읽지 않고 즉시 무효 처리.
+- 시간(TTL) 기반 마커 스킵 제거 — 파일 생성만으로 Stop 검증을 30분 우회할 수 있던
+  경로 폐쇄. ledger `severity`는 화이트리스트(critical/high/medium/low) 강제 —
+  `|`/개행 주입으로 테이블 행을 깨고 세션 컨텍스트에 위조 행을 주입하는 벡터 차단.
+- ledger 락은 `LOCK_NB` + 5초 데드라인(초과 시 무락 진행) — 락 보유 프로세스 정지로
+  파이프라인이 무한 대기하지 않는다. `work.sh`는 claim 후 실패 시 trap으로
+  `.claimed` 고아 항목을 롤백해 Work 번호 영구 소각을 방지.
+
+### Fixed — 2차 적대적 리뷰(멀티에이전트) 지적 반영 (W-011)
+
+첫 리뷰 라운드가 놓친 결함을 멀티에이전트 워크플로우 리뷰(27 검증 finding)가
+잡아냈다. 특히 검증 마커 지문의 untracked 우회는 1차에서 "닫았다"고 본 것이 실제론
+남아 있던 케이스다.
+
+- **검증 마커 지문 재설계(F1/F2/F3)**: 지문을 `HEAD + git status --porcelain`에서
+  **검증 스코프(get_modified_py_files) 각 .py의 내용 sha256**으로 교체. porcelain은
+  untracked 파일의 '경로'만 반영해, 이미 untracked인 .py의 내용을 마커 생성 후
+  수정하면 지문이 그대로여서 미검증 코드가 스킵될 수 있었다(실제 검증 우회). 내용
+  해시로 그 우회를 닫고, 동시에 .py 아닌 파일(review-results.md) 변경엔 지문이
+  불변이라 마커가 불필요하게 무효화되지도 않는다. `git rev-parse HEAD` 실패 시 ''
+  반환(보수적 무효)로 훅/스니펫 정합.
+- **상태 파일을 사용자 전용 디렉토리로(F4/F10)**: 마커·retry 카운터·ledger 락을
+  world-writable `/tmp` 예측 경로에서 `$TMPDIR/claude-{uid}`(0700)로 이전 — 타
+  사용자가 심링크 없이 평범한 파일 선점만으로 카운터를 오염(cap 상시 발동)하거나
+  유효 마커를 심는 공격을 차단. ledger 락이 저장소 트리를 벗어나 커밋 오염·
+  porcelain 교란도 해소. stop-validator 엔트리포인트에 fail-safe try/except 추가
+  (타 소유 파일 접근 예외로 훅이 죽지 않고 통과).
+- **마커 소비 원자화(F8)**: `exists→read→unlink`를 `os.rename` claim으로 교체 —
+  같은 체크아웃의 두 병렬 Stop 훅 중 한쪽만 마커를 가져가고 나머지는 정상 검증.
+- **병합 정책 모순 해소(F5)**: "메인이 순차 병합"(강제 불가) 규범을 제거하고 "순차
+  **dispatch**"(메인이 실제 통제 가능)로 재정의. 병렬 안전은 dispatch 시점의 파일
+  disjoint 분리로 확보 — 각 에이전트는 green이면 스스로 ExitWorktree.
+- **feedback ledger 심링크 보존(F7)**: `os.replace`가 심링크를 파괴하던 것을
+  realpath 대상 교체로 바꿔 사용자의 공유 원장 심링크를 보존. 락 타임아웃 시
+  stderr 경고(F9)로 lost-update 재발을 관측 가능하게.
+- **work.sh 중복 가드 비브릭(F6)**: 동일 Work ID 다중 매치 시 exit 1로 모든
+  하위명령을 막던 것을 경고 + 결정론적 첫 항목 선택으로 완화(중복 정리용 명령까지
+  막던 문제 해소). cross-clone은 로컬로 직렬화 불가함을 스크립트에 명시.
+- **feedback ledger lost-update**: auto-dev가 T-review/T-security를 병렬 실행하며
+  둘 다 `feedback.sh upsert`를 호출하는데 read-modify-write에 락이 없어 한쪽 기록
+  소실·`F-id` 중복 채번이 가능했다 — `fcntl.flock` 배타 락 + tmp 파일 `os.replace`
+  원자 교체로 수정. 동시 8프로세스 upsert 무손실 회귀 테스트 추가.
+- **work.sh Work ID TOCTOU**: 동시 `work.sh new` 실행 시 동일 `W-XXX`가 중복 발급될
+  수 있었다(번호 채번과 디렉토리 생성이 비원자적) — `.claimed/` 레지스트리에 원자적
+  `mkdir`로 ID를 선점(재시도 + 지터). `find_work_dir`는 중복 매치 시 `head -1`로
+  은폐하지 않고 명시적 에러. 동시 10회 생성 검증(중복 0).
+
+---
+
 ## [2.7.2] — 2026-06-22
 
 ### Fixed — stop-validator 테스트 타임아웃 오탐 (대형 레포) + 전체 스위트 실행 제거
