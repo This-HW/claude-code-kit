@@ -6,6 +6,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.9.0] — 2026-07-03
+
+### Added — Durable Executor Checklist & 기계 완료 게이트 (W-013)
+
+장기·다세션 루프 실행에서 "무엇이 검증되어 완료인가"를 모델 주장이 아닌 **기계로**
+판정한다. 네이티브 Task는 `~/.claude/tasks/<session-UUID>/` 세션 스코프라 세션 경계를
+못 넘는다 — kit은 루프 엔진을 재발명하지 않고(네이티브 위임), 네이티브가 없는 것 —
+durable 상태 파일 + 결정론 완료 게이트 + 검증 계약 — 만 얇게 추가한다.
+
+- **`checklist.py` + `scripts/checklist.sh` 신설**: 완료 상태의 단일 authority
+  (`docs/works/<W>/checklist.json`, 스키마 `{id, description, acceptance, verify, passes}`).
+  `pass <id>`는 모델 주장으로 flip하지 않고 항목의 `verify` 명령을 **실제 실행해 exit 0**일
+  때만 `passes:true`로 전환한다(self-mark 차단). W-011 flock/os.replace 원자 쓰기 재사용.
+- **`verify-done.sh`에 게이트 2건 추가**: (8) active Work checklist에 `passes:false`
+  잔존 시 FAIL·부재 시 스킵, (9) test-ratchet — diff에서 test/assert가 `TEST-RATCHET-ALLOW`
+  마커 없이 순감소하면 FAIL(산문 규율이 아닌 기계 체크).
+- **인라인 규율(신규 rule 파일 없음 — ssot 준수)**: `loop-engineering.md`에 재앵커
+  (요약 아닌 planning-results 원본 재독) + idle 감지(커밋 0 = 종료); `auto-dev/SKILL.md`에
+  durable executor 규율(미완 1항목/iter, verify 통과 전 passes 금지, 상태 쓰기 메인 세션 소유);
+  `review-code.md`에 검증 독립성(작성자≠검증자 fresh context 충족, cross-family judge 미충족 갭 정직 표기).
+
+### Fixed — Bash 편집 .py의 Stop 검증 커버리지 갭 (W-012 #3)
+
+- **`stop-validator._session_edited_files`**: 기존엔 Edit/Write 계열 tool_use만 스코프에
+  잡아, 루프 에이전트가 Bash(heredoc/sed/tee/redirect)로 쓴 `.py`는 검증을 우회했다.
+  transcript에서 Bash `.py` 쓰기가 감지되면 스코프를 '불완전'으로 보고 **전체 dirty .py
+  폴백**(오검증은 안전, 미검증은 위험) → 미검증 코드 유입 차단. 읽기 전용 Bash(.py 대상
+  pytest/ruff/grep)는 폴백 트리거 안 함.
+
+### Notes
+
+- 신규 rule 0개 → rules count/CHECKSUMS 변동 없음. checklist.py는 CLI 헬퍼(feedback_ledger
+  선례)라 hooks.json 미등록. 테스트 25건 추가(checklist 13 + stop-validator Bash 커버리지 12 계열).
+- 설계·적대적 리뷰 과정: `docs/specs/2026-07-03-durable-executor-discipline.md`(v2, 3중 리뷰),
+  리서치: `docs/research/2026-07-long-running-loop-agents.md`.
+
+---
+
 ## [2.8.0] — 2026-07-02
 
 ### Added — 병렬 worktree 병합 프로토콜 (W-011)

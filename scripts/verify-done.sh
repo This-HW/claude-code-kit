@@ -13,6 +13,10 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT" || exit 1
 
+# 임시 출력은 예측가능한 /tmp 고정 이름(심링크 선점 위험) 대신 per-run mktemp 디렉토리.
+TMPD="$(mktemp -d "${TMPDIR:-/tmp}/ckkit-verify.XXXXXX")" || exit 1
+trap 'rm -rf "$TMPD"' EXIT
+
 PASS=0
 FAIL=0
 green() { printf '  \033[32m✓\033[0m %s\n' "$1"; PASS=$((PASS + 1)); }
@@ -68,8 +72,8 @@ fi
 
 hdr "4. pytest (hook tests)"
 if [ -n "$PYTEST_PY" ]; then
-  if "$PYTEST_PY" -m pytest plugins/common/hooks/tests/ -q >/tmp/.verify_pytest 2>&1; then
-    green "pytest: $(grep -oE '[0-9]+ passed' /tmp/.verify_pytest | tail -1)"
+  if "$PYTEST_PY" -m pytest plugins/common/hooks/tests/ -q >"$TMPD/pytest" 2>&1; then
+    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1)"
   else
     red "pytest failed (see: $PYTEST_PY -m pytest plugins/common/hooks/tests/)"
   fi
@@ -104,6 +108,82 @@ for s in $(grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+\.py' plugins/comm
   [ -f "$s" ] || { red "hooks.json → 없는 스크립트: $s"; MISSING=1; }
 done
 [ "$MISSING" -eq 0 ] && green "hooks.json 참조 스크립트 모두 존재"
+
+hdr "8. Durable checklist 완료 게이트 (active Work, W-013)"
+# checklist.json이 완료 상태의 단일 authority. active Work에 passes:false 잔존 시 FAIL,
+# checklist 부재 시 스킵(회귀 없음). status의 exit: 0=전항목pass 1=미완 3=없음/빈.
+CL_HELPER="plugins/common/hooks/checklist.py"
+CL_FOUND=0
+if [ -f "$CL_HELPER" ]; then
+  for cl in docs/works/active/*/checklist.json; do
+    [ -f "$cl" ] || continue
+    CL_FOUND=1
+    wd="$(dirname "$cl")"
+    python3 "$CL_HELPER" status "$wd" >"$TMPD/checklist" 2>&1
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      green "checklist 전항목 pass: $(basename "$wd")"
+    elif [ "$rc" -eq 3 ]; then
+      : # 빈 checklist → skip
+    else
+      red "checklist 미완: $(basename "$wd") — $(tr '\n' ' ' <"$TMPD/checklist")"
+    fi
+  done
+fi
+[ "$CL_FOUND" -eq 0 ] && green "active checklist 없음 (skip)"
+
+hdr "9. test-ratchet (테스트/assert 삭제 방지, W-013)"
+# diff에서 test/assert가 allow-marker 없이 순감소하면 FAIL. 산문 규율이 아닌 기계 체크.
+python3 - <<'EOF' && green "test-ratchet: 테스트 감소 없음" || red "test-ratchet: allow-marker 없이 테스트/assert 순감소 (의도적이면 diff에 TEST-RATCHET-ALLOW 명시)"
+import re
+import subprocess
+import sys
+
+
+def sh(*a):
+    return subprocess.run(a, capture_output=True, text=True).stdout
+
+
+base = sh("git", "merge-base", "main", "HEAD").strip() or "HEAD"
+diff = sh("git", "diff", "--unified=0", base)
+if not diff.strip() or "TEST-RATCHET-ALLOW" in diff:
+    sys.exit(0)
+pat = re.compile(r"(def\s+test_|\bassert\b|\bit\(|\btest\(|\bexpect\()")
+# 테스트 파일 경로만 집계 — prod 코드의 방어적 assert 삭제가 오탐 FAIL 내지 않도록.
+test_path = re.compile(r"(^|/)(test_|[^/]*_test\.|[^/]*\.test\.|[^/]*\.spec\.|conftest)")
+
+
+def _is_test(p):
+    p = p.strip()
+    if p in ("", "/dev/null"):
+        return False
+    for pre in ("a/", "b/"):
+        if p.startswith(pre):
+            p = p[2:]
+            break
+    return bool(test_path.search(p))
+
+
+added = removed = 0
+old_test = in_test = False
+for ln in diff.splitlines():
+    if ln.startswith("--- "):  # 삭제측(구 파일) — 테스트 파일 통째 삭제도 잡도록
+        old_test = _is_test(ln[4:])
+        continue
+    if ln.startswith("+++ "):  # 추가측(신 파일). 헤더 쌍이 끝나며 in_test 확정
+        in_test = old_test or _is_test(ln[4:])
+        continue
+    if not in_test:
+        continue
+    if ln.startswith("+") and pat.search(ln):
+        added += 1
+    elif ln.startswith("-") and pat.search(ln):
+        removed += 1
+if removed - added > 0:
+    print(f"    테스트 삭제 {removed} > 추가 {added} (net -{removed - added})")
+    sys.exit(1)
+sys.exit(0)
+EOF
 
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"
