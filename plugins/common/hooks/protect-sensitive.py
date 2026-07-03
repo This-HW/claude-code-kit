@@ -53,7 +53,7 @@ PROTECTED_PATTERNS = [
     # 시크릿/인증 디렉토리
     r"/secrets/",  # secrets 디렉토리
     r"credential",  # credential 포함 파일
-    r"(?<![a-z])secret(?!s/|s$|s\.)",  # secret 포함 (secrets 디렉토리 제외, secrets.ext 제외)
+    r"secrets?(?=[._/\d-]|$)",  # 'secret(s)' 토큰: mysecret.txt·secrets_manager·api_secret 포함, 'secretary' 제외
     # SSH
     r"\.ssh/",  # SSH 키 디렉토리
     r"id_rsa",  # SSH 개인키
@@ -124,10 +124,17 @@ BLOCK_MESSAGES = {
 }
 
 
-def check_content_sensitive(content: str) -> tuple[bool, str]:
-    """메시지/broadcast 콘텐츠에 민감 정보가 포함되어 있는지 확인 (S-C-08)"""
+def check_content_sensitive(content) -> tuple[bool, str]:
+    """메시지/broadcast 콘텐츠에 민감 정보가 포함되어 있는지 확인 (S-C-08).
+
+    content가 str이 아니어도(list/dict payload) str()로 강제 직렬화해 스캔한다 —
+    구조화 payload에 re.search가 TypeError를 던져 blanket except로 fail-open(스캔 우회)
+    되던 문제(적대적 리뷰 P1)를 막는다.
+    """
     if not content:
         return False, ""
+    if not isinstance(content, str):
+        content = str(content)  # list/dict 등도 직렬화해 스캔(우회 차단)
 
     for pattern, description in SENSITIVE_CONTENT_PATTERNS:
         match = re.search(pattern, content, re.IGNORECASE)
@@ -190,6 +197,9 @@ def check_protected(file_path: str) -> tuple[bool, str]:
 
 def main():
     try:
+        # stdin이 TTY면(파이프 입력 없음) json.load가 무한 블록한다 — 즉시 통과.
+        if sys.stdin.isatty():
+            sys.exit(0)
         # stdin에서 JSON 입력 읽기
         input_data = json.load(sys.stdin)
 
@@ -228,8 +238,20 @@ def main():
         if not file_path:
             sys.exit(0)
 
+        # 원본 경로부터 검사 — syscall 없는 순수 문자열 검사를 먼저 실행해, 뒤의
+        # realpath(syscall)가 ValueError(널바이트 등)로 예외를 던져도 이 게이트가
+        # 건너뛰어지지 않게 한다(적대적 리뷰 P2: 순서 fail-open 방지).
+        is_protected, message = check_protected(file_path)
+        if is_protected:
+            print(f"🔒 차단됨: {file_path}", file=sys.stderr)
+            print(f"   {message}", file=sys.stderr)
+            sys.exit(2)  # 2 = 차단
+
         # 실제 경로(resolved) 항상 검사 — 중간 경로 symlink 우회 방지 (ATK-007)
-        real_path = os.path.realpath(file_path)
+        try:
+            real_path = os.path.realpath(file_path)
+        except (ValueError, OSError):
+            real_path = file_path  # realpath 실패 시에도 위 원본 검사는 이미 통과함
         if real_path != os.path.abspath(file_path):
             is_protected_real, message_real = check_protected(real_path)
             if is_protected_real:
@@ -239,15 +261,6 @@ def main():
                 )
                 print(f"   {message_real}", file=sys.stderr)
                 sys.exit(2)
-
-        # 원본 경로 검사
-        is_protected, message = check_protected(file_path)
-
-        if is_protected:
-            # 차단 메시지 출력
-            print(f"🔒 차단됨: {file_path}", file=sys.stderr)
-            print(f"   {message}", file=sys.stderr)
-            sys.exit(2)  # 2 = 차단
 
         sys.exit(0)  # 0 = 허용
 

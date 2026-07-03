@@ -82,7 +82,11 @@ else
 fi
 
 hdr "5. 시크릿 스캔 (기본)"
-if git ls-files | xargs grep -nIE '(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9/+]{16,}' 2>/dev/null | grep -v -E 'test|example|placeholder|YOUR_|xxx' | head -1 | grep -q .; then
+# 결과를 변수로 수집해 판정한다 — `... | head -1 | grep -q`는 매치가 많을 때
+# 상류 grep이 SIGPIPE(141)로 죽고 pipefail이 파이프라인을 비정상 종료로 만들어,
+# 시크릿이 있어도 else(green)로 빠지던 false-green(적대적 리뷰 P0)을 유발했다.
+SECRET_HITS=$(git ls-files | xargs grep -nIE '(api[_-]?key|secret|password|token)[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9/+]{16,}' 2>/dev/null | grep -v -E 'test|example|placeholder|YOUR_|xxx' || true)
+if [ -n "$SECRET_HITS" ]; then
   red "잠재 시크릿 발견 (수동 확인 필요)"
 else
   green "no obvious secrets"
@@ -120,7 +124,7 @@ for s in $(grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+\.py' plugins/comm
 done
 # rules/agents 산문이 가리키는 ./scripts/<name>.sh 가 실재하는지 검증 — always-injected
 # 룰의 죽은 스크립트 참조(예: 존재하지 않는 db-tunnel.sh)가 매 세션 주입되던 문제 방지.
-for ref in $(grep -rhoE '(\./)?scripts/[A-Za-z0-9_-]+\.sh' plugins/common/rules plugins/common/agents 2>/dev/null | sed 's|^\./||' | sort -u); do
+for ref in $(grep -rhoE '(\./)?scripts/[A-Za-z0-9_/-]+\.sh' plugins/common/rules plugins/common/agents 2>/dev/null | sed 's|^\./||' | sort -u); do
   [ -f "$ref" ] || { red "rules/agents → 없는 스크립트 참조: $ref"; MISSING=1; }
 done
 [ "$MISSING" -eq 0 ] && green "hooks.json + rules/agents 참조 스크립트 모두 존재"
@@ -179,8 +183,9 @@ if mrc != 0 or not base or base == head:
         if h1rc == 0 and h1:
             base = "HEAD~1"
         else:
-            print("    [warn] test-ratchet: 비교 기준(main/origin/main/HEAD~1) 없음 — skip")
-            sys.exit(0)
+            # fresh/단일-커밋 저장소: HEAD를 base로 두면 최소한 워킹트리 미커밋
+            # 테스트 삭제는 잡는다(조용한 skip보다 낫다, 적대적 리뷰 P2).
+            base = "HEAD"
 r = subprocess.run(
     ["git", "diff", "--unified=0", base], capture_output=True, text=True
 )
@@ -192,7 +197,9 @@ if not diff.strip() or "TEST-RATCHET-ALLOW" in diff:
     sys.exit(0)
 pat = re.compile(r"(def\s+test_|\bassert\b|\bit\(|\btest\(|\bexpect\()")
 # 테스트 파일 경로만 집계 — prod 코드의 방어적 assert 삭제가 오탐 FAIL 내지 않도록.
-test_path = re.compile(r"(^|/)(test_|[^/]*_test\.|[^/]*\.test\.|[^/]*\.spec\.|conftest)")
+test_path = re.compile(
+    r"(^|/)(test_|[^/]*_test\.|[^/]*\.test\.|[^/]*\.spec\.|conftest|(tests?|specs?|__tests__)/)"
+)
 
 
 def _is_test(p):

@@ -321,6 +321,34 @@ def test_bash_py_write_targets_ignores_reads():
     assert _mod._bash_py_write_targets("ls -la") == []
 
 
+def test_bash_py_write_targets_strips_quotes():
+    # 적대적 리뷰: `> "config.py"`가 따옴표 포함으로 잡혀 존재하지 않던 버그
+    assert "config.py" in _mod._bash_py_write_targets('echo x > "config.py"')
+    assert "config.py" in _mod._bash_py_write_targets("echo x > 'config.py'")
+
+
+def test_session_edited_falls_back_when_only_bash_writes_py(tmp_path):
+    """적대적 리뷰 P1: .py를 Bash로만 쓰고(신뢰가능 Edit .py 없음) 정밀추출도 놓친 형태면
+    스코핑을 신뢰 못 해 None(전체 dirty 검증)으로 폴백 — false-green 방지."""
+    # 문서(.md)만 Edit + .py는 python -c로 opaque하게 씀 → 폴백(None)
+    f = _write_bash_transcript(
+        tmp_path,
+        "python -c \"open('gen.py','w').write(src)\"",
+        edited=_mod.PROJECT_ROOT / "README.md",
+    )
+    assert _mod._session_edited_files({"transcript_path": str(f)}) is None
+
+
+def test_session_edited_trusts_scope_when_reliable_py_edit(tmp_path):
+    """신뢰가능한 .py Edit이 있으면 bash writeish여도 스코핑 유지(폴백 안 함)."""
+    edited = _mod.PROJECT_ROOT / "app.py"
+    f = _write_bash_transcript(
+        tmp_path, "python -c \"open('gen.py','w')\"", edited=edited
+    )
+    result = _mod._session_edited_files({"transcript_path": str(f)})
+    assert result is not None and _mod._real(str(edited)) in result
+
+
 def test_session_edited_adds_bash_write_target(tmp_path):
     """Bash가 기존 .py를 in-place로 쓰면(sed -i) 그 대상이 스코프에 추가된다(F2)."""
     edited = _mod.PROJECT_ROOT / "app.py"

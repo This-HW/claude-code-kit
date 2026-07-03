@@ -249,6 +249,8 @@ def _session_edited_files(data: dict) -> set[str] | None:
         return None
     edit_tools = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
     edited: set[str] = set()
+    has_reliable_py = False  # Edit/Write류로 .py를 만졌나 (스코핑 신뢰 근거)
+    bash_py_writeish = False  # Bash로 .py를 썼을 가능성 (폴백 판정)
     try:
         # 대용량 transcript를 통째로 올리지 않도록 줄 단위 스트리밍.
         with path.open(encoding="utf-8", errors="replace") as fh:
@@ -269,20 +271,28 @@ def _session_edited_files(data: dict) -> set[str] | None:
                         continue
                     name = block.get("name")
                     if name in edit_tools:
-                        fp = (block.get("input") or {}).get("file_path")
+                        inp = block.get("input") or {}
+                        fp = inp.get("file_path") or inp.get("notebook_path")
                         if fp:
                             edited.add(_real(str(fp)))
+                            if str(fp).endswith(".py"):
+                                has_reliable_py = True
                     elif name == "Bash":
                         # W-012 #3: Bash(heredoc/sed/tee/redirect/cp)로 .py를 쓰면
-                        # Edit/Write 스코프에 안 잡혀 Stop 검증을 우회한다. blanket
-                        # 폴백(적대적 리뷰 F3)은 benign redirect/grep에도 발동해 세션
-                        # 스코핑을 무력화했다 → 대신 명시적 .py write 대상만 정밀 추출해
-                        # 스코프에 추가한다. opaque 생성(python gen.py)은 caller의
-                        # untracked-union이 잡는다(F2).
+                        # Edit/Write 스코프에 안 잡혀 Stop 검증을 우회한다. 명시적 .py
+                        # write 대상은 정밀 추출해 스코프에 추가한다(오탐 없이).
                         cmd = (block.get("input") or {}).get("command")
                         if isinstance(cmd, str):
                             for tgt in _bash_py_write_targets(cmd):
                                 edited.add(_real(tgt))
+                            if _bash_writeish_py(cmd):
+                                bash_py_writeish = True
+        # 적대적 리뷰 P1(false-green): 세션이 .py를 Bash로만 쓰고(신뢰가능한 Edit/Write
+        # .py 편집이 없음) 정밀추출도 놓친 형태(따옴표/변수/python -c/xargs)면, 스코핑이
+        # 그 tracked .py를 통째로 drop해 검증을 건너뛴다. 이때는 스코핑을 신뢰하지 않고
+        # None(전체 dirty 검증)으로 폴백한다 — 안전망은 미검증(green)보다 오검증(red)이 낫다.
+        if bash_py_writeish and not has_reliable_py:
+            return None
         return edited
     except Exception:
         return None
@@ -294,10 +304,15 @@ _BASH_PY_TARGET_PATTERNS = (
     re.compile(r">>?\s*([^\s;|&<>]+\.py)\b"),
     re.compile(r"\btee\b(?:\s+-\S+)*\s+([^\s;|&<>]+\.py)\b"),
 )
+_BASH_PY_WRITEISH = ("<<", "open(", "write_text", "writelines", ".write(", "truncate(")
+
+
+def _strip_quotes(s: str) -> str:
+    return s.strip().strip("'\"")
 
 
 def _bash_py_write_targets(cmd: str) -> list[str]:
-    """Bash 명령이 명시적으로 쓰는 .py 경로 목록(정밀 추출)."""
+    """Bash 명령이 명시적으로 쓰는 .py 경로 목록(정밀 추출). 따옴표는 제거한다."""
     if ".py" not in cmd:
         return []
     targets: list[str] = []
@@ -309,7 +324,18 @@ def _bash_py_write_targets(cmd: str) -> list[str]:
             r"\s*(?:cp|mv|install)\b", seg
         ):
             targets += re.findall(r"([^\s;|&<>]+\.py)\b", seg)
-    return targets
+    return [t for t in (_strip_quotes(x) for x in targets) if t]
+
+
+def _bash_writeish_py(cmd: str) -> bool:
+    """Bash 명령이 .py를 '썼을 가능성'이 있는지(느슨). 정밀추출이 못 잡는 형태
+    (따옴표/변수확장/python -c/xargs/heredoc)를 폴백 판정하는 데만 쓴다."""
+    if ".py" not in cmd:
+        return False
+    write_ops = (">", ">>", "tee ", "sed -i", "cp ", "mv ", "install ", "dd ")
+    if any(op in cmd for op in write_ops):
+        return True
+    return any(tok in cmd for tok in _BASH_PY_WRITEISH)
 
 
 def _untracked_py_files() -> set[str]:
