@@ -88,7 +88,18 @@ else
   green "no obvious secrets"
 fi
 
-hdr "6. 문서 카운트 sync"
+hdr "6. 문서 카운트/버전 sync"
+# plugin.json 버전 ↔ CHANGELOG 최상단 버전 일치 (릴리스 체크리스트: 버전 범프 시
+# CHANGELOG 누락 방지 — 캐시가 버전으로 키잉되므로 불일치는 릴리스 사고).
+PJ_VER=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9.]+"' plugins/common/.claude-plugin/plugin.json 2>/dev/null | grep -oE '[0-9.]+' | head -1)
+CL_VER=$(grep -oE '^## \[[0-9.]+\]' CHANGELOG.md 2>/dev/null | grep -oE '[0-9.]+' | head -1)
+if [ -z "$PJ_VER" ] || [ -z "$CL_VER" ]; then
+  red "버전 sync: 파싱 실패 (plugin.json='$PJ_VER' CHANGELOG='$CL_VER')"
+elif [ "$PJ_VER" = "$CL_VER" ]; then
+  green "버전 sync: plugin.json = CHANGELOG = $PJ_VER"
+else
+  red "버전 sync: plugin.json $PJ_VER ≠ CHANGELOG 최상단 $CL_VER (릴리스 체크리스트 위반)"
+fi
 RULES_ACTUAL=$(ls plugins/common/rules/*.md 2>/dev/null | wc -l | tr -d ' ')
 SKILLS_C_ACTUAL=$(find plugins/common/skills -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
 SKILLS_T_ACTUAL=$(find plugins -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
