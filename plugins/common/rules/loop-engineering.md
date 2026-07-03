@@ -23,9 +23,11 @@
 ```
 승인된 배치 (여러 Work/Task)
   while (미완료 Work/Task 존재):
+    0. 재앵커: 대화 요약이 아닌 planning-results.md 원본을 다시 읽는다
+       (장기 루프에서 요약은 열화·drift한다 — authority 원본이 기준).
     1. TaskList → unblocked Task 선택
     2. 실행 (dispatch / 직접 구현)
-    3. 완료 → progress.md 래칫 → TaskUpdate(completed)
+    3. 완료 → checklist pass <id>(verify 통과) → progress.md 래칫 → TaskUpdate(completed)
     4. 종료 가드 점검 (아래)
     5. 다음 unblocked로 — 사람 확인 없이 전진
   → 완료 보고
@@ -38,6 +40,8 @@
 - **P0 도달**: 데이터/보안/결제/핵심로직 모호함 → 즉시 `AskUserQuestion`.
 - **완료**: `scripts/verify-done.sh` green + 수동 DoD attest 완료 + 배치의 모든 Work/Task 상태 해소. "마지막 스텝 도달"은 완료가 아니다 (`rules/definition-of-done.md`).
 - **max_iterations**: 한 배치에서 진전 없는 반복이 상한(기본 동일 Task 2회/배치 누적 과다) 초과 → 사람 에스컬레이션.
+- **idle 감지 (커밋 기준)**: 최근 N iteration에서 새 커밋 0건이면 진전 없음으로 보고 종료
+  (모델의 "작업 중" 주장이 아닌 git 커밋이라는 관찰 가능한 신호로 idle을 판정).
 - **루프 감지**: 동일 Task/에이전트가 진전 없이 2회+ → 중단 보고.
 - **검증 실패 잔존**: validation이 가드(continueOnBlock) 재시도 후에도 실패 → 보고.
 

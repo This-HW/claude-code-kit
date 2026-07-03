@@ -264,17 +264,44 @@ def _session_edited_files(data: dict) -> set[str] | None:
                 if not isinstance(content, list):
                     continue
                 for block in content:
-                    if (
-                        isinstance(block, dict)
-                        and block.get("type") == "tool_use"
-                        and block.get("name") in edit_tools
-                    ):
+                    if not isinstance(block, dict) or block.get("type") != "tool_use":
+                        continue
+                    name = block.get("name")
+                    if name in edit_tools:
                         fp = (block.get("input") or {}).get("file_path")
                         if fp:
                             edited.add(_real(str(fp)))
+                    elif name == "Bash":
+                        # W-012 #3: Bash(heredoc/sed/tee/redirect)로 .py를 쓰면
+                        # Edit/Write 스코프에 안 잡혀 Stop 검증을 우회한다. 그런 명령이
+                        # 감지되면 transcript 스코프를 '불완전'으로 보고 None 반환 →
+                        # 호출부가 전체 dirty .py 검증으로 폴백(미검증 코드 유입 차단).
+                        cmd = (block.get("input") or {}).get("command")
+                        if isinstance(cmd, str) and _bash_may_write_py(cmd):
+                            return None
         return edited
     except Exception:
         return None
+
+
+def _bash_may_write_py(cmd: str) -> bool:
+    """Bash 명령이 .py 파일을 쓸 가능성이 있으면 True(스코프 불완전 → 전체 폴백).
+
+    정확한 경로 추출 대신 '불완전 스코프' 판정용 — 오검증(전체 dirty 재검사)은 안전,
+    미검증(우회)은 위험이므로 write 연산자(리다이렉트/tee/sed -i/cp·mv 등) 또는
+    heredoc이 .py와 함께 나타나면 넓게 감지한다.
+    """
+    if ".py" not in cmd:
+        return False
+    # 셸 write 연산자 또는 heredoc.
+    write_ops = (">", ">>", "tee ", "sed -i", "cp ", "mv ", "install ", "dd ")
+    if any(op in cmd for op in write_ops) or "<<" in cmd:
+        return True
+    # 인터프리터 인라인 쓰기: python -c "open('x.py','w')...", Path(...).write_text 등.
+    # 읽기 형태(open('x.py').read())도 걸려 fallback되지만, 오검증은 안전(전체 재검사)이고
+    # 미검증만 위험하므로 넓게 잡는다(적대적 리뷰 P1 — codegen 우회 차단).
+    interp_writes = ("open(", "write_text", "writelines", ".write(", "truncate(")
+    return any(w in cmd for w in interp_writes)
 
 
 # ── 린트 ────────────────────────────────────────────────────────

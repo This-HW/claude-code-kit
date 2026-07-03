@@ -264,6 +264,85 @@ def test_session_edited_parses_tool_use(tmp_path):
     }
 
 
+# ── W-012 #3: Bash로 쓴 .py는 스코프 불완전 → 전체 폴백(None) ─────
+def _write_bash_transcript(tmp_path, command, edited=None):
+    """Edit 이벤트(옵션) + Bash tool_use 이벤트를 섞은 transcript."""
+    lines = []
+    if edited:
+        lines.append(
+            json.dumps(
+                {
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "name": "Edit",
+                                "input": {"file_path": str(edited)},
+                            }
+                        ]
+                    }
+                }
+            )
+        )
+    lines.append(
+        json.dumps(
+            {
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "name": "Bash",
+                            "input": {"command": command},
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    f = tmp_path / "transcript.jsonl"
+    f.write_text("\n".join(lines), encoding="utf-8")
+    return f
+
+
+def test_bash_may_write_py_detects_writes():
+    assert _mod._bash_may_write_py("cat <<'EOF' > foo.py\nx=1\nEOF")
+    assert _mod._bash_may_write_py("sed -i 's/a/b/' pkg/mod.py")
+    assert _mod._bash_may_write_py("echo 'x=1' >> conf.py")
+    assert _mod._bash_may_write_py("cp a.py b.py")
+    assert _mod._bash_may_write_py("tee out.py <<EOF")
+
+
+def test_bash_may_write_py_detects_interpreter_writes():
+    # 적대적 리뷰 P1: python -c 코드젠 우회를 잡아야 한다
+    assert _mod._bash_may_write_py("python -c \"open('gen.py','w').write(src)\"")
+    assert _mod._bash_may_write_py(
+        "python3 -c \"import pathlib; pathlib.Path('x.py').write_text(s)\""
+    )
+
+
+def test_bash_may_write_py_ignores_reads():
+    assert not _mod._bash_may_write_py("pytest tests/test_x.py -q")
+    assert not _mod._bash_may_write_py("ruff check pkg/mod.py")
+    assert not _mod._bash_may_write_py("grep -n foo app.py")
+    assert not _mod._bash_may_write_py("ls -la")  # .py 없음
+
+
+def test_session_edited_falls_back_when_bash_writes_py(tmp_path):
+    """Bash가 .py를 쓰면 Edit 스코프가 있어도 None(전체 dirty 폴백)."""
+    edited = _mod.PROJECT_ROOT / "app.py"
+    f = _write_bash_transcript(tmp_path, "sed -i 's/a/b/' gen.py", edited=edited)
+    assert _mod._session_edited_files({"transcript_path": str(f)}) is None
+
+
+def test_session_edited_keeps_scope_on_readonly_bash(tmp_path):
+    """읽기 전용 Bash(.py 대상 pytest)는 폴백 트리거 안 함 → Edit 스코프 유지."""
+    edited = _mod.PROJECT_ROOT / "app.py"
+    f = _write_bash_transcript(tmp_path, "pytest app.py -q", edited=edited)
+    assert _mod._session_edited_files({"transcript_path": str(f)}) == {
+        _mod._real(str(edited))
+    }
+
+
 def test_main_skips_parallel_session_file(tmp_path, monkeypatch, capsys):
     """사건 재현: 병렬 세션이 dirty 만든 .py는 transcript에 없어 검증에서 제외 → 통과."""
     # git은 parallel 파일이 변경됐다 보고하지만, 이 세션은 docs(.md)만 편집했다.
