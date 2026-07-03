@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.9.2] — 2026-07-03
+
+### Fixed — 2.9.1 감사가 남긴 잔여 2건 마저 정리 (F6 버그 + F1 트레이드오프)
+
+2.9.1에서 "정직한 한계"로 남겼던 checklist 잔여 2건을 애매함 없이 닫음.
+
+- **F6 (verify subprocess grandchild leak, 버그)**: `cmd_pass`가 verify를 `shell=True`로
+  실행하면서 (1) 타임아웃 시 shell만 죽고 손자 프로세스가 누수되고, (2) 락을 verify 실행
+  600s 내내 점유했다. → `_run_verify` 헬퍼로 분리: `start_new_session=True`로 새 프로세스
+  그룹에 띄우고 타임아웃 시 `killpg`로 그룹 전체 종료(손자 정리, exit 124). verify는 **락 밖**에서
+  실행하고 flip(재읽기→수정→쓰기)만 락 안에서 수행.
+- **F1 (gate-time staleness, 트레이드오프)**: `passes`는 flip 시점 기록이라 `status`는 재검증을
+  안 한다. 자동 재검증은 재귀·side-effect(재배포 등) 부채라 기본화하지 않되, **opt-in
+  `checklist verify <work_dir>` 명령**을 추가 — 전 항목 verify를 재실행해 회귀한 stale-true를
+  false로 되돌린다(gate-time 재증명). `status`=빠른 원장, `verify`=재증명.
+
+### Notes
+- 테스트 4건 추가(verify 통과/stale-demote/부재 + F6 타임아웃 killpg), 173 pytest green,
+  verify-done exit 0. blog 포스트 "초록불은 거짓말을 한다" 말미를 정리 완료 상태로 갱신.
+
+---
+
 ## [2.9.1] — 2026-07-03
 
 ### Fixed — 6-차원 적대적 감사 반영 (보안·게이트 false-green·거버넌스)

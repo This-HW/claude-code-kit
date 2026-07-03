@@ -15,25 +15,26 @@ Durable Executor Checklist — 완료 상태의 단일 authority (W-013).
   - verify-done.sh가 `status`로 passes:false/손상 잔존을 결정론 검증한다(종이→기계 게이트).
   - 단일 authority(planning-results에서 파생) + 원자적 쓰기(flock+os.replace) → drift/레이스 차단.
 
-정직한 한계(적대적 리뷰 F1 — gate-time staleness):
-  `passes`는 **flip 시점의** verify 성공 기록이다. `status`는 이 boolean만 읽고 verify를
-  재실행하지 않으므로, flip 이후 회귀(코드 revert 등)는 이 게이트만으로는 못 잡는다.
-  이는 checklist가 '연속 모니터'가 아니라 '크로스세션 완료 원장'이기 때문이다 — 현재
-  correctness의 재검증은 verify-done의 ruff/pytest(§3/§4, 매 실행 fresh) + 코드 변경 시
-  `pass <id>` 재실행이 담당한다. pytest로 커버 안 되는 acceptance verify는 재-pass 필요.
+gate-time staleness 해소(적대적 리뷰 F1):
+  `passes`는 flip 시점의 verify 성공 기록이라 `status`(빠른 원장 조회)는 재실행하지 않는다.
+  flip 이후 회귀를 지금 다시 증명하려면 **`verify` 명령**으로 전 항목 verify를 재실행해
+  stale-true를 false로 되돌린다. verify는 side-effect(재배포 등)를 가질 수 있어 verify-done
+  기본 경로가 아니라 opt-in이다 — status=빠른 원장, verify=재증명(요청 시).
 
 스키마: [{ "id", "description", "acceptance", "verify", "passes": bool, "evidence"?: str }]
 
 CLI (scripts/checklist.sh 래퍼로 호출):
   checklist.py init   <work_dir>            # stdin의 JSON 배열로 checklist 생성(passes=false 강제)
   checklist.py show   <work_dir>            # 사람용 목록
-  checklist.py status <work_dir>            # exit 0=전부 pass, 1=미완 잔존, 3=checklist 없음
+  checklist.py status <work_dir>            # 빠른 원장 조회: 0=전부 pass 1=미완/손상 3=부재
+  checklist.py verify <work_dir>            # 전 항목 verify 재실행(opt-in 재증명): 0/1/3
   checklist.py pass   <work_dir> <id>       # 아이템 verify 실행 → exit 0이면 passes=true
 """
 
 import fcntl
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -242,53 +243,112 @@ def cmd_status(work_dir: Path) -> int:
     return 0
 
 
+def _run_verify(verify: str, work_dir: Path) -> tuple[int, str]:
+    """verify 명령 실행 → (exit_code, 출력 tail). 타임아웃 시 프로세스 '그룹' 전체를
+    종료해 shell(shell=True)이 fork한 grandchild가 남지 않게 한다(적대적 리뷰 F6).
+    lock을 잡지 않은 채 호출되어야 한다(장시간 락 점유 방지)."""
+    try:
+        proc = subprocess.Popen(
+            verify,
+            shell=True,
+            cwd=_repo_root(work_dir),  # None이면 현재 cwd 상속(폴백)
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=True,  # 새 프로세스 그룹 → killpg로 자손까지 정리
+        )
+    except Exception as e:
+        return 1, f"실행 실패: {e}"
+    try:
+        out, _ = proc.communicate(timeout=_VERIFY_TIMEOUT_SECONDS)
+        return proc.returncode, (out or "")[-1500:]
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            proc.kill()
+        try:
+            proc.communicate(timeout=5)
+        except Exception:
+            pass
+        return 124, f"타임아웃 {_VERIFY_TIMEOUT_SECONDS}s 초과 → 프로세스 그룹 종료"
+
+
 def cmd_pass(work_dir: Path, item_id: str) -> int:
     """아이템의 verify 명령을 실행해 exit 0일 때만 passes=true로 전환(기계 게이트).
 
     모델이 자기 작업을 completed로 찍는 self-mark를 원천 차단한다 — 통과 여부는
     verify 명령의 raw exit-code가 결정한다(리서치 "No PASS without proof").
+    verify는 lock 밖에서 실행하고(F6: 600s 동안 락 점유 방지), flip만 lock 안에서
+    재읽기→수정→쓰기 한다(verify 중 다른 프로세스 변경 반영).
     """
     path = checklist_path(work_dir)
+    items = _read(path)
+    target = next((it for it in items if str(it["id"]) == str(item_id)), None)
+    if target is None:
+        print(f"[checklist] id '{item_id}' 없음", file=sys.stderr)
+        return 2
+    verify = str(target.get("verify", "")).strip()
+    if not verify:
+        print(
+            f"[checklist] '{item_id}'에 verify 명령이 없어 pass 거부", file=sys.stderr
+        )
+        return 2
+    rc, tail = _run_verify(verify, work_dir)  # 락 밖 실행
+    if rc != 0:
+        print(
+            f"[checklist] verify 실패(exit {rc}) → pass 거부:\n{tail}", file=sys.stderr
+        )
+        return 1
     with _lock(path):
         items = _read(path)
         target = next((it for it in items if str(it["id"]) == str(item_id)), None)
         if target is None:
-            print(f"[checklist] id '{item_id}' 없음", file=sys.stderr)
+            print(f"[checklist] id '{item_id}' 없음(동시 삭제)", file=sys.stderr)
             return 2
-        verify = target.get("verify", "").strip()
-        if not verify:
-            print(
-                f"[checklist] '{item_id}'에 verify 명령이 없어 pass 거부",
-                file=sys.stderr,
-            )
-            return 2
-        # verify를 실제 실행 — exit 0만 통과. 증거로 exit code/요약 기록.
-        try:
-            r = subprocess.run(
-                verify,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=_VERIFY_TIMEOUT_SECONDS,
-                cwd=_repo_root(work_dir),  # None이면 현재 cwd 상속(폴백)
-            )
-        except subprocess.TimeoutExpired:
-            print(f"[checklist] verify 타임아웃 → pass 거부: {verify}", file=sys.stderr)
-            return 1
-        except Exception as e:
-            print(f"[checklist] verify 실행 실패 → pass 거부: {e}", file=sys.stderr)
-            return 1
-        if r.returncode != 0:
-            tail = (r.stdout + r.stderr)[-1500:]
-            print(
-                f"[checklist] verify 실패(exit {r.returncode}) → pass 거부:\n{tail}",
-                file=sys.stderr,
-            )
-            return 1
         target["passes"] = True
         target["evidence"] = f"verify exit 0: {verify}"
         _write(path, items)
     print(f"[checklist] '{item_id}' passed (verify exit 0)")
+    return 0
+
+
+def cmd_verify(work_dir: Path) -> int:
+    """모든 항목의 verify를 지금 재실행해 passes를 현재 상태로 재판정(F1 대응 opt-in).
+
+    flip 후 회귀한 stale-true 항목을 false로 되돌린다 → gate-time staleness 해소.
+    exit 0=전부 현재도 통과, 1=미완/실패, 3=checklist 부재. verify가 side-effect를
+    가질 수 있어(재배포 등) verify-done 기본 경로가 아니라 명시적 opt-in 명령이다.
+    """
+    path = checklist_path(work_dir)
+    if not path.exists():
+        return 3
+    items = _read(path)
+    if not items:
+        print("[checklist] verify: 비어있음/부재", file=sys.stderr)
+        return 3
+    changed = False
+    failed: list[str] = []
+    for it in items:
+        verify = str(it.get("verify", "")).strip()
+        iid = str(it.get("id", "?"))
+        if not verify:
+            failed.append(iid)
+            continue
+        rc, _ = _run_verify(verify, work_dir)  # 락 밖 실행
+        now_pass = rc == 0
+        if it.get("passes") != now_pass:
+            it["passes"] = now_pass
+            it["evidence"] = f"reverify exit {rc}: {verify}"
+            changed = True
+        if not now_pass:
+            failed.append(iid)
+    if changed:
+        with _lock(path):
+            _write(path, items)  # reverify가 authoritative(전체 재판정 스냅샷)
+    if failed:
+        print(f"[checklist] reverify 실패/미완: {', '.join(failed)}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -304,6 +364,8 @@ def main(argv: list[str]) -> int:
         return cmd_show(work_dir)
     if cmd == "status":
         return cmd_status(work_dir)
+    if cmd == "verify":
+        return cmd_verify(work_dir)
     if cmd == "pass":
         if len(argv) < 3:
             print("usage: checklist.py pass <work_dir> <id>", file=sys.stderr)
