@@ -5,9 +5,10 @@ description: |
   TODO/FIXME, 복잡도, 중복 코드, 의존성 취약점, 테스트 커버리지 갭을 분석합니다.
   MUST USE when: "기술 부채", "코드 품질", "리팩토링 필요", "TODO 분석" 요청.
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: analyze-tech-debt" 반환 시.
-  OUTPUT: 기술 부채 리포트 + "DELEGATE_TO: notify-team" 또는 "TASK_COMPLETE"
+  OUTPUT: 기술 부채 리포트 + "TASK_COMPLETE"
 model: sonnet
 effort: low
+maxTurns: 10
 tools:
   - Read
   - Glob
@@ -193,9 +194,8 @@ grep -rn "temporary\|temp\|workaround" --include="*.py"
 
 ```
 ---DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: notify-team
-REASON: 심각한 기술 부채 발견
+TYPE: TASK_COMPLETE
+REASON: 기술 부채 분석 완료
 CONTEXT: {
   total_score: 63,
   p0_count: 5,
@@ -212,7 +212,6 @@ CONTEXT: {
 | ------------- | ---------------------- |
 | review-code   | 코드 리뷰 시 부채 체크 |
 | plan-refactor | 리팩토링 계획 수립     |
-| notify-team   | 심각 부채 알림         |
 | security-scan | 보안 취약점 상세 분석  |
 
 ---

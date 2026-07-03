@@ -8,6 +8,7 @@ description: |
   OUTPUT: 메트릭 정의서 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: medium
+maxTurns: 10
 tools:
   - Read
   - Glob

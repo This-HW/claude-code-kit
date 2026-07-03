@@ -24,6 +24,7 @@ the prompt-based hook (see CHANGELOG.md [2.2.0]) or remove it entirely.
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -272,36 +273,61 @@ def _session_edited_files(data: dict) -> set[str] | None:
                         if fp:
                             edited.add(_real(str(fp)))
                     elif name == "Bash":
-                        # W-012 #3: Bash(heredoc/sed/tee/redirect)로 .py를 쓰면
-                        # Edit/Write 스코프에 안 잡혀 Stop 검증을 우회한다. 그런 명령이
-                        # 감지되면 transcript 스코프를 '불완전'으로 보고 None 반환 →
-                        # 호출부가 전체 dirty .py 검증으로 폴백(미검증 코드 유입 차단).
+                        # W-012 #3: Bash(heredoc/sed/tee/redirect/cp)로 .py를 쓰면
+                        # Edit/Write 스코프에 안 잡혀 Stop 검증을 우회한다. blanket
+                        # 폴백(적대적 리뷰 F3)은 benign redirect/grep에도 발동해 세션
+                        # 스코핑을 무력화했다 → 대신 명시적 .py write 대상만 정밀 추출해
+                        # 스코프에 추가한다. opaque 생성(python gen.py)은 caller의
+                        # untracked-union이 잡는다(F2).
                         cmd = (block.get("input") or {}).get("command")
-                        if isinstance(cmd, str) and _bash_may_write_py(cmd):
-                            return None
+                        if isinstance(cmd, str):
+                            for tgt in _bash_py_write_targets(cmd):
+                                edited.add(_real(tgt))
         return edited
     except Exception:
         return None
 
 
-def _bash_may_write_py(cmd: str) -> bool:
-    """Bash 명령이 .py 파일을 쓸 가능성이 있으면 True(스코프 불완전 → 전체 폴백).
+# redirect(> >>), tee, sed -i, cp/mv/install 의 .py 대상 경로. blanket 감지 대신
+# 실제 쓰기 대상만 뽑아 오탐 없이(F3) in-place bash 편집을 커버한다(F2 잔여분).
+_BASH_PY_TARGET_PATTERNS = (
+    re.compile(r">>?\s*([^\s;|&<>]+\.py)\b"),
+    re.compile(r"\btee\b(?:\s+-\S+)*\s+([^\s;|&<>]+\.py)\b"),
+)
 
-    정확한 경로 추출 대신 '불완전 스코프' 판정용 — 오검증(전체 dirty 재검사)은 안전,
-    미검증(우회)은 위험이므로 write 연산자(리다이렉트/tee/sed -i/cp·mv 등) 또는
-    heredoc이 .py와 함께 나타나면 넓게 감지한다.
-    """
+
+def _bash_py_write_targets(cmd: str) -> list[str]:
+    """Bash 명령이 명시적으로 쓰는 .py 경로 목록(정밀 추출)."""
     if ".py" not in cmd:
-        return False
-    # 셸 write 연산자 또는 heredoc.
-    write_ops = (">", ">>", "tee ", "sed -i", "cp ", "mv ", "install ", "dd ")
-    if any(op in cmd for op in write_ops) or "<<" in cmd:
-        return True
-    # 인터프리터 인라인 쓰기: python -c "open('x.py','w')...", Path(...).write_text 등.
-    # 읽기 형태(open('x.py').read())도 걸려 fallback되지만, 오검증은 안전(전체 재검사)이고
-    # 미검증만 위험하므로 넓게 잡는다(적대적 리뷰 P1 — codegen 우회 차단).
-    interp_writes = ("open(", "write_text", "writelines", ".write(", "truncate(")
-    return any(w in cmd for w in interp_writes)
+        return []
+    targets: list[str] = []
+    for pat in _BASH_PY_TARGET_PATTERNS:
+        targets += pat.findall(cmd)
+    # sed -i / cp / mv / install: 해당 명령 세그먼트 안의 .py 인자를 대상으로 본다.
+    for seg in re.split(r"[;|&]{1,2}", cmd):
+        if re.search(r"\bsed\b\s+\S*-i", seg) or re.match(
+            r"\s*(?:cp|mv|install)\b", seg
+        ):
+            targets += re.findall(r"([^\s;|&<>]+\.py)\b", seg)
+    return targets
+
+
+def _untracked_py_files() -> set[str]:
+    """git-untracked .py의 _real 경로 집합. 새로 생성된 .py는 대개 이 세션의 codegen
+    산출물이라(python gen.py 등 opaque 생성), 세션 스코프에 union해 검증 누락(F2)을 막는다.
+    병렬 세션이 만든 untracked .py를 포함할 수 있으나, 그건 미검증(위험)이 아니라
+    오검증(안전) 방향이다."""
+    try:
+        r = subprocess.run(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=str(PROJECT_ROOT),
+        )
+        return {_real(f) for f in r.stdout.splitlines() if f.endswith(".py")}
+    except Exception:
+        return set()
 
 
 # ── 린트 ────────────────────────────────────────────────────────
@@ -547,11 +573,14 @@ def main():
         allow("auto-dev validation marker found. Skipping stop-validator.")
 
     # 2. 변경된 .py를 '이 세션이 편집한 파일'로 스코핑 → 병렬 세션의 미커밋 .py에
-    #    의한 오탐 차단. transcript 없으면 전체 dirty .py로 폴백.
+    #    의한 오탐 차단. transcript 없으면 전체 dirty .py로 폴백. session_edited에
+    #    더해 git-untracked .py도 union — opaque codegen(python gen.py 등)이 검증에서
+    #    누락되지 않도록(적대적 리뷰 F2). 새 .py는 대개 이 세션 산출물.
     modified_files = get_modified_py_files()
     session_edited = _session_edited_files(data)
     if session_edited is not None:
-        modified_files = [f for f in modified_files if _real(f) in session_edited]
+        scope = session_edited | _untracked_py_files()
+        modified_files = [f for f in modified_files if _real(f) in scope]
 
     # 3. 검증 대상 .py 없음 → 스킵
     if not modified_files:

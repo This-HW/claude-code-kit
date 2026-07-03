@@ -21,7 +21,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|Read|message|broadcast",
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit|Read|message|broadcast",
         "hooks": [
           {
             "type": "command",
@@ -33,7 +33,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|MultiEdit|Write",
         "hooks": [
           {
             "type": "command",

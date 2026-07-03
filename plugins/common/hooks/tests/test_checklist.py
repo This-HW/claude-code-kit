@@ -71,6 +71,18 @@ def test_status_all_pass_returns_0(tmp_path):
     assert _mod.cmd_status(tmp_path) == 0
 
 
+def test_status_corrupt_file_fails_not_skips(tmp_path):
+    # 적대적 리뷰 false-green: 손상 파일이 3(skip)이 아니라 1(FAIL)이어야 게이트 우회 차단
+    (tmp_path / "checklist.json").write_text("not json {{{", encoding="utf-8")
+    assert _mod.cmd_status(tmp_path) == 1
+
+
+def test_status_empty_list_file_fails_not_skips(tmp_path):
+    # `echo '[]' > checklist.json` 변조 → 존재하는 빈 리스트는 FAIL(1), skip 아님
+    (tmp_path / "checklist.json").write_text("[]", encoding="utf-8")
+    assert _mod.cmd_status(tmp_path) == 1
+
+
 # ── pass: verify 실행형 기계 게이트 (self-mark 차단) ─────────────
 def test_pass_flips_only_when_verify_exits_zero(tmp_path):
     _mod.cmd_init(tmp_path, json.dumps([_item("ok", verify="true")]))

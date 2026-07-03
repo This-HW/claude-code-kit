@@ -8,6 +8,7 @@ description: |
   OUTPUT: 여정 플로우 + 상태 전이 + "DELEGATE_TO: [다음]" 또는 "PLANNING_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Write

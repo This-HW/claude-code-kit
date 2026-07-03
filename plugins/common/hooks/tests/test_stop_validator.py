@@ -264,7 +264,7 @@ def test_session_edited_parses_tool_use(tmp_path):
     }
 
 
-# ── W-012 #3: Bash로 쓴 .py는 스코프 불완전 → 전체 폴백(None) ─────
+# ── W-012 #3: Bash로 쓴 .py의 명시적 대상만 스코프에 추가(정밀), untracked union ──
 def _write_bash_transcript(tmp_path, command, edited=None):
     """Edit 이벤트(옵션) + Bash tool_use 이벤트를 섞은 transcript."""
     lines = []
@@ -304,38 +304,34 @@ def _write_bash_transcript(tmp_path, command, edited=None):
     return f
 
 
-def test_bash_may_write_py_detects_writes():
-    assert _mod._bash_may_write_py("cat <<'EOF' > foo.py\nx=1\nEOF")
-    assert _mod._bash_may_write_py("sed -i 's/a/b/' pkg/mod.py")
-    assert _mod._bash_may_write_py("echo 'x=1' >> conf.py")
-    assert _mod._bash_may_write_py("cp a.py b.py")
-    assert _mod._bash_may_write_py("tee out.py <<EOF")
+def test_bash_py_write_targets_extracts_writes():
+    # 명시적 .py write 대상만 정밀 추출 (redirect/tee/sed -i/cp/mv)
+    assert "foo.py" in _mod._bash_py_write_targets("cat <<'EOF' > foo.py\nx=1\nEOF")
+    assert "pkg/mod.py" in _mod._bash_py_write_targets("sed -i 's/a/b/' pkg/mod.py")
+    assert "conf.py" in _mod._bash_py_write_targets("echo 'x=1' >> conf.py")
+    assert "b.py" in _mod._bash_py_write_targets("cp a.py b.py")
+    assert "out.py" in _mod._bash_py_write_targets("tee out.py < in.txt")
 
 
-def test_bash_may_write_py_detects_interpreter_writes():
-    # 적대적 리뷰 P1: python -c 코드젠 우회를 잡아야 한다
-    assert _mod._bash_may_write_py("python -c \"open('gen.py','w').write(src)\"")
-    assert _mod._bash_may_write_py(
-        "python3 -c \"import pathlib; pathlib.Path('x.py').write_text(s)\""
-    )
+def test_bash_py_write_targets_ignores_reads():
+    # 적대적 리뷰 F3: benign redirect/grep은 write 대상이 없어야(오탐 방지)
+    assert _mod._bash_py_write_targets("pytest tests/test_x.py -q") == []
+    assert _mod._bash_py_write_targets("grep -n 'open(' app.py") == []
+    assert _mod._bash_py_write_targets("python app.py > out.log") == []
+    assert _mod._bash_py_write_targets("ls -la") == []
 
 
-def test_bash_may_write_py_ignores_reads():
-    assert not _mod._bash_may_write_py("pytest tests/test_x.py -q")
-    assert not _mod._bash_may_write_py("ruff check pkg/mod.py")
-    assert not _mod._bash_may_write_py("grep -n foo app.py")
-    assert not _mod._bash_may_write_py("ls -la")  # .py 없음
-
-
-def test_session_edited_falls_back_when_bash_writes_py(tmp_path):
-    """Bash가 .py를 쓰면 Edit 스코프가 있어도 None(전체 dirty 폴백)."""
+def test_session_edited_adds_bash_write_target(tmp_path):
+    """Bash가 기존 .py를 in-place로 쓰면(sed -i) 그 대상이 스코프에 추가된다(F2)."""
     edited = _mod.PROJECT_ROOT / "app.py"
     f = _write_bash_transcript(tmp_path, "sed -i 's/a/b/' gen.py", edited=edited)
-    assert _mod._session_edited_files({"transcript_path": str(f)}) is None
+    result = _mod._session_edited_files({"transcript_path": str(f)})
+    assert _mod._real(str(edited)) in result
+    assert _mod._real("gen.py") in result  # bash write 대상도 포함
 
 
 def test_session_edited_keeps_scope_on_readonly_bash(tmp_path):
-    """읽기 전용 Bash(.py 대상 pytest)는 폴백 트리거 안 함 → Edit 스코프 유지."""
+    """읽기 전용 Bash(.py 대상 pytest)는 대상 추가 안 함 → Edit 스코프만 유지(F3)."""
     edited = _mod.PROJECT_ROOT / "app.py"
     f = _write_bash_transcript(tmp_path, "pytest app.py -q", edited=edited)
     assert _mod._session_edited_files({"transcript_path": str(f)}) == {

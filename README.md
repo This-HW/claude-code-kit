@@ -4,7 +4,7 @@
 
 A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling.
 
-A single, well-tested core plugin built on a native-first foundation, scale-appropriate orchestration, a feedback learning loop, loop engineering, and a Definition-of-Done gate. (v2.7.0 · [docs/specs/](docs/specs/))
+A single, well-tested core plugin built on a native-first foundation, scale-appropriate orchestration, a feedback learning loop, loop engineering, and a Definition-of-Done gate. (v2.9.0 · [docs/specs/](docs/specs/))
 
 ---
 
@@ -300,9 +300,9 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ## Security
 
-- **Hooks:** `protect-sensitive.py` runs on every Edit — blocks commits containing secrets
+- **Hooks:** `protect-sensitive.py` runs on Edit/Write/MultiEdit/Read — blocks access to sensitive file paths (`.env`, keys). Commit-time secret scanning is gitleaks + `setup/pre-commit`, not this hook.
 - **Auto-format:** `auto-format.py` runs after edits (uses ruff for Python)
-- **CI:** gitleaks scans all pushes to `main`/`stable`
+- **CI:** gitleaks scans all pushes to `main`
 - **Policy:** Never hardcode API keys, secrets, or internal IPs
 
 ---

@@ -8,6 +8,7 @@ description: |
   OUTPUT: git 작업 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: haiku
 effort: low
+maxTurns: 10
 tools:
   - Bash
   - Read

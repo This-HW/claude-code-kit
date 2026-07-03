@@ -8,6 +8,7 @@ description: |
   OUTPUT: P0 질문 목록 + "NEED_USER_INPUT" 또는 "DELEGATE_TO: [다음 에이전트]"
 model: opus
 effort: max
+maxTurns: 10
 tools:
   - Read
   - Glob

@@ -101,7 +101,7 @@ All agents end with a structured delegation signal:
 
 ```
 ---DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT
+TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT | NEED_CLARIFICATION
 TARGET: [agent-name]
 REASON: [reason]
 CONTEXT: [handoff context]
@@ -116,13 +116,14 @@ CONTEXT: [handoff context]
 2. Add required frontmatter (see template above)
 3. Write Korean description with `MUST USE when:` trigger conditions
 4. Add delegation chain at the end
-5. Register in `plugins/common/.claude-plugin/plugin.json`
+5. No manifest edit needed — agents are auto-discovered from the directory
+   (plugin.json has no agent/skill registry)
 
 ### Adding a New Skill
 
 1. Create `plugins/common/skills/{name}/SKILL.md`
 2. Optionally add `README.md` in the same directory
-3. Register in `plugins/common/.claude-plugin/plugin.json`
+3. No manifest edit needed — skills are auto-discovered from the directory
 
 ### Naming Conventions
 
@@ -133,7 +134,7 @@ CONTEXT: [handoff context]
 ### Sub-agent Rules
 
 - Regular agents: `disallowedTools: [Task]` — cannot spawn sub-agents
-- Meta agents (facilitator, synthesizer, devil's advocate, impact-analyzer): `disallowedTools: [Bash]`
+- Meta agents (facilitator, synthesizer, devil's advocate, impact-analyzer, consensus-builder, facilitator-teams — 6 total): `disallowedTools: [Bash]`
 - Skills (auto-dev, etc.) drive delegation; leaf agents stay flat.
 
 ### Orchestration Model — Scale-Appropriate Primitives (Spec 2 / W-006)
@@ -162,10 +163,16 @@ Phase 3 (Validation)  → review + security scan (parallel)
 
 ## Hooks
 
-Located in `plugins/common/hooks/`:
+Located in `plugins/common/hooks/` (except `session-check.py`, which lives in
+`plugins/common/setup/`):
 
+- `session-check.py` — `SessionStart` environment/setup check (runs before
+  `session-start.py`; registered from `setup/`)
 - `session-start.py` — injects rules + active Work status at `SessionStart`
-- `protect-sensitive.py` — blocks commits/edits containing secrets (`PreToolUse`)
+- `protect-sensitive.py` — `PreToolUse` on Edit/Write/MultiEdit/NotebookEdit/Read:
+  blocks access to **sensitive file paths** (`.env`, keys, `.pem`) by path. It does
+  **not** scan file *content* or intercept `Bash`/`git commit` — commit-time secret
+  scanning is gitleaks + `setup/pre-commit`.
 - `auto-format.py` — auto-formats code after edits (uses ruff for Python) (`PostToolUse`)
 - `stop-validator.py` — on `Stop`, lints edited `.py` (ruff) and runs pytest on
   the test files this session edited (never the full suite — that's CI/`/test`'s
@@ -184,11 +191,11 @@ Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 
 - `gitleaks` scans all pushes/PRs (config: `.gitleaks.toml`)
 - Never hardcode secrets, API keys, internal IPs, or project names
-- `protect-sensitive.py` runs as a `PreToolUse` hook on Edit operations
+- `protect-sensitive.py` runs as a `PreToolUse` hook on Edit/Write/MultiEdit/NotebookEdit/Read — path-based, not content/commit-based (see Hooks section)
 
 ## CI/CD
 
-`.github/workflows/validate.yml` runs on push to `main`/`stable`:
+`.github/workflows/validate.yml` runs on push to `main` (and PRs):
 
 1. Validates JSON syntax (`plugin.json`, `marketplace.json`)
 2. Checks agent frontmatter completeness (`name`, `description` required)

@@ -6,6 +6,7 @@ description: |
   OUTPUT: 충돌 분석 + 트레이드오프 + 합의안 + 사용자 질문 (필요시) + "TASK_COMPLETE"
 model: opus
 effort: max
+maxTurns: 10
 tools:
   - Read
   - AskUserQuestion

@@ -7,6 +7,7 @@ description: |
   OUTPUT: 리팩토링 계획 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Glob
