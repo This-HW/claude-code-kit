@@ -6,6 +6,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.9.1] — 2026-07-03
+
+### Fixed — 6-차원 적대적 감사 반영 (보안·게이트 false-green·거버넌스)
+
+프로젝트 전체를 6개 fresh-context 적대적 리뷰어로 감사해 나온 결함을 수정. 특히
+**게이트가 실패를 green으로 보고하던 false-green** 계열과 시크릿 차단 우회를 우선 처리.
+
+**보안:**
+- **protect-sensitive 매처 우회 (P1)**: `hooks.json` PreToolUse 매처가 `Edit|Write|...`라
+  `MultiEdit`/`NotebookEdit`를 안 잡아 `MultiEdit(".env")`로 시크릿 파일 차단이 우회됐다.
+  매처에 `MultiEdit|NotebookEdit` 추가 + `notebook_path` 경로도 검사(auto-format 매처도 동일 보정).
+- **문서 정정**: protect-sensitive는 "커밋/내용의 시크릿 차단"이 아니라 **경로 기반**
+  (`.env`/키) 차단이며 Bash·commit은 안 잡는다(그건 gitleaks+pre-commit)고 CLAUDE.md/README 정정.
+
+**게이트 false-green:**
+- **checklist `status` 손상/빈 파일 (P1)**: `echo '[]' > checklist.json` 또는 손상 파일이
+  exit 3(skip)이 되어 완료 게이트를 조용히 통과했다. 존재하는 파일이 빈/비-리스트/파싱실패면
+  FAIL(1), 진짜 부재만 3(skip)으로 구분.
+- **verify-done §8 helper 부재 (P1)**: `checklist.py`가 없으면 미완 checklist가 있어도 green이던
+  fail-open을 fail-closed로.
+- **test-ratchet §9 (P1)**: `merge-base main HEAD`가 `main`에서 HEAD와 같아져(=빈 diff) 커밋된
+  테스트 삭제를 못 보던 blind-spot + main/merge-base 부재 시 조용한 green을 수정 —
+  origin/main→HEAD~1 폴백 + 실패 시 [warn]. `--`/`++` 내용줄을 파일헤더로 오인하던 파서도 `@@` 상태추적으로 수정.
+- **stop-validator `_bash_may_write_py` (P1)**: 동시에 너무 좁고(`python gen.py`·cp/shutil 놓침)
+  너무 넓던(`cmd > log`·`grep open( x.py` 오탐으로 세션 스코핑 무력화) blanket 휴리스틱을 폐기 →
+  ① 명시적 .py write 대상만 정밀 추출 + ② git-untracked .py union(opaque codegen 포착)으로 교체.
+
+**거버넌스·always-injected 룰 죽은 참조:**
+- `agent-system.md`: 없는 에이전트 참조(schedule-task/trigger-pipeline/notify-team/track-sla)
+  `background:true` 섹션 제거, "check plugin.json agent list"→auto-discovery, 위임 시그널을
+  canonical 4-type(agent-delegation-chain.md SSOT)로 정렬, diagnose/monitor 예시 제거.
+- `mcp-usage.md`: 존재하지 않는 `scripts/db-tunnel.sh` 참조 제거.
+- 에이전트: `design-services` `disallowedTools`에 `Task` 추가, `notify-team` 유령 위임
+  (analyze-tech-debt/manage-api-versions) → `TASK_COMPLETE`, 누락된 `maxTurns` 21개 에이전트에 추가.
+
+**setup/CI:**
+- `setup.sh`: `_check_version`의 `return 1`이 `set -e`로 설치를 중단(fresh-env brick)하던 것 +
+  버전 파싱 파이프라인 abort → `|| true`로 자문(advisory)화.
+- `validate.yml`: pytest 스텝이 `|| echo`로 **테스트 실패도 green**이던 no-op 수정
+  (exit 5=no-tests만 skip, 그 외 실패는 CI 실패). 금지필드에 `hooks` 추가(문서 주장과 일치).
+
+**재발 방지 (신규 게이트):**
+- `verify-done.sh §7`: hooks.json뿐 아니라 **rules/agents의 `scripts/*.sh` 참조 실재도 검증** —
+  always-injected 룰의 죽은 스크립트 참조가 매 세션 주입되던 문제를 기계로 차단.
+
+### Notes
+- 신규 rule 0 → count 변동 없음. 테스트 4건 추가(checklist 손상 2 + bash-target 2), 169 pytest green,
+  verify-done exit 0. 모든 P1 E2E 스모크 검증(MultiEdit 차단·corrupt checklist FAIL).
+- 정직한 잔여 한계: checklist `passes`는 flip 시점 기록이라 gate-time 재검증은 안 함(F1) —
+  '연속 모니터'가 아닌 '완료 원장'으로 문서화. verify subprocess의 grandchild leak(F6)은 P2로 잔류.
+
+---
+
 ## [2.9.0] — 2026-07-03
 
 ### Added — Durable Executor Checklist & 기계 완료 게이트 (W-013)

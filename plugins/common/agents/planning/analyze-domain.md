@@ -8,6 +8,7 @@ description: |
   OUTPUT: 도메인 분석 보고서 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Glob

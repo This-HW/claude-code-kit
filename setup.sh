@@ -76,7 +76,8 @@ _check_version() {
         return 1
     fi
     local cur_ver
-    cur_ver=$("$cmd" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    # `|| true`: grep 미매치/head SIGPIPE의 비정상 종료가 set -e로 스크립트를 죽이지 않도록.
+    cur_ver=$("$cmd" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
     if [ -z "$cur_ver" ]; then
         echo "  ? $cmd 버전 확인 불가 (설치는 됨)"
         return 0
@@ -90,8 +91,10 @@ _check_version() {
     done
     echo "  ✓ $cmd $cur_ver"
 }
-_check_version "ruff" "0.4.0"
-_check_version "gitleaks" "8.18.0"
+# `|| true`: 버전 체크는 자문(advisory)일 뿐 — 미설치/구버전이 return 1로 set -e를
+# 발동시켜 설치 전체를 중단(fresh-env brick)시키지 않도록 결과를 무시한다.
+_check_version "ruff" "0.4.0" || true
+_check_version "gitleaks" "8.18.0" || true
 
 # 1. Plugin 설치 (common 필수)
 echo "[1/5] Plugin 설치..."

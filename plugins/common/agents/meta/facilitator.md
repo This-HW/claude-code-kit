@@ -6,6 +6,7 @@ description: |
   OUTPUT: 필요한 관점 목록 + focus_areas + "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Glob

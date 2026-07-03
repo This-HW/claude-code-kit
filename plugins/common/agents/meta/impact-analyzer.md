@@ -6,6 +6,7 @@ description: |
   OUTPUT: 영향받는 시스템 + 개발 시간 + 리스크 + 비용 + "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Glob

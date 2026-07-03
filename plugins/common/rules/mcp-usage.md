@@ -28,7 +28,8 @@ DO use built-in tools when:
 
 ## Required Rules
 
-ALWAYS run `./scripts/db-tunnel.sh start` before using PostgreSQL MCP.
+If your PostgreSQL MCP needs a tunnel/proxy, start it before use — this is
+environment-specific (the kit ships no tunnel script).
 
 ALWAYS specify the version when using Context7: `"use context7 for Next.js 15 App Router"` — NEVER omit the version.
 

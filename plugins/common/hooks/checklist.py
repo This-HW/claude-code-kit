@@ -12,8 +12,15 @@ Durable Executor Checklist — 완료 상태의 단일 authority (W-013).
     exit 0일 때만 passes=true로 전환한다. 단, `verify` 문자열은 plan-task가
     planning-results에서 파생하는 것이 전제다 — executor가 self-author한 trivial verify
     (`true`/`echo ok`)는 이 계층이 막지 못하므로 계획 리뷰에서 걸러야 한다(정직한 한계).
-  - verify-done.sh가 `status`로 passes:false 잔존을 결정론 검증한다(종이 게이트 → 기계 게이트).
+  - verify-done.sh가 `status`로 passes:false/손상 잔존을 결정론 검증한다(종이→기계 게이트).
   - 단일 authority(planning-results에서 파생) + 원자적 쓰기(flock+os.replace) → drift/레이스 차단.
+
+정직한 한계(적대적 리뷰 F1 — gate-time staleness):
+  `passes`는 **flip 시점의** verify 성공 기록이다. `status`는 이 boolean만 읽고 verify를
+  재실행하지 않으므로, flip 이후 회귀(코드 revert 등)는 이 게이트만으로는 못 잡는다.
+  이는 checklist가 '연속 모니터'가 아니라 '크로스세션 완료 원장'이기 때문이다 — 현재
+  correctness의 재검증은 verify-done의 ruff/pytest(§3/§4, 매 실행 fresh) + 코드 변경 시
+  `pass <id>` 재실행이 담당한다. pytest로 커버 안 되는 acceptance verify는 재-pass 필요.
 
 스키마: [{ "id", "description", "acceptance", "verify", "passes": bool, "evidence"?: str }]
 
@@ -204,14 +211,29 @@ def cmd_show(work_dir: Path) -> int:
 
 
 def cmd_status(work_dir: Path) -> int:
-    """exit 0=전부 pass, 1=미완 잔존, 3=checklist 없음(스킵)."""
+    """exit 0=전부 pass, 1=미완/손상, 3=checklist 진짜 부재(스킵).
+
+    적대적 리뷰(false-green): _read는 파싱 실패/부재를 모두 []로 뭉갠다. 그러면
+    `echo '[]' > checklist.json` 이나 손상 파일이 3(skip)이 되어 완료 게이트가 조용히
+    통과한다. 파일이 '존재하면' 반드시 비어있지 않은 리스트여야 하며, 아니면 FAIL(1).
+    진짜로 파일이 없을 때만 3(스킵)이다.
+    """
     path = checklist_path(work_dir)
     if not path.exists():
         return 3
-    items = _read(path)
-    if not items:
-        return 3
-    pending = [it["id"] for it in items if not it.get("passes")]
+    try:
+        items = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[checklist] status: 파싱 실패 → FAIL(손상): {e}", file=sys.stderr)
+        return 1
+    if not isinstance(items, list) or not items:
+        # 존재하는데 빈 리스트/비-리스트 = 변조·손상 (init은 빈 배열을 쓰지 않음) → FAIL.
+        print(
+            "[checklist] status: 파일이 존재하나 비어있음/비-리스트 → FAIL",
+            file=sys.stderr,
+        )
+        return 1
+    pending = [str(it.get("id", "?")) for it in items if not it.get("passes")]
     if pending:
         print(
             f"[checklist] 미완 {len(pending)}개: {', '.join(pending)}", file=sys.stderr

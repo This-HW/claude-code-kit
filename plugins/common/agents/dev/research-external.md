@@ -7,6 +7,7 @@ description: |
   OUTPUT: 조사 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
 model: sonnet
 effort: low
+maxTurns: 10
 tools:
   - WebSearch
   - WebFetch

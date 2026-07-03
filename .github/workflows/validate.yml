@@ -79,7 +79,7 @@ jobs:
         run: |
           python3 - <<'EOF'
           import pathlib, re, sys
-          FORBIDDEN = ["permissionMode", "context_cache", "output_schema", "next_agents"]
+          FORBIDDEN = ["permissionMode", "context_cache", "output_schema", "next_agents", "hooks"]
           errors = []
           for f in pathlib.Path("plugins").rglob("*.md"):
               if "/skills/" in str(f):
@@ -103,7 +103,12 @@ jobs:
       - name: Run hook unit tests
         run: |
           pip install pytest --quiet
-          python3 -m pytest plugins/common/hooks/tests/ -v 2>/dev/null || echo "⚠️  No tests found yet — skipping"
+          # pytest exit 5 = "no tests collected" (OK to skip). 그 외 비정상 종료는
+          # 실제 실패이므로 CI를 실패시킨다 (이전 `|| echo`는 실패도 green으로 삼켰음).
+          rc=0
+          python3 -m pytest plugins/common/hooks/tests/ -v || rc=$?
+          if [ "$rc" -eq 5 ]; then echo "⚠️  No tests collected — skipping"; exit 0; fi
+          exit "$rc"
 
       - name: Security scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2

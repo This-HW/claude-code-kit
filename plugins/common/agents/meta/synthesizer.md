@@ -6,6 +6,7 @@ description: |
   OUTPUT: 종합 분석 + 충돌 목록 + 우선순위 분류 + "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Write

@@ -6,6 +6,7 @@ description: |
   OUTPUT: 실패 시나리오 + 확률 + 완화 방안 + "TASK_COMPLETE"
 model: opus
 effort: max
+maxTurns: 10
 tools:
   - Read
   - Glob

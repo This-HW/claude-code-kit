@@ -8,6 +8,7 @@ description: |
   OUTPUT: CALC/VAL/STATE/POL 규칙 + "DELEGATE_TO: [다음]" 또는 "PLANNING_COMPLETE"
 model: opus
 effort: max
+maxTurns: 10
 tools:
   - Read
   - Write

@@ -1,14 +1,15 @@
 # Agent System Rules
 
-ALWAYS check plugin.json agent list before calling Task tool.
+Agents are auto-discovered from the plugin directory — check the available
+subagent_type list before calling Task (there is no manifest to consult).
 NEVER use general-purpose subagent when a specialized agent exists.
 ALWAYS specify subagent_type explicitly — no general-purpose fallback.
 
 ## Model Selection
 
-- Opus: strategy/analysis/review (clarify-requirements, review-code, diagnose)
+- Opus: strategy/analysis/review (clarify-requirements, review-code)
 - Sonnet: code implementation/fixes (implement-code, fix-bugs, write-tests)
-- Haiku: exploration/verification/simple tasks (explore-codebase, verify-code, monitor)
+- Haiku: exploration/verification/simple tasks (explore-codebase, verify-code, verify-integration)
 
 ## Agent Selection by Keyword
 
@@ -27,12 +28,13 @@ ALWAYS specify subagent_type explicitly — no general-purpose fallback.
 
 ## Delegation Signal Format
 
-ALWAYS end agent output with this block:
+Canonical definition (SSOT): `agent-delegation-chain.md`. Every agent ends output
+with this block (TYPE values must match the canonical set):
 
 ```
 ---DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT
-TARGET: [agent-name]
+TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT | NEED_CLARIFICATION
+TARGET: [agent-name]        # DELEGATE_TO 일 때만
 REASON: [reason]
 CONTEXT: [handoff context]
 ---END_SIGNAL---
@@ -43,10 +45,6 @@ CONTEXT: [handoff context]
 ALWAYS set `isolation: worktree` for file-modifying agents: implement-code, fix-bugs, write-tests, write-api-tests, implement-api, generate-boilerplate, sync-docs, optimize-logic.
 NEVER set `isolation: worktree` on read-only agents: explore-codebase, review-code, plan-implementation.
 Merge-back protocol: see parallel-worktree.md (verify-then-exit, sequential merge, conflict → git-workflow).
-
-## background: true
-
-ALWAYS set `background: true` for monitoring/schedule agents: schedule-task, trigger-pipeline, notify-team, track-sla.
 
 ## disallowedTools Policy
 

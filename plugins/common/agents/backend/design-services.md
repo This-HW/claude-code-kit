@@ -8,6 +8,7 @@ description: |
   OUTPUT: 서비스 아키텍처 설계서 + "DELEGATE_TO: implement-api" 또는 "TASK_COMPLETE"
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Glob
@@ -15,6 +16,7 @@ tools:
 disallowedTools:
   - Write
   - Edit
+  - Task
 ---
 
 # Backend Service Architecture Designer

@@ -8,6 +8,7 @@ description: |
   OUTPUT: 통합 리뷰 결과 + 합의안 → Main Claude에 반환
 model: opus
 effort: high
+maxTurns: 10
 tools:
   - Read
   - Glob

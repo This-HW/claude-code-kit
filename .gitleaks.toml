@@ -19,7 +19,8 @@ tags = ["private", "internal"]
 description = "허용 목록"
 paths = [
     '''.gitleaks.toml''',
-    '''CHANGELOG.md''',
     '''plugins/common/agents/dev/security-scan.md''',
     '''plugins/common/rules/CHECKSUMS.sha256''',
 ]
+# CHANGELOG.md는 blanket 제외하지 않는다 — 실제 시크릿이 changelog에 붙어도 스캔되도록
+# (적대적 리뷰). 산문상 "secret/token" 단어는 gitleaks의 엔트로피 패턴에 안 걸린다.

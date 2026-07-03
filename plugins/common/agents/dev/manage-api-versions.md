@@ -8,6 +8,7 @@ description: |
   OUTPUT: API 버전 리포트 + "TASK_COMPLETE"
 model: haiku
 effort: low
+maxTurns: 10
 tools:
   - Read
   - Glob
@@ -182,7 +183,6 @@ PATCH: 문서 수정, 버그 수정
 | 에이전트    | 연동 방식            |
 | ----------- | -------------------- |
 | sync-docs   | API 문서 업데이트    |
-| notify-team | breaking change 알림 |
 | review-code | 호환성 검토          |
 
 ---

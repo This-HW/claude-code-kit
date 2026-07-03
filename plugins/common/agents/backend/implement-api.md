@@ -9,6 +9,7 @@ description: |
   Uses: Context7 for framework docs (Express, FastAPI, NestJS)
 model: sonnet
 effort: medium
+maxTurns: 20
 isolation: worktree
 tools:
   - Read

@@ -218,11 +218,13 @@ def main():
 
             sys.exit(0)
 
-        # Edit, Write, Read 도구인 경우만 파일 경로 검사
-        if tool_name not in ("Edit", "Write", "Read"):
+        # 파일 경로 기반 도구만 검사. MultiEdit/NotebookEdit도 편집 도구이므로 포함해야
+        # 시크릿 파일 우회를 막는다(MultiEdit로 .env 편집 우회 방지, 적대적 리뷰 P1).
+        if tool_name not in ("Edit", "MultiEdit", "Write", "Read", "NotebookEdit"):
             sys.exit(0)
 
-        file_path = tool_input.get("file_path", "")
+        # NotebookEdit는 file_path 대신 notebook_path를 쓴다 — 둘 다에서 경로를 취한다.
+        file_path = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
         if not file_path:
             sys.exit(0)
 

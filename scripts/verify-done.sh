@@ -41,7 +41,7 @@ hdr "2. plugin.json 필수 필드 + agent frontmatter + 금지 필드 (CI 동등
 python3 - <<'EOF' && green "manifest + frontmatter checks" || red "manifest/frontmatter check failed"
 import json, pathlib, re, sys
 REQ = ["name","version","description","homepage","repository","license"]
-FORB = ["permissionMode","context_cache","output_schema","next_agents"]
+FORB = ["permissionMode","context_cache","output_schema","next_agents","hooks"]
 err = []
 for f in pathlib.Path("plugins").glob("*/.claude-plugin/plugin.json"):
     d = json.loads(f.read_text())
@@ -102,34 +102,42 @@ check_count 'rules \([0-9]+\)' README.md "$RULES_ACTUAL" "rules(README)"
 check_count 'skills \([0-9]+\)' CLAUDE.md "$SKILLS_C_ACTUAL" "common skills(CLAUDE.md)"
 check_count '[0-9]+ skills' README.md "$SKILLS_T_ACTUAL" "total skills(README)"
 
-hdr "7. stale 참조 (hooks.json이 가리키는 스크립트 존재)"
+hdr "7. stale 참조 (hooks.json + rules/agents가 가리키는 스크립트 존재)"
 MISSING=0
 for s in $(grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+\.py' plugins/common/hooks/hooks.json 2>/dev/null | sed 's|${CLAUDE_PLUGIN_ROOT}|plugins/common|'); do
   [ -f "$s" ] || { red "hooks.json → 없는 스크립트: $s"; MISSING=1; }
 done
-[ "$MISSING" -eq 0 ] && green "hooks.json 참조 스크립트 모두 존재"
+# rules/agents 산문이 가리키는 ./scripts/<name>.sh 가 실재하는지 검증 — always-injected
+# 룰의 죽은 스크립트 참조(예: 존재하지 않는 db-tunnel.sh)가 매 세션 주입되던 문제 방지.
+for ref in $(grep -rhoE '(\./)?scripts/[A-Za-z0-9_-]+\.sh' plugins/common/rules plugins/common/agents 2>/dev/null | sed 's|^\./||' | sort -u); do
+  [ -f "$ref" ] || { red "rules/agents → 없는 스크립트 참조: $ref"; MISSING=1; }
+done
+[ "$MISSING" -eq 0 ] && green "hooks.json + rules/agents 참조 스크립트 모두 존재"
 
 hdr "8. Durable checklist 완료 게이트 (active Work, W-013)"
-# checklist.json이 완료 상태의 단일 authority. active Work에 passes:false 잔존 시 FAIL,
-# checklist 부재 시 스킵(회귀 없음). status의 exit: 0=전항목pass 1=미완 3=없음/빈.
+# checklist.json이 완료 상태의 단일 authority. active Work에 passes:false 잔존 시 FAIL.
+# status exit: 0=전항목pass 1=미완/손상 3=진짜 부재(skip). helper가 없는데 checklist는
+# 있으면 fail-closed(적대적 리뷰: helper 삭제 시 미완이 green 되던 false-green 차단).
 CL_HELPER="plugins/common/hooks/checklist.py"
 CL_FOUND=0
-if [ -f "$CL_HELPER" ]; then
-  for cl in docs/works/active/*/checklist.json; do
-    [ -f "$cl" ] || continue
-    CL_FOUND=1
-    wd="$(dirname "$cl")"
-    python3 "$CL_HELPER" status "$wd" >"$TMPD/checklist" 2>&1
-    rc=$?
-    if [ "$rc" -eq 0 ]; then
-      green "checklist 전항목 pass: $(basename "$wd")"
-    elif [ "$rc" -eq 3 ]; then
-      : # 빈 checklist → skip
-    else
-      red "checklist 미완: $(basename "$wd") — $(tr '\n' ' ' <"$TMPD/checklist")"
-    fi
-  done
-fi
+for cl in docs/works/active/*/checklist.json; do
+  [ -f "$cl" ] || continue
+  CL_FOUND=1
+  wd="$(dirname "$cl")"
+  if [ ! -f "$CL_HELPER" ]; then
+    red "checklist 존재하나 helper($CL_HELPER) 없음 → 검증 불가(fail-closed): $(basename "$wd")"
+    continue
+  fi
+  python3 "$CL_HELPER" status "$wd" >"$TMPD/checklist" 2>&1
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    green "checklist 전항목 pass: $(basename "$wd")"
+  elif [ "$rc" -eq 3 ]; then
+    : # 진짜 부재 → skip (loop 도중 파일 생성 전)
+  else
+    red "checklist 미완/손상: $(basename "$wd") — $(tr '\n' ' ' <"$TMPD/checklist")"
+  fi
+done
 [ "$CL_FOUND" -eq 0 ] && green "active checklist 없음 (skip)"
 
 hdr "9. test-ratchet (테스트/assert 삭제 방지, W-013)"
@@ -141,11 +149,34 @@ import sys
 
 
 def sh(*a):
-    return subprocess.run(a, capture_output=True, text=True).stdout
+    r = subprocess.run(a, capture_output=True, text=True)
+    return r.stdout.strip(), r.returncode
 
 
-base = sh("git", "merge-base", "main", "HEAD").strip() or "HEAD"
-diff = sh("git", "diff", "--unified=0", base)
+# 비교 기준(base) 선택 — 적대적 리뷰 F4: `merge-base main HEAD`는 HEAD가 main일 때
+# HEAD와 같아져(=빈 diff) 커밋된 테스트 삭제를 못 본다. 또 main이 없으면 조용히 green.
+# → fork point가 degenerate하면 origin/main → HEAD~1 로 폴백하고, 어디에도 없으면
+#   조용한 green이 아니라 [warn] 후 skip.
+base, mrc = sh("git", "merge-base", "main", "HEAD")
+head, _ = sh("git", "rev-parse", "HEAD")
+if mrc != 0 or not base or base == head:
+    omb, orc = sh("git", "merge-base", "origin/main", "HEAD")
+    if orc == 0 and omb and omb != head:
+        base = omb
+    else:
+        h1, h1rc = sh("git", "rev-parse", "--verify", "--quiet", "HEAD~1")
+        if h1rc == 0 and h1:
+            base = "HEAD~1"
+        else:
+            print("    [warn] test-ratchet: 비교 기준(main/origin/main/HEAD~1) 없음 — skip")
+            sys.exit(0)
+r = subprocess.run(
+    ["git", "diff", "--unified=0", base], capture_output=True, text=True
+)
+if r.returncode != 0:
+    print(f"    [warn] test-ratchet: git diff 실패({base}) — skip")
+    sys.exit(0)
+diff = r.stdout
 if not diff.strip() or "TEST-RATCHET-ALLOW" in diff:
     sys.exit(0)
 pat = re.compile(r"(def\s+test_|\bassert\b|\bit\(|\btest\(|\bexpect\()")
@@ -164,16 +195,26 @@ def _is_test(p):
     return bool(test_path.search(p))
 
 
+# --unified=0에서 삭제된 내용줄 '-- x'는 '--- x'로, 추가줄 '++ x'는 '+++ x'로 보여
+# 파일 헤더로 오인될 수 있다(적대적 리뷰). diff --git/@@ 로 헤더 영역 vs 내용 영역을
+# 명확히 분리해, --- /+++ 는 hunk 시작(@@) 전에만 헤더로 해석한다.
 added = removed = 0
-old_test = in_test = False
+old_test = in_test = in_hunk = False
 for ln in diff.splitlines():
-    if ln.startswith("--- "):  # 삭제측(구 파일) — 테스트 파일 통째 삭제도 잡도록
+    if ln.startswith("diff --git"):
+        in_hunk = False
+        old_test = in_test = False
+        continue
+    if ln.startswith("@@"):
+        in_hunk = True
+        continue
+    if not in_hunk and ln.startswith("--- "):
         old_test = _is_test(ln[4:])
         continue
-    if ln.startswith("+++ "):  # 추가측(신 파일). 헤더 쌍이 끝나며 in_test 확정
+    if not in_hunk and ln.startswith("+++ "):
         in_test = old_test or _is_test(ln[4:])
         continue
-    if not in_test:
+    if not in_hunk or not in_test:
         continue
     if ln.startswith("+") and pat.search(ln):
         added += 1
