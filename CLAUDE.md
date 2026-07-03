@@ -209,6 +209,9 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 
 - Patch bump (2.x.y) for bug fixes and hook changes
 - Minor bump (2.x.0) for new agents, skills, or features
+- Add a matching `## [x.y.z]` entry to `CHANGELOG.md` (verify-done.sh §6 fails if
+  the plugin.json version and the CHANGELOG top entry diverge)
+- Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
 - Run `scripts/verify-done.sh` (green) before claiming a release ready (definition-of-done)
 
 ```bash
