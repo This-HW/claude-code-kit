@@ -137,6 +137,40 @@ def test_run_verify_timeout_kills_group(tmp_path, monkeypatch):
     assert "타임아웃" in tail
 
 
+def test_run_verify_timeout_reaps_grandchild(tmp_path, monkeypatch):
+    # 적대적 리뷰 F-6: 타임아웃 시 shell이 fork한 grandchild까지 killpg로 정리되는지 실증.
+    import time
+
+    monkeypatch.setattr(_mod, "_VERIFY_TIMEOUT_SECONDS", 1)
+    marker = tmp_path / "alive"
+    # 백그라운드 grandchild가 0.2s마다 marker를 touch, foreground는 30s sleep으로 타임아웃 유발
+    cmd = f"(while true; do touch {marker}; sleep 0.2; done) & sleep 30"
+    rc, _ = _mod._run_verify(cmd, tmp_path)
+    assert rc == 124
+    time.sleep(0.5)  # 잔존 grandchild가 있으면 이 사이 marker가 갱신됨
+    m1 = marker.stat().st_mtime if marker.exists() else 0
+    time.sleep(0.6)
+    m2 = marker.stat().st_mtime if marker.exists() else 0
+    assert m1 == m2  # 갱신 멈춤 = grandchild 정리됨(그룹 kill 성공)
+
+
+def test_pass_toctou_rejects_changed_verify(tmp_path, monkeypatch):
+    # 적대적 리뷰 F-2: verify를 락 밖에서 도는 동안 파일의 verify가 바뀌면 stale로 flip 금지
+    _mod.cmd_init(tmp_path, json.dumps([_item("a", "true")]))
+
+    def fake_run(verify, wd):
+        # 실행 '중' 다른 프로세스가 이 항목 verify를 교체한 상황 모사
+        items = json.loads((tmp_path / "checklist.json").read_text())
+        items[0]["verify"] = "false"
+        _mod._write(tmp_path / "checklist.json", items)
+        return (0, "")  # 옛 verify는 통과했다고 반환
+
+    monkeypatch.setattr(_mod, "_run_verify", fake_run)
+    assert _mod.cmd_pass(tmp_path, "a") == 1  # stale verify → flip 거부
+    items = json.loads((tmp_path / "checklist.json").read_text())
+    assert items[0]["passes"] is False
+
+
 def test_init_rejects_empty_verify(tmp_path):
     # 빈/공백 verify는 영구 미완이 되므로 init에서 차단(pass 이전에)
     assert _mod.cmd_init(tmp_path, json.dumps([_item("a", verify="   ")])) == 2

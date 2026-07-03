@@ -327,6 +327,9 @@ def run_pipeline(file_path: str) -> int:
 
 def main():
     try:
+        # stdin이 TTY면 json.load 무한 블록 방지 — 즉시 통과.
+        if sys.stdin.isatty():
+            sys.exit(0)
         input_data = json.load(sys.stdin)
 
         tool_name = input_data.get("tool_name", "")

@@ -6,6 +6,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.9.3] — 2026-07-03
+
+### Fixed — 3-차원 적대적 재감사 (P0 false-green + 정직성 + 훅 fail-open)
+
+2.9.2 상태를 3개 fresh-context 리뷰어(checklist·게이트·훅보안)로 재감사해 나온 결함 수정.
+
+**게이트 false-green:**
+- **P0 — verify-done §5 시크릿 스캔 false-green**: `... | head -1 | grep -q`가 매치 다수(≈16KB+)일 때
+  상류 grep을 SIGPIPE(141)로 죽여 `pipefail`이 파이프라인을 비정상 종료로 만들고, 시크릿이 있어도
+  green으로 빠졌다. 결과를 변수로 수집(`$(... || true)`)해 `[ -n ]` 판정으로 교체. 2000줄 매치 DETECTED 실증.
+
+**훅 보안(fail-open/우회):**
+- **protect-sensitive content-scan fail-open (P1)**: 구조화(list/dict) message payload에 `re.search`가
+  TypeError→blanket except→exit0(스캔 우회). `str()` 강제 직렬화로 차단.
+- **protect-sensitive 검사 순서 (P2)**: syscall 없는 원본 경로 검사를 realpath(널바이트 등에 ValueError)
+  **앞으로** 이동 — syscall 실패로 게이트가 건너뛰어지지 않게.
+- **secret 경로 heuristic (P2)**: `mysecret.txt`/`api_secret.json`이 안 걸리던 lookbehind 제거,
+  `secrets?(?=[._/\d-]|$)`로 교체(`secretary` 제외 유지).
+- **stop-validator false-green (P1)**: bash `.py` write 대상 추출이 따옴표(`> "x.py"`)·변수·`python -c`·xargs를
+  놓쳤다. 따옴표 strip + **세션이 .py를 bash로만 쓰고 신뢰가능한 Edit .py가 없으면 전체 dirty 검증으로
+  폴백**(미검증 green보다 오검증 red) + NotebookEdit `notebook_path` 반영.
+- **훅 hang 방지 (P2)**: Pre/PostToolUse에 `timeout` 추가, protect-sensitive·auto-format에 stdin `isatty` 가드.
+
+**checklist 동시성/정직성:**
+- **cmd_pass TOCTOU (P2)**: verify를 락 밖에서 도는 동안 항목 verify가 바뀌면 stale 명령으로 flip하던 것 →
+  락 안에서 verify 문자열 재확인 후 다르면 flip 거부.
+- **cmd_verify lost-update (P2)**: 전체 스냅샷을 덮어써 동시 pass/신규 항목을 잃던 것 → 락 안에서 재읽기 후 id별 병합.
+- **F1 정직성 (P1)**: docstring이 gate-time staleness를 "해소"로 과장 → 자동 게이트(§8)는 여전히 status(원장)를
+  읽고 `verify`는 opt-in임을 명시(해소 아님, 재증명 도구 제공).
+- **killpg docstring/테스트**: "grandchild 안 남김" → setsid/데몬화는 못 잡는 best-effort로 정정, F6 테스트를
+  실제 grandchild 정리 검증으로 강화.
+
+**게이트 견고성:**
+- verify-done §9 test-ratchet: fresh/단일커밋 저장소에서 base를 HEAD로 폴백(워킹트리 삭제 포착),
+  test 디렉토리 레이아웃(`tests/`·`spec/`) 인식. §7 stale-ref가 중첩 경로(`scripts/sub/x.sh`)도 검사.
+
+### Notes
+- 테스트 6건 추가(총 179 pytest green), verify-done exit 0(13/0), P0/P1 E2E 스모크 검증.
+- 수용된 경계(문서화): Bash를 통한 시크릿 **읽기/유출**은 path-based 훅이 막지 않음(gitleaks는 커밋만).
+  feedback_ledger digest의 persistent-injection 여지는 후속 하드닝 후보(P2).
+
+---
+
 ## [2.9.2] — 2026-07-03
 
 ### Fixed — 2.9.1 감사가 남긴 잔여 2건 마저 정리 (F6 버그 + F1 트레이드오프)

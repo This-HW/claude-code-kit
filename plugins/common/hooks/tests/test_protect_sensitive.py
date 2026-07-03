@@ -123,6 +123,17 @@ class TestCheckContentSensitive:
         sensitive, _ = check_content_sensitive("postgres://user:pass@localhost/db")
         assert sensitive
 
+    def test_non_string_content_serialized_not_fail_open(self):
+        # 적대적 리뷰 P1: 구조화(list/dict) payload에 re.search가 TypeError→fail-open하던 것.
+        # str()로 강제 직렬화해 스캔하므로 크래시 없이 탐지되어야 한다.
+        sensitive, _ = check_content_sensitive(
+            [{"text": "key sk-abcdefghij1234567890xyz"}]
+        )
+        assert sensitive
+        # 민감정보 없는 구조화 payload는 통과(크래시 없음)
+        clean, _ = check_content_sensitive({"note": "hello world"})
+        assert not clean
+
     def test_password_literal_blocked(self):
         sensitive, _ = check_content_sensitive("password=supersecret123")
         assert sensitive

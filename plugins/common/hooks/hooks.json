@@ -26,7 +26,8 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/protect-sensitive.py"]
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/protect-sensitive.py"],
+            "timeout": 10
           }
         ]
       }
@@ -38,7 +39,8 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/auto-format.py"]
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/auto-format.py"],
+            "timeout": 30
           }
         ]
       }
