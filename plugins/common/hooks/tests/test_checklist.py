@@ -104,6 +104,39 @@ def test_pass_unknown_id_returns_2(tmp_path):
     assert _mod.cmd_pass(tmp_path, "zzz") == 2
 
 
+# ── verify: opt-in 재증명, stale-true 되돌림 (F1) ─────────────────
+def test_verify_all_pass_returns_0(tmp_path):
+    _mod.cmd_init(tmp_path, json.dumps([_item("a", "true"), _item("b", "true")]))
+    assert _mod.cmd_verify(tmp_path) == 0
+    items = json.loads((tmp_path / "checklist.json").read_text())
+    assert all(it["passes"] for it in items)  # 재실행으로 전부 통과 확정
+
+
+def test_verify_demotes_stale_true(tmp_path):
+    # flip 후 회귀 시나리오: pass로 true가 됐지만 이제 verify가 실패 → reverify가 false로 되돌림
+    _mod.cmd_init(tmp_path, json.dumps([_item("a", "true")]))
+    assert _mod.cmd_pass(tmp_path, "a") == 0  # true
+    # 파일을 직접 조작해 verify를 실패(false)로 바꿔 '회귀'를 모사
+    items = json.loads((tmp_path / "checklist.json").read_text())
+    items[0]["verify"] = "false"
+    _mod._write(tmp_path / "checklist.json", items)
+    assert _mod.cmd_verify(tmp_path) == 1  # 재증명 실패
+    items = json.loads((tmp_path / "checklist.json").read_text())
+    assert items[0]["passes"] is False  # stale-true가 false로 되돌려짐
+
+
+def test_verify_absent_returns_3(tmp_path):
+    assert _mod.cmd_verify(tmp_path) == 3
+
+
+def test_run_verify_timeout_kills_group(tmp_path, monkeypatch):
+    # 타임아웃 시 프로세스 그룹 종료 경로 (F6) — 짧은 타임아웃으로 sleep을 강제 종료
+    monkeypatch.setattr(_mod, "_VERIFY_TIMEOUT_SECONDS", 1)
+    rc, tail = _mod._run_verify("sleep 30", tmp_path)
+    assert rc == 124  # 타임아웃 종료 코드
+    assert "타임아웃" in tail
+
+
 def test_init_rejects_empty_verify(tmp_path):
     # 빈/공백 verify는 영구 미완이 되므로 init에서 차단(pass 이전에)
     assert _mod.cmd_init(tmp_path, json.dumps([_item("a", verify="   ")])) == 2
