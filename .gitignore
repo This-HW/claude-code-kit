@@ -51,3 +51,4 @@ evals/reports/
 
 # pytest 캐시 (fixture 실행 등 로컬 산출물)
 .pytest_cache/
+evals/baseline/*.bak

@@ -9,24 +9,15 @@
           "type": "pytest_green",
           "ok": true,
           "detail": "pytest_green"
-        }
-      ],
-      "judge": null,
-      "duration_s": 30.18
-    },
-    {
-      "agent": "fix-bugs",
-      "scenario": "mutable-default-arg",
-      "status": "pass",
-      "checks": [
+        },
         {
-          "type": "pytest_green",
+          "type": "file_unchanged",
           "ok": true,
-          "detail": "pytest_green"
+          "detail": "file_unchanged"
         }
       ],
       "judge": null,
-      "duration_s": 33.44
+      "duration_s": 34.49
     },
     {
       "agent": "fix-bugs",
@@ -37,10 +28,34 @@
           "type": "pytest_green",
           "ok": true,
           "detail": "pytest_green"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
         }
       ],
       "judge": null,
-      "duration_s": 35.9
+      "duration_s": 44.21
+    },
+    {
+      "agent": "fix-bugs",
+      "scenario": "mutable-default-arg",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        }
+      ],
+      "judge": null,
+      "duration_s": 46.32
     },
     {
       "agent": "implement-code",
@@ -59,7 +74,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 38.5
+      "duration_s": 38.58
     },
     {
       "agent": "implement-code",
@@ -78,7 +93,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 33.44
+      "duration_s": 33.07
     },
     {
       "agent": "implement-code",
@@ -97,7 +112,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 38.6
+      "duration_s": 35.47
     },
     {
       "agent": "review-code",
@@ -113,10 +128,34 @@
           "type": "output_contains_any",
           "ok": true,
           "detail": "output_contains_any ['total_quantity', 'inventory.py']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
         }
       ],
       "judge": null,
-      "duration_s": 37.98
+      "duration_s": 37.43
+    },
+    {
+      "agent": "fix-bugs",
+      "scenario": "unstable-sort-key",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        }
+      ],
+      "judge": null,
+      "duration_s": 125.98
     },
     {
       "agent": "review-code",
@@ -132,10 +171,15 @@
           "type": "output_contains_any",
           "ok": true,
           "detail": "output_contains_any ['run_migration', 'deploy.py']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
         }
       ],
       "judge": null,
-      "duration_s": 67.06
+      "duration_s": 59.85
     },
     {
       "agent": "review-code",
@@ -151,10 +195,15 @@
           "type": "output_contains_any",
           "ok": true,
           "detail": "output_contains_any ['write_if_absent', 'cache.py']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
         }
       ],
       "judge": null,
-      "duration_s": 73.16
+      "duration_s": 69.13
     },
     {
       "agent": "review-code",
@@ -170,24 +219,15 @@
           "type": "output_contains_any",
           "ok": true,
           "detail": "output_contains_any ['find_user', 'db.py']"
-        }
-      ],
-      "judge": null,
-      "duration_s": 54.83
-    },
-    {
-      "agent": "fix-bugs",
-      "scenario": "unstable-sort-key",
-      "status": "pass",
-      "checks": [
+        },
         {
-          "type": "pytest_green",
+          "type": "output_not_contains",
           "ok": true,
-          "detail": "pytest_green"
+          "detail": "output_not_contains"
         }
       ],
       "judge": null,
-      "duration_s": 164.8
+      "duration_s": 44.74
     }
   ],
   "summary": {
