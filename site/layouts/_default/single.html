@@ -5,7 +5,7 @@
     <h1>{{ .Title }}</h1>
     {{ with .Description }}<p class="summary" style="color:var(--muted);font-size:1.05rem;margin:0">{{ . }}</p>{{ end }}
     <div class="meta">
-      <span><b>날짜</b> {{ .Date.Format "2006-01-02" }}</span>
+      {{ if not .Date.IsZero }}<span><b>날짜</b> {{ .Date.Format "2006-01-02" }}</span>{{ end }}
       {{ with .ReadingTime }}<span><b>읽기</b> {{ . }}분</span>{{ end }}
       {{ with .Params.tags }}<span><b>태그</b> {{ delimit . ", " }}</span>{{ end }}
     </div>

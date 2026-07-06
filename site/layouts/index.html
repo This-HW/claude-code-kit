@@ -6,10 +6,18 @@
   </div>
 </section>
 
+{{ if .Content }}
+<section class="wrap content">
+  {{ .Content }}
+</section>
+{{ end }}
+
+{{ $posts := where site.RegularPages "Section" "posts" }}
+{{ if $posts }}
 <section class="wrap">
-  <p class="section-title">최근 글</p>
+  <p class="section-title">{{ if eq site.Language.Lang "en" }}Recent Posts{{ else }}최근 글{{ end }}</p>
   <ul class="postlist">
-    {{ range (where site.RegularPages "Section" "posts") }}
+    {{ range $posts }}
       <li>
         <p class="date">{{ .Date.Format "2006-01-02" }}</p>
         <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
@@ -21,4 +29,5 @@
     {{ end }}
   </ul>
 </section>
+{{ end }}
 {{ end }}
