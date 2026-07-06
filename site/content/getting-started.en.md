@@ -101,8 +101,8 @@ to CI.
 
 ## What's next
 
-- Curious about the architecture? Read [About](/en/about/).
+- Curious about the architecture? Read [About]({{< relref "/about" >}}).
 - For real-world decisions and how the design evolved, see the (Korean)
-  [dev log](/posts/).
+  [dev log]({{< relref path="/posts" lang="ko" >}}).
 - Code and issues live on the
   [GitHub repository](https://github.com/This-HW/claude-code-kit).

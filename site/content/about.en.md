@@ -137,8 +137,8 @@ remove the custom hook (`agent-lifecycle.py`) in the 2.6.0 batch.
 
 ---
 
-Learn more: check out [Getting Started](/en/getting-started/) for real
-installation and usage scenarios, or read the (Korean) [dev log](/posts/) to
+Learn more: check out [Getting Started]({{< relref "/getting-started" >}}) for real
+installation and usage scenarios, or read the (Korean) [dev log]({{< relref path="/posts" lang="ko" >}}) to
 see how this design evolved.
 
 Repository: [github.com/This-HW/claude-code-kit](https://github.com/This-HW/claude-code-kit) (MIT)

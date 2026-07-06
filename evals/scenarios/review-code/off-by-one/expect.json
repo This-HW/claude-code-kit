@@ -20,7 +20,7 @@
     {
       "type": "output_contains_any",
       "values": [
-        "total_quantity",
+        "total_count",
         "inventory.py"
       ]
     },
@@ -44,7 +44,7 @@
   ],
   "judge": {
     "enabled": false,
-    "rubric": "리뷰가 total_quantity의 off-by-one 버그(range(len(items)-1)로 마지막 항목이 누락됨)를 정확히 지적하는가?",
+    "rubric": "리뷰가 total_count의 off-by-one 버그(range(len(items)-1)로 마지막 항목이 누락됨)를 정확히 지적하는가?",
     "threshold": 7
   }
 }

@@ -6,6 +6,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.10.1] — 2026-07-07
+
+### Fixed — 5-차원 적대적 재감사 (v2.10.0 배치 전체 fresh-context 재검증)
+
+릴리스 직후 5개 병렬 리뷰어(evals 심층·훅/게이트 무결성·스킬/문서 정합·보안·live 사이트)로
+재감사 — 발견 H3·M15·L16 전건 반영 (+오탐 2건 증거 기각).
+
+**게이트 false-green 차단:**
+- evals `--baseline` × `--agent/--scenario` 필터 조합 시 저장 거부 — 부분 기준선이
+  커버리지를 침묵 은닉하던 경로 차단. 손상 baseline(pass_rate 누락)은 크래시 대신 회귀 플래그.
+- verify-done §6 표-셀 검사의 매직 `33` 커플링 제거(에이전트 수가 바뀌면 검사가 조용히
+  skip-green되던 self-disable) + 에이전트 수 검증 신설. §3 ruff를 evals/까지 확장.
+- CI: pytest exit 5(수집 0)를 green→fail로 (테스트 소실은 실패), ruff 스텝 신설,
+  `permissions: contents: read` 명시.
+- discover가 `.ruff_cache` 등 로컬 캐시를 유령 시나리오로 취급해 게이트를 무너뜨리던 것 스킵.
+
+**MUST MATCH 단일소스화:**
+- auto-dev T-merge 마커 스니펫이 지문 로직을 복제하던 것(예외절·타임아웃 3곳 드리프트
+  실재) → stop-validator 모듈을 로드해 `_worktree_state_hash()` 직접 호출 — 물리적 단일 소스.
+- stop-validator eval 제외를 `/fixture/` 세그먼트로 축소 + run.py --validate가
+  "시나리오 루트 .py 금지"·"fixture 모듈 스코프 위험 호출(os.system 등) 금지"를 구조로 강제.
+
+**보안/공급망:**
+- self-improve에 입력 신뢰 경계 명시(ledger 텍스트는 데이터, 내장 지시 실행 금지 —
+  프롬프트 인젝션 방어) + 승인-전 eval 실행 예외의 정직 고지.
+- GitHub Actions 전부 커밋 SHA 핀, Hugo 바이너리 sha256 검증, gitleaks 오탐 근원 제거
+  (fixture 식별자가 private-패턴 룰의 `_quant` 부분열과 충돌 → `total_count`로 리네임).
+
+**채점 견고성:** `_norm` NFC 정규화(한글 false-red), `CKKIT_EVAL_TIMEOUT` 비정수 폴백,
+validate를 실행 경로에선 필터 범위로(무관 WIP가 dry-run까지 막던 것).
+
+**문서/발견성:** 세션 주입 Skill Trigger Map·README Key Skills에 native-watch/self-improve
+등재, gitignore된 Work ID 인용 → spec 경로로 정규화, spec의 self-improve 원설계에
+"구현 시 조정" 주석, 사이트 en 죽은 링크 6건(live 404 실측)·en 페이지 한국어 UI 문자열·
+x-default hreflang·meta 절단 수정, evals/README 주의사항(리포트 민감정보·.bak 1세대) 추가.
+
+**Notes:** 테스트 232 green(+7), 오탐 기각 2건(baseline 미추적 주장 — ef858ee로 반증,
+CLAUDE.md 2.3.0 스테일 주장 — 9806d1c에서 기수정).
+
+---
+
 ## [2.10.0] — 2026-07-07
 
 W-014 toolkit 개선 배치 (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`).

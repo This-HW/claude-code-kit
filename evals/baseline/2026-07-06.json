@@ -2,25 +2,6 @@
   "results": [
     {
       "agent": "fix-bugs",
-      "scenario": "off-by-one",
-      "status": "pass",
-      "checks": [
-        {
-          "type": "pytest_green",
-          "ok": true,
-          "detail": "pytest_green"
-        },
-        {
-          "type": "file_unchanged",
-          "ok": true,
-          "detail": "file_unchanged"
-        }
-      ],
-      "judge": null,
-      "duration_s": 34.49
-    },
-    {
-      "agent": "fix-bugs",
       "scenario": "none-handling",
       "status": "pass",
       "checks": [
@@ -36,7 +17,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 44.21
+      "duration_s": 32.36
     },
     {
       "agent": "fix-bugs",
@@ -55,11 +36,11 @@
         }
       ],
       "judge": null,
-      "duration_s": 46.32
+      "duration_s": 40.25
     },
     {
-      "agent": "implement-code",
-      "scenario": "add-function-to-module",
+      "agent": "fix-bugs",
+      "scenario": "off-by-one",
       "status": "pass",
       "checks": [
         {
@@ -68,32 +49,13 @@
           "detail": "pytest_green"
         },
         {
-          "type": "delegation_signal",
+          "type": "file_unchanged",
           "ok": true,
-          "detail": "delegation_signal"
+          "detail": "file_unchanged"
         }
       ],
       "judge": null,
-      "duration_s": 38.58
-    },
-    {
-      "agent": "implement-code",
-      "scenario": "merge-intervals",
-      "status": "pass",
-      "checks": [
-        {
-          "type": "pytest_green",
-          "ok": true,
-          "detail": "pytest_green"
-        },
-        {
-          "type": "delegation_signal",
-          "ok": true,
-          "detail": "delegation_signal"
-        }
-      ],
-      "judge": null,
-      "duration_s": 33.07
+      "duration_s": 42.54
     },
     {
       "agent": "implement-code",
@@ -112,7 +74,45 @@
         }
       ],
       "judge": null,
-      "duration_s": 35.47
+      "duration_s": 33.91
+    },
+    {
+      "agent": "implement-code",
+      "scenario": "add-function-to-module",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "delegation_signal",
+          "ok": true,
+          "detail": "delegation_signal"
+        }
+      ],
+      "judge": null,
+      "duration_s": 42.5
+    },
+    {
+      "agent": "implement-code",
+      "scenario": "merge-intervals",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "delegation_signal",
+          "ok": true,
+          "detail": "delegation_signal"
+        }
+      ],
+      "judge": null,
+      "duration_s": 37.95
     },
     {
       "agent": "review-code",
@@ -127,7 +127,7 @@
         {
           "type": "output_contains_any",
           "ok": true,
-          "detail": "output_contains_any ['total_quantity', 'inventory.py']"
+          "detail": "output_contains_any ['total_count', 'inventory.py']"
         },
         {
           "type": "output_not_contains",
@@ -136,26 +136,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 37.43
-    },
-    {
-      "agent": "fix-bugs",
-      "scenario": "unstable-sort-key",
-      "status": "pass",
-      "checks": [
-        {
-          "type": "pytest_green",
-          "ok": true,
-          "detail": "pytest_green"
-        },
-        {
-          "type": "file_unchanged",
-          "ok": true,
-          "detail": "file_unchanged"
-        }
-      ],
-      "judge": null,
-      "duration_s": 125.98
+      "duration_s": 30.03
     },
     {
       "agent": "review-code",
@@ -179,7 +160,26 @@
         }
       ],
       "judge": null,
-      "duration_s": 59.85
+      "duration_s": 67.01
+    },
+    {
+      "agent": "fix-bugs",
+      "scenario": "unstable-sort-key",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        }
+      ],
+      "judge": null,
+      "duration_s": 142.42
     },
     {
       "agent": "review-code",
@@ -203,7 +203,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 69.13
+      "duration_s": 78.24
     },
     {
       "agent": "review-code",
@@ -227,7 +227,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 44.74
+      "duration_s": 57.43
     }
   ],
   "summary": {

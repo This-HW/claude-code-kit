@@ -786,3 +786,11 @@ def test_get_modified_py_files_excludes_eval_fixtures(monkeypatch):
     monkeypatch.setattr(sv.subprocess, "run", fake_run)
     files = sorted(sv.get_modified_py_files())
     assert files == ["evals/run.py", "plugins/common/hooks/new.py"]
+
+
+def test_is_eval_fixture_narrowed_to_fixture_segment():
+    """제외는 /fixture/ 하위만 — scenarios 루트의 실코드는 검증 대상 유지 (재감사 R2/ATK-005)."""
+    sv = _mod
+    assert sv._is_eval_fixture("evals/scenarios/fix-bugs/off-by-one/fixture/stats.py")
+    assert not sv._is_eval_fixture("evals/scenarios/fix-bugs/off-by-one/helper.py")
+    assert not sv._is_eval_fixture("evals/scenarios/helper.py")

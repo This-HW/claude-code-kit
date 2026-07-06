@@ -218,6 +218,8 @@ Merge-back rules (verify-then-exit, sequential merge, conflict escalation to
 | `skill-creator`            | `/skill-creator`            | Generate claude-code-kit skills with best practices                        |
 | `mcp-builder`              | `/mcp-builder`              | Scaffold MCP servers and configure Claude Code integration                 |
 | `agent-teams`              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` (dynamic workflow) |
+| `native-watch`             | `/native-watch`             | Audit native-feature absorption against the SSOT ledger (`docs/native-absorption.md`) |
+| `self-improve`             | `/self-improve`             | Propose agent/skill improvements from ledger + evals — proposal-only, double-gated    |
 
 ### Planning Agents (5 — Opus)
 

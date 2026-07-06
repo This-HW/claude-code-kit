@@ -1,5 +1,8 @@
 name: Validate Plugins
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -10,12 +13,12 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
@@ -102,15 +105,18 @@ jobs:
 
       - name: Run hook unit tests
         run: |
-          pip install pytest --quiet
+          pip install pytest ruff --quiet
+          ruff check plugins/common/hooks/ evals/
           # pytest exit 5 = "no tests collected" (OK to skip). 그 외 비정상 종료는
           # 실제 실패이므로 CI를 실패시킨다 (이전 `|| echo`는 실패도 green으로 삼켰음).
           rc=0
           python3 -m pytest plugins/common/hooks/tests/ evals/tests/ -v || rc=$?
-          if [ "$rc" -eq 5 ]; then echo "⚠️  No tests collected — skipping"; exit 0; fi
+          # exit 5(수집 0)도 실패 — 테스트 220+개가 상존하는 레포에서 수집 0은
+          # 전멸/경로 붕괴 신호다. verify-done §4와 fail-closed 방향 통일 (재감사 R2/ATK-004).
+          if [ "$rc" -eq 5 ]; then echo "❌ No tests collected — 테스트 소실은 실패다"; exit 1; fi
           exit "$rc"
 
       - name: Security scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

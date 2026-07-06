@@ -66,6 +66,10 @@ scripts/run-evals.sh # 진입점 (에이전트/시나리오 필터 옵션)
 
 ### W-D: Self-Improve 루프
 
+> **구현 시 조정됨 — SKILL.md가 SSOT**: digest는 1,200자 절단이라 전수 입력으로
+> 부적합해 ledger.md 직접 읽기로 대체됐고, 'addressed 마킹'은 스키마 부재로 직전
+> 적용 커밋 대조(멱등성 확인)로 대체됐다. 아래 원설계는 역사 기록.
+
 - `plugins/common/skills/self-improve/SKILL.md` — `/self-improve` 파이프라인:
   1. 입력 수집: `feedback_ledger.py digest`(전체) + 최근 eval 리포트.
   2. 근원 분석: 반복 결함(frequency≥2)을 야기한 에이전트/스킬/룰 정의를 식별.

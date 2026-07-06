@@ -39,6 +39,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,7 +52,11 @@ SCENARIOS_ROOT = EVALS_ROOT / "scenarios"
 REPORTS_DIR = EVALS_ROOT / "reports"
 BASELINE_DIR = EVALS_ROOT / "baseline"
 
-DEFAULT_TIMEOUT = int(os.environ.get("CKKIT_EVAL_TIMEOUT", "300"))
+try:
+    DEFAULT_TIMEOUT = int(os.environ.get("CKKIT_EVAL_TIMEOUT", "300"))
+except ValueError:
+    print("[eval] CKKIT_EVAL_TIMEOUT 비정수 — 기본 300s 사용", file=sys.stderr)
+    DEFAULT_TIMEOUT = 300
 
 EXIT_PASS = 0
 EXIT_FAIL = 1
@@ -222,14 +227,25 @@ def discover_scenario_dirs(
         scenarios_root = SCENARIOS_ROOT
     if not scenarios_root.is_dir():
         return []
+    # 로컬 캐시 부산물(.ruff_cache 등)이 유령 에이전트/시나리오로 잡혀
+    # 게이트를 무너뜨리지 않게 dot/캐시 디렉토리는 스킵 (재감사 R1/ATK-004).
+    skip = {"__pycache__", ".pytest_cache", ".ruff_cache"}
     dirs: list[Path] = []
     for agent_dir in sorted(scenarios_root.iterdir()):
-        if not agent_dir.is_dir():
+        if (
+            not agent_dir.is_dir()
+            or agent_dir.name.startswith(".")
+            or agent_dir.name in skip
+        ):
             continue
         if agent_filter and agent_dir.name != agent_filter:
             continue
         for sc_dir in sorted(agent_dir.iterdir()):
-            if not sc_dir.is_dir():
+            if (
+                not sc_dir.is_dir()
+                or sc_dir.name.startswith(".")
+                or sc_dir.name in skip
+            ):
                 continue
             if scenario_filter and sc_dir.name != scenario_filter:
                 continue
@@ -313,6 +329,21 @@ def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str
         # fixture에 conftest가 있으면 채점 단계에서 임의 코드 실행이 가능해 금지.
         for bad in fixture_dir.rglob("conftest.py"):
             errors.append(f"{prefix}: fixture에 conftest.py 금지 ({bad.name})")
+        # 모듈 스코프 부작용 차단 (재감사 R2/ATK-003): fixture는 stop-validator
+        # 검증에서 제외되므로, import-time에 실행되는 위험 호출을 여기서 거부한다.
+        danger = re.compile(
+            r"^(?!\s)(?:.*\b(?:os\.system|subprocess\.|socket\.|eval\(|exec\(|__import__)\b)",
+        )
+        for py in sorted(fixture_dir.rglob("*.py")):
+            for ln in py.read_text(encoding="utf-8", errors="replace").splitlines():
+                if danger.match(ln):
+                    errors.append(
+                        f"{prefix}: fixture 모듈 스코프에 위험 호출 금지 ({py.name}: {ln.strip()[:60]})"
+                    )
+    # scenario 디렉토리에 fixture 밖 .py 금지 (재감사 R2/ATK-005): stop-validator의
+    # evals/scenarios/ 제외가 실코드를 은닉하는 통로가 되지 않게 구조로 강제.
+    for stray in sorted(sc_dir.glob("*.py")):
+        errors.append(f"{prefix}: 시나리오 루트에 .py 금지 ({stray.name}) — 코드는 fixture/ 안에만")
     if not expect_path.is_file():
         errors.append(f"{prefix}: expect.json 없음")
         return errors
@@ -334,7 +365,10 @@ def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str
 
 
 def validate_all(
-    scenarios_root: Path | None = None, agents_root: Path | None = None
+    scenarios_root: Path | None = None,
+    agents_root: Path | None = None,
+    agent_filter: str | None = None,
+    scenario_filter: str | None = None,
 ) -> list[str]:
     # None 기본값 + 모듈 속성을 호출 시점에 읽음 — patch.object(runner, "SCENARIOS_ROOT", ...)
     # 로 테스트가 오버라이드할 때도 반영되도록 한다.
@@ -345,9 +379,11 @@ def validate_all(
     if not scenarios_root.is_dir():
         # fail-closed — evals/ 부재를 조용한 green으로 위장하지 않는다.
         return [f"scenarios root 없음: {scenarios_root}"]
-    dirs = discover_scenario_dirs(scenarios_root)
+    dirs = discover_scenario_dirs(
+        scenarios_root, agent_filter=agent_filter, scenario_filter=scenario_filter
+    )
     if not dirs:
-        return [f"scenarios root에 시나리오 없음: {scenarios_root}"]
+        return [f"scenarios root에 시나리오 없음(필터 포함): {scenarios_root}"]
     errors: list[str] = []
     for sc_dir in dirs:
         errors += validate_scenario(sc_dir, agents_root)
@@ -360,7 +396,9 @@ def validate_all(
 
 
 def _norm(s: str) -> str:
-    return s.lower()
+    # NFC 정규화 — NFD(자모 분해) 출력과 NFC expect 값의 코드포인트 불일치로 인한
+    # 한글 false-red 방지 (재감사 R1/ATK-006). stdlib unicodedata — zero-debt.
+    return unicodedata.normalize("NFC", s).lower()
 
 
 def _safe_join(base: Path, rel: str) -> Path | None:
@@ -660,7 +698,11 @@ def run_all(
 ) -> tuple[dict, int]:
     # 실행 전 스키마 검증 강제 (ATK-001): 유령 디렉토리/깨진 expect.json이
     # "검사 0건 pass"로 흘러드는 경로를 실행 경로 자체에서 차단한다.
-    schema_errors = validate_all()
+    # 실행 경로에서는 필터 범위만 검증 — 무관한 WIP 시나리오가 건강한 시나리오의
+    # 실행/dry-run을 막지 않게 (재감사 R1/ATK-002). 전체 검증은 --validate/verify-done §10.
+    schema_errors = validate_all(
+        agent_filter=agent_filter, scenario_filter=scenario_filter
+    )
     if schema_errors:
         for e in schema_errors:
             print(f"[eval] 스키마 오류: {e}", file=sys.stderr)
@@ -722,6 +764,9 @@ def compare_baseline(
     for agent, cur in current_summary.items():
         base = base_summary.get(agent)
         if not base:
+            continue
+        if base.get("pass_rate") is None:
+            regressions.append(f"{agent}: baseline 항목에 pass_rate 없음 (손상된 baseline)")
             continue
         if cur["pass_rate"] < base["pass_rate"]:
             regressions.append(
@@ -839,7 +884,11 @@ def main(argv: list[str] | None = None) -> int:
             print("\n[compare] baseline 대비 후퇴 없음")
 
     if args.baseline:
-        if exit_code != EXIT_PASS:
+        if args.agent or args.scenario:
+            # 부분 실행을 기준선으로 저장하면 이후 compare가 미포함 에이전트의
+            # 회귀를 영구히 못 본다 — 침묵 커버리지 은닉 차단 (재감사 R1/ATK-001).
+            print("[eval] baseline 저장 거부 — 필터(--agent/--scenario)가 걸린 부분 실행은 기준선이 될 수 없음")
+        elif exit_code != EXIT_PASS:
             # 실패 런을 기준선으로 저장하면 이후 compare가 오염된다 (ATK-010).
             print("[eval] baseline 저장 거부 — 실패한 런은 기준선이 될 수 없음")
         else:

@@ -36,4 +36,4 @@ state**.
 For the full local install (security hooks, auto-format, pre-commit), see the
 [README](https://github.com/This-HW/claude-code-kit#installation).
 
-Learn more: [Getting Started](/en/getting-started/) · [About / Architecture](/en/about/)
+Learn more: [Getting Started]({{< relref "/getting-started" >}}) · [About / Architecture]({{< relref "/about" >}})

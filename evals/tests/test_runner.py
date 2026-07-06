@@ -543,3 +543,97 @@ def test_compare_baseline_agent_filter_no_false_coverage_loss(tmp_path):
     # 필터 없으면 여전히 소실 검출
     regs = runner.compare_baseline(current, str(bp))
     assert any("review-code" in r for r in regs)
+
+
+# ---------------------------------------------------------------------------
+# v2.10.1 재감사 하드닝 회귀 고정 (R1/R2 발견)
+# ---------------------------------------------------------------------------
+
+
+def test_discover_skips_cache_and_dot_dirs(tmp_path):
+    """.ruff_cache 등 로컬 부산물이 유령 시나리오로 잡히지 않는다 (R1/ATK-004)."""
+    (tmp_path / ".ruff_cache" / "0.15").mkdir(parents=True)
+    (tmp_path / "fix-bugs" / "__pycache__").mkdir(parents=True)
+    (tmp_path / "fix-bugs" / "real-scenario").mkdir()
+    dirs = runner.discover_scenario_dirs(scenarios_root=tmp_path)
+    assert [d.name for d in dirs] == ["real-scenario"]
+
+
+def test_norm_nfc_normalization():
+    """NFD 출력과 NFC expect 값이 일치 판정된다 (R1/ATK-006)."""
+    import unicodedata
+
+    nfd = unicodedata.normalize("NFD", "인젝션")
+    assert runner._norm("인젝션") in runner._norm(f"이 코드엔 {nfd} 위험이 있다")
+
+
+def test_compare_baseline_malformed_entry_flagged_not_crash(tmp_path):
+    """pass_rate 누락 baseline 항목은 크래시가 아니라 회귀로 플래그 (R1/ATK-008)."""
+    bp = tmp_path / "b.json"
+    bp.write_text(json.dumps({"summary": {"fix-bugs": {"pass": 1}}}))
+    current = {"fix-bugs": {"pass": 4, "fail": 0, "total": 4, "pass_rate": 1.0}}
+    regs = runner.compare_baseline(current, str(bp))
+    assert regs and "pass_rate 없음" in regs[0]
+
+
+def test_main_refuses_baseline_with_filter(tmp_path, monkeypatch):
+    """--agent 필터 + --baseline 은 기준선 저장을 거부한다 (R1/ATK-001)."""
+    report = {
+        "results": [{"agent": "fix-bugs", "scenario": "s", "status": "pass",
+                     "checks": [], "judge": None, "duration_s": 0.1}],
+        "summary": {"fix-bugs": {"pass": 1, "fail": 0, "total": 1, "pass_rate": 1.0}},
+    }
+    monkeypatch.setattr(runner, "run_all", lambda *a, **k: (report, runner.EXIT_PASS))
+    monkeypatch.setattr(runner, "BASELINE_DIR", tmp_path / "baseline")
+    monkeypatch.setattr(runner, "REPORTS_DIR", tmp_path / "reports")
+    rc = runner.main(["--agent", "fix-bugs", "--baseline"])
+    assert rc == runner.EXIT_PASS
+    assert not list((tmp_path / "baseline").glob("*.json")) if (tmp_path / "baseline").exists() else True
+    # 필터 없으면 정상 저장
+    rc = runner.main(["--baseline"])
+    assert rc == runner.EXIT_PASS
+    assert list((tmp_path / "baseline").glob("*.json"))
+
+
+def test_run_scenario_pass_path_judge_advisory(tmp_path, monkeypatch):
+    """전 assertion 통과 → pass, judge 결과는 advisory로만 기록 (R1/ATK-005)."""
+
+    class R:
+        returncode = 0
+        stdout = "수정 완료 injection 지적"
+        stderr = ""
+
+    monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: R())
+    monkeypatch.setenv("CKKIT_EVAL_JUDGE", "1")
+    monkeypatch.setattr(
+        runner, "run_judge", lambda *a, **k: {"ok": False, "score": 2}
+    )
+    sc = _scenario(
+        tmp_path,
+        {
+            "assertions": [{"type": "output_contains_any", "values": ["injection"]}],
+            "judge": {"enabled": True, "rubric": "r"},
+        },
+    )
+    res = runner.run_scenario(_agent(tmp_path), sc, timeout=5)
+    assert res["status"] == "pass"  # judge 실패해도 advisory — 판정 불변
+    assert res["judge"]["advisory"] is True
+
+
+def test_validate_scenario_rejects_module_scope_danger(tmp_path):
+    """fixture 모듈 스코프의 위험 호출과 시나리오 루트 .py를 거부 (R2/ATK-003·005)."""
+    sc = tmp_path / "fix-bugs" / "evil"
+    fx = sc / "fixture"
+    fx.mkdir(parents=True)
+    (sc / "task.md").write_text("t")
+    (sc / "expect.json").write_text(
+        json.dumps({"assertions": [{"type": "pytest_green", "path": "."}]})
+    )
+    (fx / "mod.py").write_text("import os\nos.system('echo pwned')\n")
+    (sc / "helper.py").write_text("x = 1\n")
+    agents_root = tmp_path / "agents"
+    agents_root.mkdir()
+    (agents_root / "fix-bugs.md").write_text("---\nname: fix-bugs\n---\nbody")
+    errors = runner.validate_scenario(sc, agents_root)
+    joined = "\n".join(errors)
+    assert "위험 호출" in joined and "시나리오 루트에 .py 금지" in joined

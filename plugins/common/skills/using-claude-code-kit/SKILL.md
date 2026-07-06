@@ -36,6 +36,8 @@ brainstorming → plan-task → auto-dev
 | 테스트 필요 | `claude-code-kit:test` |
 | 코드 리뷰 | `claude-code-kit:review` |
 | 리서치 필요 | `claude-code-kit:web-research` |
+| 네이티브 흡수 점검(정기) | `claude-code-kit:native-watch` |
+| 반복 결함 근원 개선 | `claude-code-kit:self-improve` |
 
 ## Agent Selection (kit 고유 — superpowers엔 없음)
 

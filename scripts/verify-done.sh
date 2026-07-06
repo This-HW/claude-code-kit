@@ -65,7 +65,10 @@ EOF
 hdr "3. ruff (hooks)"
 if command -v ruff >/dev/null 2>&1; then RUFF="ruff"; elif [ -x /tmp/ckkit-venv/bin/ruff ]; then RUFF="/tmp/ckkit-venv/bin/ruff"; else RUFF=""; fi
 if [ -n "$RUFF" ]; then
-  if "$RUFF" check plugins/common/hooks/ >/dev/null 2>&1; then green "ruff clean"; else red "ruff violations (run: $RUFF check plugins/common/hooks/)"; fi
+  RUFF_TARGETS="plugins/common/hooks/"
+  [ -d evals ] && RUFF_TARGETS="$RUFF_TARGETS evals/"
+  # shellcheck disable=SC2086
+  if "$RUFF" check $RUFF_TARGETS >/dev/null 2>&1; then green "ruff clean ($RUFF_TARGETS)"; else red "ruff violations (run: $RUFF check $RUFF_TARGETS)"; fi
 else
   red "ruff unavailable — cannot verify lint"
 fi
@@ -120,9 +123,19 @@ check_count 'rules \([0-9]+\)' CLAUDE.md "$RULES_ACTUAL" "rules(CLAUDE.md)"
 check_count 'rules \([0-9]+\)' README.md "$RULES_ACTUAL" "rules(README)"
 check_count 'skills \([0-9]+\)' CLAUDE.md "$SKILLS_C_ACTUAL" "common skills(CLAUDE.md)"
 check_count '[0-9]+ skills' README.md "$SKILLS_T_ACTUAL" "total skills(README)"
-# What's Included 표 셀(| 33 | N |)도 검증 — 첫 매치만 보는 check_count의 맹점 보완 (ATK-001)
-TBL_SKILLS=$(grep -oE '\| *33 *\| *[0-9]+' README.md | grep -oE '[0-9]+$' | head -1)
-if [ -z "$TBL_SKILLS" ]; then green "README 표 스킬 셀: 없음 (skip)"; elif [ "$TBL_SKILLS" = "$SKILLS_C_ACTUAL" ]; then green "README 표 스킬 셀: $TBL_SKILLS 일치"; else red "README 표 스킬 셀: $TBL_SKILLS ≠ 실제 $SKILLS_C_ACTUAL"; fi
+# What's Included 표 행(| agents | skills |) 검증 — 매직 33 리터럴 커플링 제거
+# (재감사 R2/ATK-001: 33이 바뀌면 검사가 조용히 skip-green되던 self-disable 차단)
+AGENTS_ACTUAL=$(find plugins/common/agents -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+TBL_ROW=$(grep -E '^\| .claude-code-kit. \|' README.md | head -1)
+if [ -z "$TBL_ROW" ]; then
+  red "README What's Included 표 행을 찾지 못함 (형식 변경? 게이트 갱신 필요)"
+else
+  TBL_AGENTS=$(echo "$TBL_ROW" | grep -oE '[0-9]+' | sed -n 1p)
+  TBL_SKILLS=$(echo "$TBL_ROW" | grep -oE '[0-9]+' | sed -n 2p)
+  [ "$TBL_AGENTS" = "$AGENTS_ACTUAL" ] && green "README 표 에이전트 셀: $TBL_AGENTS 일치" || red "README 표 에이전트 셀: $TBL_AGENTS ≠ 실제 $AGENTS_ACTUAL"
+  [ "$TBL_SKILLS" = "$SKILLS_C_ACTUAL" ] && green "README 표 스킬 셀: $TBL_SKILLS 일치" || red "README 표 스킬 셀: $TBL_SKILLS ≠ 실제 $SKILLS_C_ACTUAL"
+fi
+check_count '[0-9]+ agents' README.md "$AGENTS_ACTUAL" "agents(README)"
 
 hdr "7. stale 참조 (hooks.json + rules/agents가 가리키는 스크립트 존재)"
 MISSING=0

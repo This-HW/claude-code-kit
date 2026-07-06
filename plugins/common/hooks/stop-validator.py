@@ -55,7 +55,7 @@ def _state_dir() -> Path:
     다른 사용자가 심링크 없이도 평범한 파일을 미리 만들어 두는 것만으로 카운터를
     '999'로 오염(cap 상시 발동→검증 무력화)하거나 유효 마커를 심어 검증을 우회할 수
     있었다. `$TMPDIR/claude-{uid}`(0700)로 격리하면 타 사용자가 경로 자체에 접근할 수
-    없다. auto-dev SKILL의 마커 생성 스니펫도 동일 경로를 계산해야 한다(MUST MATCH).
+    없다. auto-dev 마커 스니펫은 이 모듈의 VALIDATED_MARKER를 직접 사용한다(v2.10.1 단일소스화).
     """
     try:
         uid = os.getuid()
@@ -203,8 +203,8 @@ def get_modified_py_files() -> list[str]:
 
     제외: `evals/scenarios/` 하위 — eval fixture는 '의도적으로 red인 테스트'를
     포함하는 데이터라 lint/pytest 검증 대상이 아니다 (evals/run.py가 임시 복사본에서
-    실행·채점). 이 필터는 _worktree_state_hash 지문과 auto-dev SKILL.md T-merge
-    스니펫에도 동일 적용되어야 한다 (MUST MATCH).
+    실행·채점). 이 필터는 _worktree_state_hash 지문에 그대로 반영된다 — auto-dev
+    T-merge 스니펫은 이 모듈을 로드해 호출하므로 복제 계약(MUST MATCH)은 소멸(v2.10.1).
     """
     try:
         files: set[str] = set()
@@ -232,8 +232,13 @@ def get_modified_py_files() -> list[str]:
 
 
 def _is_eval_fixture(rel: str) -> bool:
-    """eval fixture 데이터 경로 여부 (git-relative 경로 기준)."""
-    return rel.startswith("evals/scenarios/")
+    """eval fixture 데이터 경로 여부 (git-relative 경로 기준).
+
+    `/fixture/` 세그먼트까지 요구해 제외를 좁힌다 — scenarios 하위의 fixture 밖
+    .py(있어선 안 되지만)는 검증 대상으로 남긴다 (재감사 R2/ATK-005; 구조 자체는
+    evals/run.py --validate가 '시나리오 루트 .py 금지'로 강제).
+    """
+    return rel.startswith("evals/scenarios/") and "/fixture/" in rel
 
 
 def _real(f: str) -> str:
@@ -342,8 +347,8 @@ def _bash_writeish_py(cmd: str) -> bool:
     (따옴표/변수확장/python -c/xargs/heredoc)를 폴백 판정하는 데만 쓴다."""
     if ".py" not in cmd:
         return False
-    write_ops = (">", ">>", "tee ", "sed -i", "cp ", "mv ", "install ", "dd ")
-    if any(op in cmd for op in write_ops):
+    write_redirs = (">", ">>", "tee ", "sed -i", "cp ", "mv ", "install ", "dd ")
+    if any(op in cmd for op in write_redirs):
         return True
     return any(tok in cmd for tok in _BASH_PY_WRITEISH)
 

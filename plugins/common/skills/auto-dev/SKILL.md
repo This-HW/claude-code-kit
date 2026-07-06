@@ -282,46 +282,31 @@ T-review, T-security 결과를 구조적으로 검증:
 1. **검증 마커 생성** — Stop hook 이중 검증 방지:
    ```bash
    python3 - <<'PY'
-   import hashlib, os, subprocess, tempfile
-   root = None
-   def run(*a):
-       r = subprocess.run(a, capture_output=True, text=True, timeout=10, cwd=root)
-       return r.stdout if r.returncode == 0 else ""
-   root = run("git", "rev-parse", "--show-toplevel").strip() or os.getcwd()
-   key = hashlib.md5(root.encode()).hexdigest()[:8]
-   # 검증 스코프 = tracked 수정 ∪ staged ∪ untracked .py (stop-validator의
-   # get_modified_py_files와 동일). 각 파일 '내용'을 해시해 지문화 → untracked .py
-   # 내용 변경도 감지되고, .py 아닌 파일(review-results.md) 변경엔 불변.
-   # evals/scenarios/(fixture 데이터, 의도적 red 테스트)는 훅과 동일하게 제외 (MUST MATCH).
-   files = set()
-   for a in (["git","diff","--name-only","HEAD"],
-             ["git","diff","--cached","--name-only"],
-             ["git","ls-files","--others","--exclude-standard"]):
-       files.update(f for f in run(*a).splitlines()
-                    if f.endswith(".py") and not f.startswith("evals/scenarios/"))
-   head = run("git", "rev-parse", "HEAD").strip()
-   parts = [head]
-   for rel in sorted(files):
-       try:
-           sha = hashlib.sha256(open(os.path.join(root, rel), "rb").read()).hexdigest()
-       except OSError:
-           sha = "MISSING"
-       parts.append(f"{rel}\0{sha}")
-   state = hashlib.md5("\n".join(parts).encode()).hexdigest() if head else ""
-   d = os.path.join(tempfile.gettempdir(), f"claude-{os.getuid()}")
+   # 지문 계산의 단일 소스 = stop-validator.py의 _worktree_state_hash().
+   # 과거엔 이 스니펫이 같은 로직을 복제했고(MUST MATCH 산문 계약), 예외절·타임아웃이
+   # 침묵 드리프트했다(재감사 R2/ATK-002) — 이제 훅 모듈을 직접 로드해 호출한다.
+   import importlib.util, os, subprocess, tempfile
+   root = subprocess.run(["git","rev-parse","--show-toplevel"], capture_output=True,
+                         text=True, timeout=10).stdout.strip() or os.getcwd()
+   sv_path = os.path.join(root, "plugins/common/hooks/stop-validator.py")
+   if not os.path.isfile(sv_path):  # 플러그인 설치 환경 폴백
+       sv_path = os.path.join(os.environ.get("CLAUDE_PLUGIN_ROOT",""), "hooks/stop-validator.py")
+   spec = importlib.util.spec_from_file_location("stop_validator", sv_path)
+   sv = importlib.util.module_from_spec(spec); spec.loader.exec_module(sv)
+   state = sv._worktree_state_hash()
+   marker = str(sv.VALIDATED_MARKER)  # 경로·키 계산도 훅과 단일 소스
+   d = os.path.dirname(marker)
    os.makedirs(d, mode=0o700, exist_ok=True)
    fd, tmp = tempfile.mkstemp(dir=d)
    with os.fdopen(fd, "w") as fh:
        fh.write(state)
-   os.replace(tmp, os.path.join(d, f".claude_validated_{key}"))  # rename은 심링크 자체를 교체(CWE-59)
+   os.replace(tmp, marker)  # rename은 심링크 자체를 교체(CWE-59)
    PY
    ```
    > 마커에는 **검증 스코프 지문**(HEAD + 검증 대상 .py들의 내용 sha256)을 기록하고
    > 사용자별 `$TMPDIR/claude-{uid}`(0700)에 둔다. Stop hook은 이름이 아니라 이
-   > 내용으로 판정하므로, 병렬 세션 마커·검증 후 .py 변경(untracked 내용 포함)에서는
-   > 스킵이 일어나지 않고, .py 아닌 파일 변경엔 불필요하게 무효화되지 않는다. 빈 내용
-   > 마커는 무효. **이 계산은 stop-validator.py `_worktree_state_hash()`와 파일 집합·
-   > 정렬·sha256·조인 형식·경로까지 정확히 일치해야 한다**(MUST MATCH).
+   > 내용으로 판정한다. 지문/마커명 계산은 stop-validator 모듈 호출로 **물리적으로
+   > 단일 소스** — 복제 로직 드리프트가 원천 차단된다.
 2. T-review, T-security 결과를 `review-results.md`에 통합 기록
 3. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
 
