@@ -31,17 +31,20 @@
 | 자동수정 마이크로루프 | Stop hook `decision:block` | `native-adopted` | stop-validator가 네이티브 블로킹 규격으로 재진입 유도 |
 | 훅 실행 인프라 | native hooks (exec form, `${CLAUDE_PLUGIN_ROOT}`) | `native-adopted` | kit는 훅 '내용'만 소유, 실행·수명주기는 네이티브 |
 | 에이전트 수명주기 관측 (`agent-lifecycle.py`) | OpenTelemetry agent spans + `/usage` | `superseded` | 2.6.0 배치에서 제거 (CHANGELOG [2.6.0] Removed, Spec 1 / W-005) |
-| 대규모 병렬 오케스트레이션 (구 agent-teams 자체 조율) | `ultracode` (dynamic workflow) | `superseded` | agent-teams 스킬은 네이티브 라우팅 안내로 대체 (Spec 2 / W-006). 단 프로그래밍 트리거 불가(대화형 전용, 2026-06 확인) — 자동 위임은 Task+스킬 루프 유지 |
+| 대규모 병렬 오케스트레이션 (구 agent-teams 자체 조율) | `ultracode` (dynamic workflow) | `superseded` | agent-teams 스킬은 네이티브 라우팅 안내로 대체 (Spec 2 / W-006). 단 스킬발 자동 트리거는 여전히 불가 — 모델 호출형 Workflow 도구는 존재하나 사용자 opt-in 게이트(세션 실측 2026-07-07). 자동 위임은 Task+스킬 루프 유지 |
 | 주기 실행/스케줄링 | `/schedule` (routines) | `native-adopted` | kit 자체 스케줄러 구현 금지 — zero-debt (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`). /native-watch도 네이티브 경로만 안내 |
-| Work 추적 (`docs/works/` + checklist.json) | native TaskCreate/TaskList | `kit-only` | 네이티브 Task는 세션 스코프(`~/.claude/tasks/<session>/`) — 세션 경계를 못 넘어 durable checklist가 갭을 메움 (spec: `docs/specs/2026-07-03-durable-executor-discipline.md`). 네이티브가 cross-session task를 제공하면 흡수 후보 |
-| feedback ledger (상한·중복제거·감쇠) | native memory (파일 기반) | `kit-only` | native memory는 자유형 기록 — ledger는 구조적 안티-부채 로직(CAP·decay)이 필요해 유지 (Spec 3 / W-007). native가 구조화 학습 루프를 제공하면 재평가 |
-| Agent Evals (`evals/`) | (대응 네이티브 없음) | `kit-only` | 2026-07-07 기준 네이티브 에이전트 행동 평가 프리미티브 부재 (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`). 네이티브 evals 출시 시 최우선 흡수 후보 |
-| multi-perspective-review (10 관점 합의) | ultracode judge panel 패턴 | `watch` | 부분 겹침 — ultracode는 사용자 수동 트리거 전용이라 스킬 체인 내 자동 실행은 kit 유지. 네이티브 패널이 스킬에서 트리거 가능해지면 재평가 |
+| Work 추적 (`docs/works/` + checklist.json) | native TaskCreate/TaskList | `watch` | 2026-07-07 /native-watch: 네이티브 Tasks가 환경변수 설정 시 **세션 간 공유** 지원 시작 (changelog v2.1.186 계열) — GA/규격 안정성 확인까지 durable checklist 유지 (spec: `docs/specs/2026-07-03-durable-executor-discipline.md`). 안정화 시 흡수 후보 |
+| feedback ledger (상한·중복제거·감쇠) | native memory + Auto Dream (research preview) | `kit-only` | 2026-07-07 /native-watch: Auto Dream(메모리 병합·모순 제거·인덱스 상한)이 research preview로 등장 — 동일 계열이나 GA 아님. GA 시 재평가, 그전까지 ledger 유지 (Spec 3 / W-007) |
+| Agent Evals (`evals/`) | Skills 2.0 evals (스킬 대상, 부분) | `kit-only` | 2026-07-07 /native-watch: skill-creator에 스킬-대상 evals/A-B 등장했으나 **범용 에이전트 행동 평가 프리미티브는 부재** — kit evals 유지 (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`). 네이티브 범용 evals 출시 시 최우선 흡수 후보 |
+| multi-perspective-review (10 관점 합의) | ultracode judge panel 패턴 | `watch` | 부분 겹침 — 사용자 opt-in 게이트라 스킬 체인 내 자동 실행은 kit 유지(2026-07-07 재확인). 네이티브 패널이 스킬에서 트리거 가능해지면 재평가 |
 | 스킬 자동 주입 (session-start WORKFLOW/LESSONS) | SessionStart hook additionalContext | `native-adopted` | 네이티브 훅 규격 사용, 내용만 kit 소유 |
 | 시크릿 커밋 차단 | gitleaks + pre-commit (외부 도구) | `kit-only` | 네이티브 무관 — 외부 표준 도구 조합 |
+| Definition-of-Done 기계 게이트 (`scripts/verify-done.sh`) | (대응 네이티브 없음) | `kit-only` | 완료 판정을 명령 출력으로 강제하는 게이트 — 네이티브 대응물 부재 (2026-07-07 확인) |
+| 재귀 개선 루프 (`/self-improve`) | Auto Dream (research preview, 메모리 한정) | `kit-only` | Auto Dream은 메모리 정리 한정 — 정의 파일 개선 제안 루프는 네이티브 부재. Auto Dream GA·확장 시 재평가 (2026-07-07 확인) |
 
 ## 전수 검토 기록
 
 | 날짜 | 검토자 | 변경 |
 | --- | --- | --- |
+| 2026-07-07 | /native-watch 첫 실행 (v2.10.1) | 8행 watch 격상(cross-session Tasks 신호), 9·10행 근거 갱신(Auto Dream·Skills 2.0), 6·11행 확인일/뉘앙스, 신규 2행(DoD 게이트·self-improve). 호환성 경고 0건 |
 | 2026-07-07 | v2.10.0 배치 (초기 역기입) | 기존 결정(CHANGELOG [2.3.0-계획→2.6.0]·[2.10.0], specs 참조) 역기입, 초기 13행 작성 |
