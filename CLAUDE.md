@@ -189,7 +189,7 @@ Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 
 > Subagent lifecycle tracking is delegated to native OpenTelemetry
 > (`agent_id` / `parent_agent_id` spans, `/usage` breakdown) — the kit no longer
-> ships a custom `agent-lifecycle.py` (removed in 2.3.0, Spec 1 / W-005).
+> ships a custom `agent-lifecycle.py` (removed in the 2.6.0 batch, Spec 1 / W-005).
 
 ## Security
 
