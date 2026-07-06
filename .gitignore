@@ -38,3 +38,7 @@ secrets/
 # 내부 개발 기록 (공개 리포에 포함하지 않음)
 docs/works/
 .worktrees/
+
+# graphify 지식그래프 산출물 (개발 시점 분석 보조물 — 순수 로컬)
+# 이 레포가 참조하지도, 배포 대상도 아니며 graphify update . 로 재생성 가능 → 추적 제외
+graphify-out/
