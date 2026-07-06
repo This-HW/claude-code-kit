@@ -12,18 +12,29 @@ A single, well-tested core plugin built on a native-first foundation, scale-appr
 
 **Prerequisites:** [Claude Code CLI](https://code.claude.com) installed (`claude --version`)
 
+**Path 1 — Anthropic community catalog** (marketplace name: `claude-community`):
+
 ```bash
-# Add the marketplace and install (recommended — works today)
+/plugin marketplace add anthropics/claude-plugins-community   # skip if already added
+/plugin install claude-code-kit@claude-community
+```
+
+**Path 2 — direct marketplace** (marketplace name: `claude-code-kit`; fastest updates):
+
+```bash
 /plugin marketplace add This-HW/claude-code-kit
-/plugin install claude-code-kit@This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 
 # Updating: refresh the marketplace, then the new version is picked up
 /plugin marketplace update claude-code-kit
 ```
 
-> **Official registry:** submission to `claude-plugins-official` is pending Anthropic
-> review. Once approved, `/plugin install claude-code-kit@claude-plugins-official`
-> will also work. Until then, use the marketplace command above.
+> **Registry status:** listed in Anthropic's community plugin catalog
+> [`anthropics/claude-plugins-community`](https://github.com/anthropics/claude-plugins-community)
+> (listing verified 2026-07-07; distinct from the Anthropic-curated
+> `claude-plugins-official`). The catalog pin advances by periodic sync —
+> documented as nightly, so expect about a day for new releases to propagate.
+> Path 2 tracks `main` directly with no delay.
 
 ## Full Mode (Security Hooks + Auto-format)
 

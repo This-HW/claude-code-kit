@@ -1,23 +1,32 @@
-# Official Marketplace Submission
+# Marketplace Submission & Community Listing
 
 Submit at: https://platform.claude.com/plugins/submit
 
-> Note: `anthropics/claude-plugins-official` does not accept external PRs.
-> All submissions must go through the web form above, then await Anthropic review/approval.
+> Note: 외부 제출의 도착지는 **community 카탈로그**(`anthropics/claude-plugins-community`)다.
+> 위 웹 폼으로 제출하면 스크리닝 후 community 카탈로그에 등재된다.
+> `anthropics/claude-plugins-official`은 Anthropic 자체 큐레이션 전용으로 외부
+> PR/신청 경로가 없다 — 이 문서의 "제출"은 전부 community 등재를 향한다.
 
 ## Status
 
 - **v2.7.0** tagged and ready — 2026-06-14 (core-only consolidation + native foundation + git-subdir distribution)
 - Recovery point before consolidation: tag `v2.6.0-with-domains`
 - [x] Submit via web form — 2026-06-14
-- [ ] Await approval (Anthropic 심사 대기)
+- [x] **등재 확인** — 2026-07-07: `anthropics/claude-plugins-community` 카탈로그
+  (당시 2,199개)에 `claude-code-kit` 등재 확인. pinned SHA가 제출 시점(v2.7.0)이
+  아닌 `d7f80c9`(v2.9.3, 확인 시점 스냅샷)로 관측됨 → **sync가 pin을 자동 전진**시키므로
+  버전업은 재제출 없이 카탈로그에 전파된다 (공식 문서상 nightly — 다만 우리 관측은
+  단일 시점이므로 정확한 주기·지연은 보장 못 함; 즉시성이 필요하면 직접 마켓플레이스 경로).
+
+> 확인 방법: 아래 raw 카탈로그에서 `claude-code-kit` 검색.
+> https://raw.githubusercontent.com/anthropics/claude-plugins-community/main/.claude-plugin/marketplace.json
 
 ## Submission Info
 
 | Field | Value |
 |---|---|
 | Plugin Name | `claude-code-kit` |
-| Version | `2.7.0` |
+| Submitted Version | `2.7.0` (제출 시점 고정 기록 — 현재 버전은 CHANGELOG 참조) |
 | Description | Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack. |
 | Source Type | `git-subdir` |
 | Repository | `This-HW/claude-code-kit` |
@@ -31,15 +40,17 @@ Submit at: https://platform.claude.com/plugins/submit
 > 참고: `marketplace.json`의 source가 이미 `git-subdir`로 설정되어 있어, 제출 정보와
 > 실제 배포 구성이 일치한다.
 
-## Install Command (after approval)
+## Install Commands
+
+등재 경로는 **community 카탈로그**다. `@` 뒤는 마켓플레이스 `name` 필드
+(repo 이름 아님 — community 카탈로그의 name은 `claude-community`로 실측 확인, 2026-07-07):
 
 ```bash
-/plugin install claude-code-kit@claude-plugins-official
-```
+# Path 1 — community 카탈로그 (등재 경로, sync 주기만큼 지연)
+/plugin marketplace add anthropics/claude-plugins-community
+/plugin install claude-code-kit@claude-community
 
-승인 전까지는 커스텀 마켓플레이스로 설치/업데이트한다:
-
-```bash
+# Path 2 — 직접 마켓플레이스 (name: claude-code-kit, 즉시 업데이트)
 /plugin marketplace add This-HW/claude-code-kit
 /plugin install claude-code-kit@claude-code-kit
 /plugin marketplace update claude-code-kit   # 업데이트
@@ -51,7 +62,7 @@ Submit at: https://platform.claude.com/plugins/submit
 
 - **33 agents** — planning, dev, backend, meta, review 카테고리
 - **14 skills**: plan-task, auto-dev, web-research, review, multi-perspective-review, debug, test, agent-creator, skill-creator, mcp-builder, doc-coauthoring, agent-teams, brainstorming, using-claude-code-kit
-- **12 rules** — agent-system, planning-protocol, loop-engineering, definition-of-done, feedback-loop 등 (session-start가 주입)
+- **13 rules** — agent-system, planning-protocol, loop-engineering, definition-of-done, feedback-loop 등 (session-start가 주입)
 - **Hooks** (4 events): SessionStart, PreToolUse, PostToolUse, Stop
   - scripts: protect-sensitive, auto-format, session-start, stop-validator, feedback_ledger, utils
 - **112 unit tests** (hooks)

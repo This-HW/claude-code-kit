@@ -8,8 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [2.10.0] — 2026-07-07
 
+> **[IN PROGRESS — feat/w014 브랜치]** W-014 배치 진행 중 골격. 아래 Added 항목은
+> 각 Work(T-B~T-E) 완료 시점에 실체가 생기며, main 머지(T-F) 전에 이 마커를 제거하고
+> 실측과 일치함을 재검증한다 (적대적 리뷰 A / ATK-006 반영).
+
 W-014 toolkit 개선 배치 (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`).
-각 항목은 해당 Work(T-A~T-F) 완료 시 상세가 채워진다.
 
 ### Added
 

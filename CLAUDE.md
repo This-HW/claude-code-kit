@@ -5,9 +5,13 @@
 ## Installation
 
 ```bash
-# Basic (Plugin only)
+# Basic — Anthropic community catalog (listed; syncs periodically, ~a day)
+/plugin marketplace add anthropics/claude-plugins-community
+/plugin install claude-code-kit@claude-community
+
+# Basic — direct marketplace (fastest updates)
 /plugin marketplace add This-HW/claude-code-kit
-/plugin install claude-code-kit@This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 
 # Full (with security hooks + auto-format + pre-commit)
 git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./setup.sh
