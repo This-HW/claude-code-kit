@@ -37,6 +37,9 @@ secrets/
 
 # 내부 개발 기록 (공개 리포에 포함하지 않음)
 docs/works/
+
+# 개인 자료 (프로젝트 레포에 개인 홍보/이력 콘텐츠 반입 금지 — DEC-005)
+docs/personal/
 .worktrees/
 
 # graphify 지식그래프 산출물 (개발 시점 분석 보조물 — 순수 로컬)

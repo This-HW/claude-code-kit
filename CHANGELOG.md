@@ -6,6 +6,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.10.0] — 2026-07-07
+
+W-014 toolkit 개선 배치 (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`).
+각 항목은 해당 Work(T-A~T-F) 완료 시 상세가 채워진다.
+
+### Added
+
+- **Agent Evals 하네스** (`evals/` + `scripts/run-evals.sh` + verify-done §9) — 핵심
+  에이전트(review-code·fix-bugs·implement-code) 행동 회귀를 기계 검증. deterministic
+  채점 우선, LLM-judge 보조, API 부재 시 명시적 SKIPPED(exit 2).
+- **`/native-watch` 스킬** + `docs/native-absorption.md` SSOT 대조표 — 네이티브 흡수
+  감시 루틴화 (스케줄링은 네이티브 `/schedule` 위임).
+- **`/self-improve` 스킬** — feedback ledger 반복 결함을 에이전트/스킬 정의 개선
+  diff로 제안. evals 후퇴 없음 + 사용자 승인 없이는 적용 불가(HARD-GATE).
+- **사이트 다국어(ko+en)** — about 아키텍처 페이지 승격, getting-started 신규, SEO
+  front matter. 프로젝트 홍보 전용(개인 콘텐츠 배제, `docs/personal/` gitignore).
+
+### Changed
+
+- README/CLAUDE.md/marketplace-submission.md — `claude-plugins-community` 카탈로그
+  **등재 완료** 반영(2026-07-07 확인), 두 설치 경로(공식 카탈로그 ~1일 전파 / 개인
+  마켓플레이스 즉시) 문서화. 스킬 카운트 14 → 16.
+
+---
+
 ## [2.9.3] — 2026-07-03
 
 ### Fixed — 3-차원 적대적 재감사 (P0 false-green + 정직성 + 훅 fail-open)
