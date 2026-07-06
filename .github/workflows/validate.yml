@@ -106,7 +106,7 @@ jobs:
           # pytest exit 5 = "no tests collected" (OK to skip). 그 외 비정상 종료는
           # 실제 실패이므로 CI를 실패시킨다 (이전 `|| echo`는 실패도 green으로 삼켰음).
           rc=0
-          python3 -m pytest plugins/common/hooks/tests/ -v || rc=$?
+          python3 -m pytest plugins/common/hooks/tests/ evals/tests/ -v || rc=$?
           if [ "$rc" -eq 5 ]; then echo "⚠️  No tests collected — skipping"; exit 0; fi
           exit "$rc"
 

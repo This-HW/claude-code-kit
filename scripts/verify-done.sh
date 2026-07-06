@@ -72,10 +72,14 @@ fi
 
 hdr "4. pytest (hook tests)"
 if [ -n "$PYTEST_PY" ]; then
-  if "$PYTEST_PY" -m pytest plugins/common/hooks/tests/ -q >"$TMPD/pytest" 2>&1; then
-    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1)"
+  # evals 러너 테스트도 게이트에 포함 (최종 재감사 ATK-003: 러너 보안가드 회귀 방지).
+  PYTEST_TARGETS="plugins/common/hooks/tests/"
+  [ -d evals/tests ] && PYTEST_TARGETS="$PYTEST_TARGETS evals/tests/"
+  # shellcheck disable=SC2086
+  if "$PYTEST_PY" -m pytest $PYTEST_TARGETS -q >"$TMPD/pytest" 2>&1; then
+    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1) ($PYTEST_TARGETS)"
   else
-    red "pytest failed (see: $PYTEST_PY -m pytest plugins/common/hooks/tests/)"
+    red "pytest failed (see: $PYTEST_PY -m pytest $PYTEST_TARGETS)"
   fi
 else
   red "pytest unavailable — install pytest to verify tests"
@@ -116,6 +120,9 @@ check_count 'rules \([0-9]+\)' CLAUDE.md "$RULES_ACTUAL" "rules(CLAUDE.md)"
 check_count 'rules \([0-9]+\)' README.md "$RULES_ACTUAL" "rules(README)"
 check_count 'skills \([0-9]+\)' CLAUDE.md "$SKILLS_C_ACTUAL" "common skills(CLAUDE.md)"
 check_count '[0-9]+ skills' README.md "$SKILLS_T_ACTUAL" "total skills(README)"
+# What's Included 표 셀(| 33 | N |)도 검증 — 첫 매치만 보는 check_count의 맹점 보완 (ATK-001)
+TBL_SKILLS=$(grep -oE '\| *33 *\| *[0-9]+' README.md | grep -oE '[0-9]+$' | head -1)
+if [ -z "$TBL_SKILLS" ]; then green "README 표 스킬 셀: 없음 (skip)"; elif [ "$TBL_SKILLS" = "$SKILLS_C_ACTUAL" ]; then green "README 표 스킬 셀: $TBL_SKILLS 일치"; else red "README 표 스킬 셀: $TBL_SKILLS ≠ 실제 $SKILLS_C_ACTUAL"; fi
 
 hdr "7. stale 참조 (hooks.json + rules/agents가 가리키는 스크립트 존재)"
 MISSING=0
@@ -243,6 +250,21 @@ if removed - added > 0:
     sys.exit(1)
 sys.exit(0)
 EOF
+
+hdr "10. Agent evals 스키마 (오프라인, W-B / toolkit-improvement-batch)"
+# 행동 eval 자체(claude -p 실제 호출)는 API 비용이 들어 여기 넣지 않는다 —
+# release-gate는 scripts/run-evals.sh의 몫(README §exit code 참고). 여기서는
+# expect.json 스키마 + 시나리오-에이전트 참조 무결성만 오프라인 검증한다.
+# evals/ 부재는 fail-closed(조용한 skip 금지) — run.py의 validate_all()이 이를 강제한다.
+if [ -f evals/run.py ]; then
+  if python3 evals/run.py --validate >"$TMPD/evals_validate" 2>&1; then
+    green "evals --validate: $(tail -1 "$TMPD/evals_validate")"
+  else
+    red "evals --validate 실패 — $(tail -3 "$TMPD/evals_validate" | tr '\n' ' ')"
+  fi
+else
+  red "evals/run.py 없음 (fail-closed — W-B 산출물 누락)"
+fi
 
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"

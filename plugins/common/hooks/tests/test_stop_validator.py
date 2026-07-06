@@ -746,3 +746,43 @@ def test_entry_passes_through_normal_exit(monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         _mod.entry()
     assert exc_info.value.code == 0
+
+
+# ---------------------------------------------------------------------------
+# eval fixture 제외 (W-014 T-B — fixture는 의도적 red 테스트 데이터)
+# ---------------------------------------------------------------------------
+
+
+def test_is_eval_fixture_paths():
+    sv = _mod
+    assert sv._is_eval_fixture("evals/scenarios/fix-bugs/off-by-one/fixture/test_x.py")
+    assert not sv._is_eval_fixture("evals/run.py")
+    assert not sv._is_eval_fixture("evals/tests/test_runner.py")
+    assert not sv._is_eval_fixture("plugins/common/hooks/utils.py")
+
+
+def test_get_modified_py_files_excludes_eval_fixtures(monkeypatch):
+    """untracked eval fixture .py는 검증 스코프에서 제외되어야 한다."""
+    sv = _mod
+
+    class R:
+        def __init__(self, out):
+            self.stdout = out
+            self.returncode = 0
+
+    outputs = {
+        "diff": "evals/run.py\n",
+        "cached": "",
+        "ls-files": "evals/scenarios/fix-bugs/off-by-one/fixture/test_math.py\nplugins/common/hooks/new.py\n",
+    }
+
+    def fake_run(cmd, **kw):
+        if "ls-files" in cmd:
+            return R(outputs["ls-files"])
+        if "--cached" in cmd:
+            return R(outputs["cached"])
+        return R(outputs["diff"])
+
+    monkeypatch.setattr(sv.subprocess, "run", fake_run)
+    files = sorted(sv.get_modified_py_files())
+    assert files == ["evals/run.py", "plugins/common/hooks/new.py"]

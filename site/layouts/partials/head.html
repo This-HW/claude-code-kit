@@ -5,8 +5,12 @@
 <title>{{ $title }}</title>
 {{ $desc := or .Description .Summary site.Params.description }}
 <meta name="description" content="{{ $desc | plainify | truncate 160 }}">
+{{ with .Params.keywords }}<meta name="keywords" content="{{ delimit . ", " }}">{{ end }}
 <meta property="og:title" content="{{ .Title }}">
 <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
 <meta property="og:description" content="{{ $desc | plainify | truncate 200 }}">
 <link rel="stylesheet" href="{{ "css/main.css" | relURL }}">
 <link rel="canonical" href="{{ .Permalink }}">
+{{ range .AllTranslations }}
+<link rel="alternate" hreflang="{{ .Language.Lang }}" href="{{ .Permalink }}">
+{{ end }}

@@ -200,6 +200,11 @@ def get_modified_py_files() -> list[str]:
     2) git diff --cached  — staged 파일
     3) git ls-files --others --exclude-standard — untracked 새 파일
     git 없는 환경이면 빈 리스트 (검증 스킵).
+
+    제외: `evals/scenarios/` 하위 — eval fixture는 '의도적으로 red인 테스트'를
+    포함하는 데이터라 lint/pytest 검증 대상이 아니다 (evals/run.py가 임시 복사본에서
+    실행·채점). 이 필터는 _worktree_state_hash 지문과 auto-dev SKILL.md T-merge
+    스니펫에도 동일 적용되어야 한다 (MUST MATCH).
     """
     try:
         files: set[str] = set()
@@ -221,9 +226,14 @@ def get_modified_py_files() -> list[str]:
         )
         files.update(f for f in r3.stdout.splitlines() if f.endswith(".py"))
 
-        return list(files)
+        return [f for f in files if not _is_eval_fixture(f)]
     except Exception:
         return []
+
+
+def _is_eval_fixture(rel: str) -> bool:
+    """eval fixture 데이터 경로 여부 (git-relative 경로 기준)."""
+    return rel.startswith("evals/scenarios/")
 
 
 def _real(f: str) -> str:

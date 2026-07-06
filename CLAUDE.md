@@ -5,9 +5,13 @@
 ## Installation
 
 ```bash
-# Basic (Plugin only)
+# Basic — Anthropic community catalog (listed; syncs periodically, ~a day)
+/plugin marketplace add anthropics/claude-plugins-community
+/plugin install claude-code-kit@claude-community
+
+# Basic — direct marketplace (fastest updates)
 /plugin marketplace add This-HW/claude-code-kit
-/plugin install claude-code-kit@This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 
 # Full (with security hooks + auto-format + pre-commit)
 git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./setup.sh
@@ -17,7 +21,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (14) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (16) + rules (13) + hooks
 ```
 
 `plugins/common/` contains:
@@ -44,6 +48,8 @@ plugins/
 | skill-creator            | `/skill-creator`            | Generate plugin skills                          |
 | mcp-builder              | `/mcp-builder`              | Scaffold MCP servers                            |
 | agent-teams              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` |
+| native-watch             | `/native-watch`             | Audit native-feature absorption vs the kit (SSOT: docs/native-absorption.md) |
+| self-improve             | `/self-improve`             | Propose agent/skill/rule improvements from ledger+evals (proposal-only, gated) |
 
 ## Agent Architecture
 
@@ -185,7 +191,7 @@ Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 
 > Subagent lifecycle tracking is delegated to native OpenTelemetry
 > (`agent_id` / `parent_agent_id` spans, `/usage` breakdown) — the kit no longer
-> ships a custom `agent-lifecycle.py` (removed in 2.3.0, Spec 1 / W-005).
+> ships a custom `agent-lifecycle.py` (removed in the 2.6.0 batch, Spec 1 / W-005).
 
 ## Security
 

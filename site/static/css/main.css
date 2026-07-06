@@ -29,6 +29,10 @@ a:hover{border-bottom-color:currentColor}
 .nav .brand{font-weight:800; letter-spacing:-.01em; color:var(--fg); font-size:1.02rem; margin-right:auto}
 .nav a.item{color:var(--muted); font-size:.92rem}
 .nav a.item:hover{color:var(--fg)}
+.lang-switch{display:flex; align-items:center; gap:6px; font-size:.8rem; margin-left:6px}
+.lang-item{color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:2px 9px}
+.lang-item.is-active{color:var(--fg); font-weight:700; border-color:var(--accent)}
+a.lang-item:hover{color:var(--accent); border-color:var(--accent)}
 
 /* hero (home) */
 .hero{padding:56px 0 8px}

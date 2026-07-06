@@ -292,11 +292,13 @@ T-review, T-security 결과를 구조적으로 검증:
    # 검증 스코프 = tracked 수정 ∪ staged ∪ untracked .py (stop-validator의
    # get_modified_py_files와 동일). 각 파일 '내용'을 해시해 지문화 → untracked .py
    # 내용 변경도 감지되고, .py 아닌 파일(review-results.md) 변경엔 불변.
+   # evals/scenarios/(fixture 데이터, 의도적 red 테스트)는 훅과 동일하게 제외 (MUST MATCH).
    files = set()
    for a in (["git","diff","--name-only","HEAD"],
              ["git","diff","--cached","--name-only"],
              ["git","ls-files","--others","--exclude-standard"]):
-       files.update(f for f in run(*a).splitlines() if f.endswith(".py"))
+       files.update(f for f in run(*a).splitlines()
+                    if f.endswith(".py") and not f.startswith("evals/scenarios/"))
    head = run("git", "rev-parse", "HEAD").strip()
    parts = [head]
    for rel in sorted(files):

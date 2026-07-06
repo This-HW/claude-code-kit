@@ -1,0 +1,16 @@
+{
+  "assertions": [
+    {
+      "type": "pytest_green",
+      "path": "."
+    },
+    {
+      "type": "delegation_signal"
+    }
+  ],
+  "judge": {
+    "enabled": false,
+    "rubric": "LRUCache가 stdlib만으로 정확히 구현되었고(퇴출 정책 포함) delegation signal 계약을 지켰는가?",
+    "threshold": 7
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "assertions": [
+    {
+      "type": "pytest_green",
+      "path": "."
+    },
+    {
+      "type": "delegation_signal"
+    }
+  ],
+  "judge": {
+    "enabled": false,
+    "rubric": "slugify가 요구사항대로 구현되고 기존 shout 동작은 그대로 유지되었으며 delegation signal 계약을 지켰는가?",
+    "threshold": 7
+  }
+}
