@@ -21,7 +21,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (14) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (16) + rules (13) + hooks
 ```
 
 `plugins/common/` contains:
@@ -48,6 +48,8 @@ plugins/
 | skill-creator            | `/skill-creator`            | Generate plugin skills                          |
 | mcp-builder              | `/mcp-builder`              | Scaffold MCP servers                            |
 | agent-teams              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` |
+| native-watch             | `/native-watch`             | Audit native-feature absorption vs the kit (SSOT: docs/native-absorption.md) |
+| self-improve             | `/self-improve`             | Propose agent/skill/rule improvements from ledger+evals (proposal-only, gated) |
 
 ## Agent Architecture
 

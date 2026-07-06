@@ -72,10 +72,14 @@ fi
 
 hdr "4. pytest (hook tests)"
 if [ -n "$PYTEST_PY" ]; then
-  if "$PYTEST_PY" -m pytest plugins/common/hooks/tests/ -q >"$TMPD/pytest" 2>&1; then
-    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1)"
+  # evals 러너 테스트도 게이트에 포함 (최종 재감사 ATK-003: 러너 보안가드 회귀 방지).
+  PYTEST_TARGETS="plugins/common/hooks/tests/"
+  [ -d evals/tests ] && PYTEST_TARGETS="$PYTEST_TARGETS evals/tests/"
+  # shellcheck disable=SC2086
+  if "$PYTEST_PY" -m pytest $PYTEST_TARGETS -q >"$TMPD/pytest" 2>&1; then
+    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1) ($PYTEST_TARGETS)"
   else
-    red "pytest failed (see: $PYTEST_PY -m pytest plugins/common/hooks/tests/)"
+    red "pytest failed (see: $PYTEST_PY -m pytest $PYTEST_TARGETS)"
   fi
 else
   red "pytest unavailable — install pytest to verify tests"
@@ -116,6 +120,9 @@ check_count 'rules \([0-9]+\)' CLAUDE.md "$RULES_ACTUAL" "rules(CLAUDE.md)"
 check_count 'rules \([0-9]+\)' README.md "$RULES_ACTUAL" "rules(README)"
 check_count 'skills \([0-9]+\)' CLAUDE.md "$SKILLS_C_ACTUAL" "common skills(CLAUDE.md)"
 check_count '[0-9]+ skills' README.md "$SKILLS_T_ACTUAL" "total skills(README)"
+# What's Included 표 셀(| 33 | N |)도 검증 — 첫 매치만 보는 check_count의 맹점 보완 (ATK-001)
+TBL_SKILLS=$(grep -oE '\| *33 *\| *[0-9]+' README.md | grep -oE '[0-9]+$' | head -1)
+if [ -z "$TBL_SKILLS" ]; then green "README 표 스킬 셀: 없음 (skip)"; elif [ "$TBL_SKILLS" = "$SKILLS_C_ACTUAL" ]; then green "README 표 스킬 셀: $TBL_SKILLS 일치"; else red "README 표 스킬 셀: $TBL_SKILLS ≠ 실제 $SKILLS_C_ACTUAL"; fi
 
 hdr "7. stale 참조 (hooks.json + rules/agents가 가리키는 스크립트 존재)"
 MISSING=0

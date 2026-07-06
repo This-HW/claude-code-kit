@@ -707,9 +707,17 @@ def run_all(
     return {"results": results, "summary": summary}, exit_code
 
 
-def compare_baseline(current_summary: dict, baseline_path: str) -> list[str]:
+def compare_baseline(
+    current_summary: dict, baseline_path: str, agent_filter: str | None = None
+) -> list[str]:
     baseline = json.loads(Path(baseline_path).read_text(encoding="utf-8"))
     base_summary = baseline.get("summary", {})
+    # --agent 필터 실행 시 baseline도 그 에이전트로 좁힌다 — 필터로 실행하지 않은
+    # 에이전트를 "커버리지 소실"로 오탐하는 것을 방지 (최종 재감사 ATK-004).
+    if agent_filter is not None:
+        base_summary = {
+            k: v for k, v in base_summary.items() if k == agent_filter
+        }
     regressions = []
     for agent, cur in current_summary.items():
         base = base_summary.get(agent)
@@ -816,7 +824,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.compare:
         try:
-            regressions = compare_baseline(report["summary"], args.compare)
+            regressions = compare_baseline(
+                report["summary"], args.compare, agent_filter=args.agent
+            )
         except (OSError, json.JSONDecodeError) as e:
             print(f"[compare] baseline 읽기 실패: {e}", file=sys.stderr)
             return EXIT_FAIL

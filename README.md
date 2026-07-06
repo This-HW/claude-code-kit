@@ -1,6 +1,6 @@
 # claude-code-kit
 
-> Universal Claude Code toolkit — 33 agents + 14 skills for software development
+> Universal Claude Code toolkit — 33 agents + 16 skills for software development
 
 A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling.
 
@@ -144,7 +144,7 @@ kit에 녹아 있는 개념과 그 장점 — *어떻게* 구현되는지와 함
 
 | Plugin            | Agents | Skills | Description                               |
 | ----------------- | ------ | ------ | ----------------------------------------- |
-| `claude-code-kit` | 33     | 14     | Core: planning, development, review, meta |
+| `claude-code-kit` | 33     | 16     | Core: planning, development, review, meta |
 
 ---
 
@@ -322,7 +322,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (14) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (16) + rules (13) + hooks
 ```
 
 The plugin contains:

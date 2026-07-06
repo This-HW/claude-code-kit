@@ -8,15 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [2.10.0] — 2026-07-07
 
-> **[IN PROGRESS — feat/w014 브랜치]** W-014 배치 진행 중 골격. 아래 Added 항목은
-> 각 Work(T-B~T-E) 완료 시점에 실체가 생기며, main 머지(T-F) 전에 이 마커를 제거하고
-> 실측과 일치함을 재검증한다 (적대적 리뷰 A / ATK-006 반영).
-
 W-014 toolkit 개선 배치 (spec: `docs/specs/2026-07-07-toolkit-improvement-batch.md`).
+각 Work마다 적대적 리뷰(A~E) 수행 — 발견 전건(HIGH 9 · MEDIUM 19 · LOW 18) 반영 후 머지.
 
 ### Added
 
-- **Agent Evals 하네스** (`evals/` + `scripts/run-evals.sh` + verify-done §9) — 핵심
+- **Agent Evals 하네스** (`evals/` + `scripts/run-evals.sh` + verify-done §10) — 핵심
   에이전트(review-code·fix-bugs·implement-code) 행동 회귀를 기계 검증. deterministic
   채점 우선, LLM-judge 보조, API 부재 시 명시적 SKIPPED(exit 2).
 - **`/native-watch` 스킬** + `docs/native-absorption.md` SSOT 대조표 — 네이티브 흡수
@@ -25,6 +22,11 @@ W-014 toolkit 개선 배치 (spec: `docs/specs/2026-07-07-toolkit-improvement-ba
   diff로 제안. evals 후퇴 없음 + 사용자 승인 없이는 적용 불가(HARD-GATE).
 - **사이트 다국어(ko+en)** — about 아키텍처 페이지 승격, getting-started 신규, SEO
   front matter. 프로젝트 홍보 전용(개인 콘텐츠 배제, `docs/personal/` gitignore).
+
+- **implement-code 계약 강화** — DELEGATION_SIGNAL을 모든 응답의 마지막 블록으로
+  무조건 출력하도록 명시 (evals가 잡은 첫 실회귀: 헤드리스 실행 간헐 누락 flake).
+- **stop-validator 검증 스코프** — `evals/scenarios/`(의도적 red fixture 데이터)를
+  lint/pytest 스코프에서 제외 (+ auto-dev T-merge 마커 스니펫 MUST MATCH 동기화).
 
 ### Changed
 

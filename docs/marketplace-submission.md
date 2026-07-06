@@ -61,11 +61,11 @@ Submit at: https://platform.claude.com/plugins/submit
 `plugins/common` 서브디렉토리 (git-subdir로 sparse-clone):
 
 - **33 agents** — planning, dev, backend, meta, review 카테고리
-- **14 skills**: plan-task, auto-dev, web-research, review, multi-perspective-review, debug, test, agent-creator, skill-creator, mcp-builder, doc-coauthoring, agent-teams, brainstorming, using-claude-code-kit
+- **16 skills**: plan-task, auto-dev, web-research, review, multi-perspective-review, debug, test, agent-creator, skill-creator, mcp-builder, doc-coauthoring, agent-teams, brainstorming, using-claude-code-kit, native-watch, self-improve
 - **13 rules** — agent-system, planning-protocol, loop-engineering, definition-of-done, feedback-loop 등 (session-start가 주입)
 - **Hooks** (4 events): SessionStart, PreToolUse, PostToolUse, Stop
   - scripts: protect-sensitive, auto-format, session-start, stop-validator, feedback_ledger, utils
-- **112 unit tests** (hooks)
+- **220+ unit tests** (hooks + evals 러너 — 제출 시점 v2.7.0 기록은 112)
 
 > 단일 core 플러그인. 도메인 플러그인(frontend/infra/ops/data/integration)은 2.7.0에서
 > 제거됨 (테스트 0·동결). 필요 시 `v2.6.0-with-domains` 태그에서 복원 가능.
@@ -77,7 +77,7 @@ Submit at: https://platform.claude.com/plugins/submit
 - [x] All skill descriptions in English
 - [x] All agents have `model` and `maxTurns` fields
 - [x] `hooks/hooks.json` uses exec form (`command` + `args[]`) with `${CLAUDE_PLUGIN_ROOT}` paths
-- [x] 112 unit tests passing
+- [x] unit tests passing (v2.7.0 제출 시점 112 — 현재 수치는 CHANGELOG 참조)
 - [x] CI validates manifest fields + forbidden fields + pytest (PRs to main + stable)
 - [x] CHANGELOG.md documents all changes
 - [x] README.md updated (single-plugin, 2-tier)

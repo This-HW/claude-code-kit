@@ -526,3 +526,20 @@ def test_compare_baseline_flags_coverage_loss(tmp_path):
     joined = "\n".join(regs)
     assert "시나리오 수 감소" in joined
     assert "review-code" in joined and "커버리지 소실" in joined
+
+
+def test_compare_baseline_agent_filter_no_false_coverage_loss(tmp_path):
+    """--agent 필터 실행 시 미실행 에이전트를 커버리지 소실로 오탐하지 않는다 (ATK-004)."""
+    baseline = {
+        "summary": {
+            "fix-bugs": {"pass": 4, "fail": 0, "total": 4, "pass_rate": 1.0},
+            "review-code": {"pass": 4, "fail": 0, "total": 4, "pass_rate": 1.0},
+        }
+    }
+    bp = tmp_path / "b.json"
+    bp.write_text(json.dumps(baseline))
+    current = {"fix-bugs": {"pass": 4, "fail": 0, "total": 4, "pass_rate": 1.0}}
+    assert runner.compare_baseline(current, str(bp), agent_filter="fix-bugs") == []
+    # 필터 없으면 여전히 소실 검출
+    regs = runner.compare_baseline(current, str(bp))
+    assert any("review-code" in r for r in regs)

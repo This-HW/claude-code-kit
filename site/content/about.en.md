@@ -133,7 +133,7 @@ implementation in the kit becomes redundant. `/native-watch` watches for this
 subsumption signal, producing the evidence needed to decide whether to keep a
 custom implementation or migrate to the native one. A real example: sub-agent
 lifecycle tracking was absorbed by native OpenTelemetry support, letting us
-remove the custom hook (`agent-lifecycle.py`) in 2.3.0.
+remove the custom hook (`agent-lifecycle.py`) in the 2.6.0 batch.
 
 ---
 
