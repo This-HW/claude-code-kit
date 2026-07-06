@@ -1,0 +1,16 @@
+{
+  "assertions": [
+    {
+      "type": "pytest_green",
+      "path": "."
+    },
+    {
+      "type": "delegation_signal"
+    }
+  ],
+  "judge": {
+    "enabled": false,
+    "rubric": "merge_intervals가 순수 함수로 올바르게 구현되었고 delegation signal 계약을 지켰는가?",
+    "threshold": 7
+  }
+}

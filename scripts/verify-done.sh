@@ -244,6 +244,21 @@ if removed - added > 0:
 sys.exit(0)
 EOF
 
+hdr "10. Agent evals 스키마 (오프라인, W-B / toolkit-improvement-batch)"
+# 행동 eval 자체(claude -p 실제 호출)는 API 비용이 들어 여기 넣지 않는다 —
+# release-gate는 scripts/run-evals.sh의 몫(README §exit code 참고). 여기서는
+# expect.json 스키마 + 시나리오-에이전트 참조 무결성만 오프라인 검증한다.
+# evals/ 부재는 fail-closed(조용한 skip 금지) — run.py의 validate_all()이 이를 강제한다.
+if [ -f evals/run.py ]; then
+  if python3 evals/run.py --validate >"$TMPD/evals_validate" 2>&1; then
+    green "evals --validate: $(tail -1 "$TMPD/evals_validate")"
+  else
+    red "evals --validate 실패 — $(tail -3 "$TMPD/evals_validate" | tr '\n' ' ')"
+  fi
+else
+  red "evals/run.py 없음 (fail-closed — W-B 산출물 누락)"
+fi
+
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"
 hdr "수동 DoD attest (증거와 함께 명시 — 자동 검사 불가)"
