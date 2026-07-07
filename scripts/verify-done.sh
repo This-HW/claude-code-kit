@@ -148,6 +148,12 @@ for ref in $(grep -rhoE '(\./)?scripts/[A-Za-z0-9_/-]+\.sh' plugins/common/rules
   [ -f "$ref" ] || { red "rules/agents → 없는 스크립트 참조: $ref"; MISSING=1; }
 done
 [ "$MISSING" -eq 0 ] && green "hooks.json + rules/agents 참조 스크립트 모두 존재"
+# rules 무결성 매니페스트 강제 (재감사 ATK-004: 미강제 매니페스트는 false assurance)
+if (cd plugins/common/rules && shasum -a 256 -c CHECKSUMS.sha256 --status 2>/dev/null); then
+  green "rules CHECKSUMS 일치"
+else
+  red "rules CHECKSUMS 불일치 — 룰 수정 시 재생성 필요: (cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)"
+fi
 
 hdr "8. Durable checklist 완료 게이트 (active Work, W-013)"
 # checklist.json이 완료 상태의 단일 authority. active Work에 passes:false 잔존 시 FAIL.

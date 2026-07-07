@@ -161,6 +161,9 @@ Work ID 확보 완료 후에만 Step 1로 진행.
 
 ## Step 4: Planning 완료 처리
 
+0. **[건너뛰기 금지]** auto-dev invoke(핸드오프) **전에** `TaskList`로 이 Work의
+   `[Planning]`/`[Brainstorm]` 중 "끝났는데 마킹 안 된" 태스크를 completed로 정리한다
+   (규율 SSOT: `rules/definition-of-done.md#Task-마감-규율`).
 1. Work 파일 최종 업데이트 확인 (frontmatter, progress.md, planning-results.md)
 2. 다음 단계 안내:
 

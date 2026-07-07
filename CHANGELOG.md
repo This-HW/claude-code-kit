@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.10.2] — 2026-07-07
+
+### Fixed — 태스크 잔존 버그 (마지막 태스크 미완료 마킹)
+
+증상: 작업이 끝나도 마지막 태스크가 in_progress/pending으로 영구 잔존 (사용자 보고,
+~/.claude/tasks/ 실측으로 재현 확인 — 잔존 파일이 남은 세션은 전부 이 패턴).
+
+근본 원인: "마지막 태스크"는 내용이 보고/마무리라 마킹 시점이 턴 종료와 겹치는데,
+- auto-dev T-merge가 `TaskUpdate(completed)`를 **사용자 보고 뒤**(4단계)에 배치 —
+  보고 후 턴이 사용자 입력 대기로 끝나 마킹이 증발 (순서 결함)
+- brainstorming은 완료 마킹 지시 자체가 없음, plan-task는 마지막 [Planning] 태스크
+  마감 지시 부재
+- 이를 잡는 상시 규율/게이트 부재
+
+수정:
+- auto-dev: T-merge 마킹을 사용자 보고 **앞**으로 재배치 + 잔존 태스크 정리 지시
+- brainstorming: 항목별 즉시 마킹 + 마지막 항목은 "invoke 직전 마킹" 규약 신설
+- plan-task Step 4: 핸드오프 전 [Planning]/[Brainstorm] 잔존분 일괄 마감 (Step 4-0)
+- definition-of-done(상시 주입 룰): "Task 마감 규율" 신설 — 보고·핸드오프·대기로
+  턴을 끝내기 직전 TaskList 정리, 마킹이 보고보다 먼저. ad-hoc 태스크에도 적용.
+  단 미완 항목의 completed 위장 금지(false-green 방지) 명시
+
+---
+
 ## [2.10.1] — 2026-07-07
 
 ### Fixed — 5-차원 적대적 재감사 (v2.10.0 배치 전체 fresh-context 재검증)

@@ -308,7 +308,15 @@ T-review, T-security 결과를 구조적으로 검증:
    > 내용으로 판정한다. 지문/마커명 계산은 stop-validator 모듈 호출로 **물리적으로
    > 단일 소스** — 복제 로직 드리프트가 원천 차단된다.
 2. T-review, T-security 결과를 `review-results.md`에 통합 기록
-3. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
+3. `TaskUpdate(T-merge, status="completed")` + `TaskList`로 이번 Work의 잔존
+   in_progress/pending 태스크가 없는지 확인해 정리한다.
+   (T-merge = 검증 **결과 통합** 태스크 — 브랜치 머지가 아니다. 머지 여부는 옵션
+   선택 후 Work status가 추적한다.)
+   **반드시 사용자 보고(다음 단계)보다 먼저** — 단발 실행에선 보고 후 턴이 사용자
+   입력 대기로 끝나 마킹이 증발한다(태스크 잔존 버그의 근원). 배치 모드(Step 5)에선
+   턴이 안 끝나지만 마킹-우선 순서는 동일하게 적용한다.
+   마킹 규율의 SSOT는 `rules/definition-of-done.md#Task-마감-규율`.
+4. 사용자에게 완료 보고 후 브랜치 처리 옵션 제시:
 
    ```
    W-XXX Validation 통과. 다음 단계를 선택하세요:
@@ -323,8 +331,6 @@ T-review, T-security 결과를 구조적으로 검증:
    - **옵션 2 (PR 생성):** `gh pr create` 후 Work 상태 active 유지 — PR 머지 확인 후 `work.sh complete`
    - **옵션 3 (코드 리뷰):** `/review` 실행 후 결과에 따라 옵션 1 또는 2 선택
    - **옵션 4 (브랜치 유지):** Work 상태 active 유지, progress.md에 "Validation 통과" 메모 기록
-
-4. `TaskUpdate(T-merge, status="completed")`
 
 ---
 
