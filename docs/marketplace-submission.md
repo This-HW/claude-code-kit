@@ -13,10 +13,14 @@ Submit at: https://platform.claude.com/plugins/submit
 - Recovery point before consolidation: tag `v2.6.0-with-domains`
 - [x] Submit via web form — 2026-06-14
 - [x] **등재 확인** — 2026-07-07: `anthropics/claude-plugins-community` 카탈로그
-  (당시 2,199개)에 `claude-code-kit` 등재 확인. pinned SHA가 제출 시점(v2.7.0)이
-  아닌 `d7f80c9`(v2.9.3, 확인 시점 스냅샷)로 관측됨 → **sync가 pin을 자동 전진**시키므로
-  버전업은 재제출 없이 카탈로그에 전파된다 (공식 문서상 nightly — 다만 우리 관측은
-  단일 시점이므로 정확한 주기·지연은 보장 못 함; 즉시성이 필요하면 직접 마켓플레이스 경로).
+  (당시 2,199개)에 `claude-code-kit` 등재 확인.
+- [x] **pin 자동 전진 메커니즘 실측 확정** — 2026-07-07, 카탈로그 레포 커밋 히스토리 분석:
+  - 카탈로그는 `bump(<plugin>): old → new` 커밋(자동 PR)으로 기존 항목 pin을 전진시킨다.
+    우리 항목 실례: `bump(claude-code-kit): 0a5629e0 → d7f80c92` (2026-07-03T17:58Z, #754).
+  - 배치 주기: **매일 ~17:00–18:30 UTC** (07-02·03·04·06 관측; 07-05 스킵 — 매일 보장은 아님).
+  - 버전 무변경 커밋(예: chore)은 bump되지 않는 것으로 관측됨 — 릴리스 체크리스트의
+    버전 범프 규율이 카탈로그 전파의 전제.
+  - 재제출 불필요. 즉시성이 필요하면 직접 마켓플레이스 경로(`This-HW/claude-code-kit`).
 
 > 확인 방법: 아래 raw 카탈로그에서 `claude-code-kit` 검색.
 > https://raw.githubusercontent.com/anthropics/claude-plugins-community/main/.claude-plugin/marketplace.json
