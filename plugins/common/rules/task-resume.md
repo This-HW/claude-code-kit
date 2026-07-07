@@ -74,3 +74,10 @@ T-6⬜ blockedBy T-4,T-5 → blockedBy=[51,52] → id=53
 T-4⏳ → TaskUpdate(51, in_progress)
 실행: 51, 52 동시 dispatch
 ```
+
+## 설계 게이트 대기 태스크 (brainstorming 고아 방지)
+
+`{"phase": "brainstorming"}` 태스크는 Work ID가 없어 ACTIVE WORK 스캔에 안 잡힌다.
+STALE TASKS 알림에서 이런 태스크를 보면: 정당한 대기(스펙 검토 중)일 수 있다 —
+`docs/specs/`의 최신 스펙 존재 여부로 판단하고, 스펙이 있으면 "검토 재개 vs 폐기"를
+사용자에게 확인한다. 오래된 고아(스펙 없음/이미 구현됨)는 정리 대상으로 보고한다.

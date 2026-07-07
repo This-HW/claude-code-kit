@@ -40,7 +40,9 @@
 배치 루프의 완료 조건 = **verify-done.sh green + 수동 DoD attest 완료 + Work 상태 해소**.
 "마지막 스텝 도달"은 완료 조건이 아니다. (`rules/loop-engineering.md` 참조)
 
-## Task 마감 규율 (태스크 잔존 방지)
+## Task 마감 규율
+
+<!-- 앵커: #task-마감-규율 -->
 
 **완료 보고·핸드오프·사용자 입력 대기로 턴을 끝내기 직전, `TaskList`를 조회해
 "작업이 실제로 끝났는데 마킹만 안 된" 태스크를 completed로 정리한다 — 마킹이 보고보다

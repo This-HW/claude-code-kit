@@ -218,6 +218,7 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 - Add a matching `## [x.y.z]` entry to `CHANGELOG.md` (verify-done.sh §6 fails if
   the plugin.json version and the CHANGELOG top entry diverge)
 - Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
+- Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
 - Run `scripts/verify-done.sh` (green) before claiming a release ready (definition-of-done)
 
 ```bash

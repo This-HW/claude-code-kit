@@ -7,14 +7,19 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/setup/session-check.py"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/setup/session-check.py"
+            ],
             "async": false
           },
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py"],
-            "async": false
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py"
+            ],
+            "async": false,
+            "timeout": 10
           }
         ]
       }
@@ -26,7 +31,9 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/protect-sensitive.py"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/protect-sensitive.py"
+            ],
             "timeout": 10
           }
         ]
@@ -39,7 +46,9 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/auto-format.py"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/auto-format.py"
+            ],
             "timeout": 30
           }
         ]
@@ -51,7 +60,9 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/stop-validator.py"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/stop-validator.py"
+            ],
             "timeout": 120
           }
         ]

@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.10.3] — 2026-07-07
+
+### Added — 태스크 잔존의 기계적 재발 감지 (프롬프트 규율의 안전망)
+
+- session-start `load_stale_tasks()` 신설 + 재감사 A/B(H1·M7·L6) 전건 반영:
+  - **스코프 분류**: 세션↔프로젝트를 `~/.claude/projects/<slug>/<sess>.jsonl`로 판정 —
+    이 프로젝트 잔존만 상세(예시 3건, 첫 보고 1줄 요약 규정), 타 프로젝트는 집계
+    1줄(능동 보고 금지) — "판단 불가 조건" 노이즈 제거 (재감사 B/M1·M2)
+  - **인젝션 방어**: subject는 비신뢰 텍스트 — 제어문자/개행 제거·`===` 마커 무력화·
+    인용 인코딩, 방어 프레이밍을 예시 앞에 배치, E2E 무력화 실증 (재감사 A/H1)
+  - **나이 필터**(기본 14일, `CKKIT_STALE_TASKS_DAYS`) + mtime 최신 우선 선별 +
+    세션/파일 상한 — best-effort 명시 (재감사 A/M3, B/M2)
+  - 설계 게이트 대기(brainstorming) 태스크는 정상 in_progress 예외 명시 + task-resume에
+    고아 태스크 재개/정리 경로 신설 (재감사 B/M3)
+  - fail-open, 현재 세션 제외(디렉토리명=session_id 실측 검증), `CKKIT_STALE_TASKS=0`
+- verify-done CHECKSUMS 게이트를 **집합 동등성**으로 강화(신규 파일 맹점 제거) +
+  shasum/sha256sum 폴백 (재감사 A/M2·L7). hooks.json session-start timeout 10s.
+- CLAUDE.md 릴리스 체크리스트에 CHECKSUMS 재생성 명문화("드리프트 감지기" 성격 포함).
+- (기록 보완) ba531b2 native-absorption 갱신: 8행 watch 격상 + DoD·self-improve 2행
+  추가 — 원장 규칙의 CHANGELOG 기록 의무 사후 이행 (재감사 B/L5).
+- E2E 실증: 첫 실행에서 기존 잔존 15건/4세션 감지. 테스트 8케이스, 총 240 green.
+
+---
+
 ## [2.10.2] — 2026-07-07
 
 ### Fixed — 태스크 잔존 버그 (마지막 태스크 미완료 마킹)
