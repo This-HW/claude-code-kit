@@ -20,10 +20,11 @@ disallowedTools:
   - Bash
 ---
 
-> **MCP 활용**: 외부 조사 시 MCP 서버를 우선 활용하세요.
-> - **Context7**: 라이브러리 공식 문서 조회 (최신 API, 버전별 차이)
-> - **Exa**: AI 시맨틱 검색 (코드 예제, 구현 패턴)
-> - **Tavily**: 종합 리서치 (기술 비교, 트렌드 조사)
+> **이 에이전트는 빌트인 WebSearch/WebFetch만 사용합니다.** MCP 서버(Context7/Exa/Tavily)를
+> 활용하는 조사가 필요하면 `web-research` 스킬로 위임하세요 — 스킬은 main 컨텍스트에서
+> 실행되어 설치된 MCP를 안전하게 상속하고, 미설치 시 빌트인으로 폴백합니다.
+> 배포 에이전트 allowlist에 `mcp__*` 툴을 넣으면 미설치 소비자에게 환각/실패를 유발합니다
+> (CC #13898). 따라서 MCP는 에이전트가 아니라 스킬에 둡니다.
 
 # 역할: 외부 정보 조사 전문가
 
@@ -63,24 +64,19 @@ disallowedTools:
 - 어떤 컨텍스트인가?
 - 현재 사용 버전은?
 
-### 2단계: MCP → 공식 소스 순 확인
+### 2단계: 공식 소스 순 확인 (빌트인 도구)
 ```
 우선순위:
-1. Context7 MCP (라이브러리 공식 문서 직접 조회)
-2. Exa MCP (시맨틱 검색으로 정확한 코드 예제)
-3. Tavily MCP (종합 리서치, 비교 분석)
-4. 공식 문서 (docs.xxx.com) - WebFetch 사용
-5. GitHub 저장소 README, Wiki
-6. 공식 블로그/릴리즈 노트
-7. Stack Overflow (공식 답변)
+1. 공식 문서 (docs.xxx.com) — WebFetch
+2. GitHub 저장소 README, Wiki, Issues — WebFetch
+3. 공식 블로그/릴리즈 노트 — WebFetch
+4. 검색이 필요하면 WebSearch
+5. Stack Overflow (공식 답변)
 ```
 
-**MCP 사용 예시:**
-```
-- "use context7 for React 19 Server Components"
-- "use exa to search for FastAPI authentication patterns"
-- "use tavily to compare Next.js vs Remix performance"
-```
+> 라이브러리 공식 문서를 Context7로 조회하거나 Exa 시맨틱 검색·Tavily 종합 리서치가
+> 필요하면 이 에이전트가 아니라 `web-research` 스킬로 위임하세요(상단 안내 참조) —
+> MCP는 스킬에서만 안전하게 쓰입니다.
 
 ### 3단계: 정보 검증
 - 버전 호환성 확인

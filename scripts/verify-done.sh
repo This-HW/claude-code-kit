@@ -158,6 +158,20 @@ elif (cd plugins/common/rules && $_SHA *.md 2>/dev/null | grep -v CHECKSUMS | di
 else
   red "rules CHECKSUMS 불일치/신규 파일 — 재생성: (cd plugins/common/rules && $_SHA *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)"
 fi
+# 배포 에이전트 MCP 미배선 가드 (W-015): frontmatter tools에 mcp__ 금지 + description/body가
+# Context7/Tavily/mcp__를 자기 능력으로 지시 금지(web-research 스킬 위임 문맥은 허용).
+# 미설치 소비자 환각(CC #13898) 방지 — frontmatter-only 가드의 산문 맹점 보완(적대리뷰 ATK-004).
+MCP_VIOL=0
+for f in $(find plugins/common/agents -name "*.md" 2>/dev/null); do
+  fm=$(awk 'NR==1&&/^---/{fr=1;next} fr&&/^---/{exit} fr{print}' "$f")
+  printf '%s' "$fm" | grep -q "mcp__" && { red "MCP: frontmatter에 mcp__ — $f"; MCP_VIOL=1; }
+  # 산문이 Context7/Tavily/mcp__를 언급하면서 web-research 위임 문맥이 없으면 위반
+  # ("Exa"는 "example" 오탐이라 제외)
+  if grep -qE "Context7|Tavily|mcp__" "$f" && ! grep -q "web-research" "$f"; then
+    red "MCP: 에이전트 산문이 MCP를 자기 능력으로 지시(스킬 위임 아님) — $f"; MCP_VIOL=1
+  fi
+done
+[ "$MCP_VIOL" -eq 0 ] && green "MCP: 배포 에이전트 frontmatter·산문 모두 MCP 미배선(스킬 위임)"
 
 hdr "8. Durable checklist 완료 게이트 (active Work, W-013)"
 # checklist.json이 완료 상태의 단일 authority. active Work에 passes:false 잔존 시 FAIL.

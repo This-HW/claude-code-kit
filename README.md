@@ -6,6 +6,8 @@ A focused, single-plugin AI agent system built for Claude Code. Covers the full 
 
 A single, well-tested core plugin built on a native-first foundation, scale-appropriate orchestration, a feedback learning loop, loop engineering, and a Definition-of-Done gate. (see [CHANGELOG](CHANGELOG.md) · [docs/specs/](docs/specs/))
 
+**Who this is for (design north-star):** a plugin installed into *your* projects — not a tool for this repo alone. Every change is judged by whether it works in a consumer's environment: plugin files live in the plugin cache (not your project cwd), MCP servers may be absent or different, and hooks run on every session. A change that only works in this repo is a defect.
+
 ---
 
 ## Quick Install
@@ -341,6 +343,8 @@ The plugin contains:
 
 PRs welcome. Checklist:
 
+- [ ] **Consumer-first**: works in an installing user's environment (plugin files in the cache, not project cwd; no assumed MCP server; hooks fail-open) — not just this repo
+- [ ] No `mcp__*` tools in any agent `tools:` allowlist (MCP lives in skills; absent MCP in an agent allowlist hallucinates, CC #13898)
 - [ ] Agent frontmatter has `name`, `description`, `model`, `maxTurns`
 - [ ] Description includes `MUST USE when:` trigger conditions
 - [ ] No forbidden fields: `permissionMode`, `context_cache`, `output_schema`, `next_agents`, inline `hooks`

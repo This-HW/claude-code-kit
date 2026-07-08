@@ -6,7 +6,6 @@ description: |
   MUST USE when: REST/GraphQL API 구현이 필요할 때.
   MUST USE when: 다른 에이전트가 "DELEGATE_TO: implement-api" 반환 시.
   OUTPUT: API 구현 코드 + "DELEGATE_TO: write-api-tests" 또는 "TASK_COMPLETE"
-  Uses: Context7 for framework docs (Express, FastAPI, NestJS)
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -34,13 +33,12 @@ disallowedTools:
 - Python (FastAPI, Django, Flask)
 - TypeScript 기반 타입 안전한 API
 
-## MCP 도구 활용
+## 프레임워크 문서 확인
 
-### Context7
-
-- Express, NestJS, FastAPI 최신 문서
-- ORM 사용법 (Prisma, TypeORM, SQLAlchemy)
-- 인증/인가 패턴 (JWT, OAuth)
+이 에이전트는 MCP·웹툴을 갖지 않는다(배포 에이전트는 빌트인만 — `rules/mcp-usage.md`).
+Express/NestJS/FastAPI 최신 API나 ORM(Prisma/TypeORM/SQLAlchemy)·인증 패턴의 **최신 문서
+확인이 필요하면 `web-research` 스킬로 위임**한다(스킬이 Context7 등 MCP를 안전하게 사용).
+훈련 기억만으로 프레임워크 API를 단정하지 말 것.
 
 ## 구현 원칙
 

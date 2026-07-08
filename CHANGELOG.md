@@ -6,6 +6,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.10.4] — 2026-07-09
+
+### Fixed — MCP 이식성: MCP는 스킬에, 배포 에이전트는 빌트인만 (소비자 환각 차단)
+
+- **research-external**: MCP(Context7/Exa/Tavily)를 자기 능력으로 지시하던 죽은 산문 제거 —
+  이 에이전트의 `tools:` allowlist는 MCP를 부여하지 않으므로 실행 불가한 지시였다. MCP
+  리서치는 `web-research` 스킬로 위임하도록 명시.
+- **web-research 스킬**: MCP 부재/미인증/타임아웃 시 WebSearch/WebFetch로 폴백하는 규율
+  추가 — MCP 상시존재 가정 제거, 결과 날조 금지.
+- **rules/mcp-usage.md**: "MCP는 스킬에 산다" 원칙 명문화 — 배포 에이전트 `tools:`에
+  `mcp__*` 금지(미설치 project-scoped MCP는 환각/hard-fail, CC #13898). "ALWAYS MCP"
+  문구를 "가용 시 우선 + 폴백"으로 완화(MCP Servers·Required Rules 절 포함).
+- **저장소 전역 정합**(적대 리뷰 CONDITIONAL 리메디에이션): `implement-api.md`의 죽은
+  Context7 지시 제거→스킬 위임, `docs/architecture/rules/mcp-usage.md` 미러 동기화(에이전트
+  frontmatter MCP 배선 예시·부재 `db-tunnel.sh` 참조·`NEVER WebFetch` 제거), `planning-check.md`
+  Notion/Figma MCP 조건부화, agent-system 미러 스테일 카운트(16 skills/13 rules) 정정.
+- **verify-done.sh 산문 가드 추가**: 에이전트 frontmatter뿐 아니라 description/body가 MCP를
+  자기 능력으로 지시하는 것도 검출(frontmatter-only 가드의 맹점 보완).
+
+### Added — 거버넌스: 소비자-우선 north-star + 이종 fan-out 규율
+
+- **CLAUDE.md · README**: "Who this is for" 설계 north-star + Contributing 체크리스트 게이트
+  (소비자 환경 작동 검증 · 에이전트 allowlist `mcp__*` 금지) — 소비자 cwd에서 깨지는
+  설계를 리뷰에서 차단.
+- **rules/agent-system.md**(+ docs/architecture 미러): 적대적 병렬 검증은 general-purpose
+  복제가 아니라 이종 전용 에이전트(review-code + devils-advocate + verify-integration)
+  fan-out 규율 추가 — 관점 다양성(편향 방지) 보존.
+- feedback ledger에 general-purpose-over-specialized 사건 frequency=1 기록 — 인포스먼트
+  (신규 에이전트/훅)는 재발 2회+에서만 재검토(과적합 방지).
+
 ## [2.10.3] — 2026-07-07
 
 ### Added — 태스크 잔존의 기계적 재발 감지 (프롬프트 규율의 안전망)
