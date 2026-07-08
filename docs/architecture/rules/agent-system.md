@@ -12,8 +12,8 @@
 ┌──────────────────────────────────────────────────────────┐
 │  Tier 1: plugins/common/        (모든 프로젝트에 적용)   │
 │  ├─ 33 agents  (planning, dev, meta, backend ...)        │
-│  ├─ 12 skills  (plan-task, auto-dev, review ...)         │
-│  ├─  8 rules   (agent-system, code-quality ...)          │
+│  ├─ 16 skills  (plan-task, auto-dev, review ...)         │
+│  ├─ 13 rules   (agent-system, code-quality ...)          │
 │  └─ hooks      (protect-sensitive, auto-format)          │
 ├──────────────────────────────────────────────────────────┤
 │  Tier 2: plugins/{domain}/      (도메인별 특화)          │
@@ -78,6 +78,11 @@ explore-codebase(Haiku) → 결과를 clarify-requirements(Opus)에 전달
 - 여러 도메인에 동시에 걸쳐있는 작업
 
 **원칙:** `NEVER use general-purpose subagent when a specialized agent exists`
+
+**적대적 병렬 검증:** 여러 관점의 적대적 검증이 필요하면 general-purpose 복제로 fan-out하지
+말고 **이종 전용 에이전트로 fan-out**한다 — `review-code`(적대 리뷰) + `devils-advocate`
+(실패 시나리오) + `verify-integration`(연동 검증). 동일 에이전트 다중 복제는 관점 다양성
+(편향 방지)을 잃는다. 단, 다중도메인·외부지식 자유 조사는 위 general-purpose 예외를 유지한다.
 
 ---
 

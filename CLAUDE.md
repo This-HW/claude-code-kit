@@ -2,6 +2,14 @@
 
 > Universal Claude Code toolkit — agents and skills for software development
 
+## Who this is for (design north-star)
+
+This is a **published plugin installed into other people's projects**, not a tool for this
+repo alone. Every design decision is judged by: **does this work in a consumer's
+environment** — where the plugin's files live in the plugin cache (not the project cwd),
+where MCP servers may be absent or different, where hooks run on every session? A change
+that only works in this repo is a defect. (Concrete gate in the Contributing checklist.)
+
 ## Installation
 
 ```bash
@@ -230,6 +238,11 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 
 PRs welcome. Checklist:
 
+- [ ] **Consumer-first**: works in an installing user's environment, not just this repo —
+      no reliance on the project cwd containing plugin files, no assumption a specific MCP
+      server is installed, hooks fail-open when their assumptions don't hold
+- [ ] No `mcp__*` tools in any agent `tools:` allowlist (MCP lives in skills — see
+      `rules/mcp-usage.md`; absent MCP in an agent allowlist hallucinates, CC #13898)
 - [ ] Agent frontmatter has `name`, `description`, `model`, `maxTurns`
 - [ ] No forbidden fields: `permissionMode`, `context_cache`, `output_schema`, `next_agents`, inline `hooks`
 - [ ] Description includes `MUST USE when:` trigger conditions

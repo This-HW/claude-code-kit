@@ -12,7 +12,8 @@ NEVER implement based on assumption. ALWAYS stop and verify specs first.
 ## 기획 확인 워크플로우
 
 1. 불확실성 감지 즉시 멈춤
-2. `docs/planning/`, Notion MCP, Figma MCP, GitHub Issues 순으로 검색
+2. `docs/planning/` → (설치돼 있으면) Notion·Figma MCP → GitHub Issues 순으로 검색.
+   MCP가 없으면 건너뛴다 — 설치를 가정하지 않는다.
 3. 정보 부재 시 AskUserQuestion으로 옵션 A/B 제시
 4. 결정 내용과 근거를 코드 주석에 기록
 

@@ -1,6 +1,10 @@
 # MCP 서버 활용 가이드
 
 > 이 문서는 Claude Code에서 사용 가능한 MCP 서버들의 용도와 올바른 선택 방법을 설명합니다.
+>
+> **정본(SSOT): `plugins/common/rules/mcp-usage.md`.** 충돌 시 정본이 우선한다. 핵심 원칙:
+> **MCP는 스킬(main 컨텍스트)에서만 쓰고, 배포 에이전트 frontmatter/산문엔 MCP를 넣지 않는다**
+> — 미설치 소비자에게 환각을 유발하기 때문(CC #13898). 아래 예시는 그 원칙에 맞춰 갱신됨.
 
 ---
 
@@ -25,8 +29,7 @@
          │
          ├─ 라이브러리/API 문서 확인
          │        │
-         │        └─ Context7 사용
-         │           (NEVER WebFetch — 훈련 데이터가 오래됨)
+         │        └─ (스킬/main에서) Context7 우선, 없으면 WebFetch 폴백
          │
          ├─ 코드/기술 검색
          │        │
@@ -68,46 +71,39 @@
 
 ---
 
-## 4. 에이전트별 MCP 설정 예시 (frontmatter)
+## 4. 에이전트 vs 스킬: MCP는 어디에 두는가
 
-에이전트는 필요한 MCP만 허용하고 나머지는 비활성화합니다. 미사용 MCP를 열어두면 컨텍스트 윈도우를 낭비합니다.
+**배포 에이전트 frontmatter에 `mcp__*` 툴을 넣지 않는다.** 소비자마다 MCP 설치가 다르고,
+미설치 project-scoped MCP가 allowlist에 있으면 에이전트가 환각/hard-fail한다(CC #13898).
+따라서:
+
+- **MCP 의존 리서치·문서조회 → `web-research` 스킬.** 스킬은 main 컨텍스트에서 설치된 MCP를
+  안전 상속하고, 미설치 시 빌트인 WebSearch/WebFetch로 폴백한다.
+- **배포 에이전트는 빌트인 WebSearch/WebFetch만** 사용한다. 라이브러리 문서가 필요하면
+  `web-research` 스킬로 위임한다 — 에이전트 frontmatter에 MCP를 배선하지 않는다.
 
 ```yaml
-# 코드 구현 에이전트 — Context7, Exa만 허용
+# 배포 에이전트 — MCP 미배선 (빌트인만)
 ---
 name: implement-code
 model: sonnet
+tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
 disallowedTools:
   - Task
-  - mcp__tavily__tavily_search
-  - mcp__tavily__tavily_research
-  - mcp__playwright__browser_navigate
-  - mcp__magic__ui_generate
-  # Context7, Exa는 허용 (라이브러리 문서 참조 필요)
+# mcp__* 없음. 최신 라이브러리 문서가 필요하면 web-research 스킬로 위임.
 ---
-# 코드 리뷰 에이전트 — 모든 MCP 비활성화
----
-name: review-code
-model: opus
-disallowedTools:
-  - Task
-  - mcp__context7__resolve-library-id
-  - mcp__context7__query-docs
-  - mcp__exa__web_search_exa
-  - mcp__exa__get_code_context_exa
-  - mcp__tavily__tavily_search
-  - mcp__tavily__tavily_research
-  - mcp__playwright__browser_navigate
-  - mcp__magic__ui_generate
-  - mcp__sequential-thinking__sequentialthinking
-  # 리뷰는 코드만 읽으면 됨 — 외부 도구 불필요
----
-# web-research 스킬 — 모든 MCP 허용
----
-name: web-research
-# disallowedTools 없음 — 모든 MCP 활용
----
+
+# MCP 리서치가 필요하면 — 에이전트가 아니라 스킬로
+# skills/web-research/SKILL.md (main 컨텍스트에서 MCP 안전 사용 + 폴백)
 ```
+
+> 정본 규칙: `plugins/common/rules/mcp-usage.md` → "Agent MCP Configuration".
 
 ---
 
@@ -136,20 +132,13 @@ cat package.json | grep '"next"\|"react"\|"typescript"'
 
 ---
 
-## 6. PostgreSQL MCP 사용 전 필수 절차
+## 6. PostgreSQL MCP 사용 전 절차
 
-```bash
-# 반드시 먼저 실행
-./scripts/db-tunnel.sh start
+PostgreSQL MCP가 터널/프록시를 필요로 하면(예: DB가 로컬이 아닐 때) 사용 전에 먼저 기동한다.
+이는 **환경별 설정이며, kit은 터널 스크립트를 제공하지 않는다**(정본 mcp-usage.md와 일치).
+터널 기동 방법은 각 사용자의 환경 설정을 따른다.
 
-# 그 후 PostgreSQL MCP 사용
-# (MCP가 localhost:5432로 연결)
-
-# 작업 완료 후
-./scripts/db-tunnel.sh stop
-```
-
-**터널 없이 PostgreSQL MCP 사용 시:** 연결 오류 발생.
+**터널 없이(원격 DB) PostgreSQL MCP 사용 시:** 연결 오류 발생.
 
 ---
 
@@ -159,10 +148,9 @@ MCP 도구는 컨텍스트를 소비합니다. 아래 원칙으로 효율을 높
 
 | 원칙                     | 방법                                              |
 | ------------------------ | ------------------------------------------------- |
-| 미사용 MCP 비활성화      | `disallowedTools`에 사용하지 않는 MCP 명시        |
+| 스킬에서만 MCP 사용      | 배포 에이전트엔 MCP 미배선(정본 규칙) — 스킬이 상속·폴백 |
 | 필요한 문서만 조회       | Context7에서 전체 문서 대신 특정 API만 검색       |
 | 검색 결과 캐시 활용      | 같은 라이브러리 문서를 세션 내 반복 조회 금지     |
-| 와일드카드 비활성화 불가 | `mcp__*` 와일드카드는 지원 안 됨 — 개별 명시 필요 |
 
 ---
 

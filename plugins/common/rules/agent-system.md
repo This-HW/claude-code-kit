@@ -26,6 +26,13 @@ ALWAYS specify subagent_type explicitly — no general-purpose fallback.
 - No specialized agent exists for the task
 - Task spans multiple domains simultaneously
 
+## Adversarial Parallel Verification
+
+여러 관점의 적대적 검증이 필요하면 general-purpose 복제로 fan-out하지 말고 **이종 전용
+에이전트로 fan-out**한다: `review-code`(적대 리뷰) + `devils-advocate`(실패 시나리오) +
+`verify-integration`(연동 검증). 동일 에이전트 다중 복제는 관점 다양성(편향 방지)을 잃는다.
+단, 다중도메인·외부지식이 필요한 자유 조사는 위 general-purpose 예외를 유지한다.
+
 ## Delegation Signal Format
 
 Canonical definition (SSOT): `agent-delegation-chain.md`. Every agent ends output
