@@ -1,8 +1,10 @@
 # claude-code-kit
 
-> Universal Claude Code toolkit — 33 agents + 16 skills for software development
+> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 16 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
 
-A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling.
+A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling. (Not a TUI component library or a scaffolding installer — this is the agents + skills plugin.)
+
+Docs & development log: **[this-hw.github.io/claude-code-kit](https://this-hw.github.io/claude-code-kit/)** (한국어 · [English](https://this-hw.github.io/claude-code-kit/en/))
 
 A single, well-tested core plugin built on a native-first foundation, scale-appropriate orchestration, a feedback learning loop, loop engineering, and a Definition-of-Done gate. (see [CHANGELOG](CHANGELOG.md) · [docs/specs/](docs/specs/))
 
