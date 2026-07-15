@@ -165,11 +165,6 @@ except Exception as e:
     print(f"  ⚠ settings.json 파싱 실패, 스킵: {e}", file=sys.stderr)
     sys.exit(0)
 
-# rate_limits 상태바
-settings.setdefault("statusline", {})
-if "rate_limits" not in settings["statusline"]:
-    settings["statusline"]["rate_limits"] = True
-
 # autoMemoryDirectory (이미 설정된 경우 유지)
 if "autoMemoryDirectory" not in settings:
     settings["autoMemoryDirectory"] = str(pathlib.Path.home() / ".claude/memory")
