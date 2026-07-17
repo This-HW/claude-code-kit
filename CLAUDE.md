@@ -184,9 +184,11 @@ Located in `plugins/common/hooks/` (except `session-check.py`, which lives in
   `session-start.py`; registered from `setup/`)
 - `session-start.py` — injects rules + active Work status at `SessionStart`
 - `protect-sensitive.py` — `PreToolUse` on Edit/Write/MultiEdit/NotebookEdit/Read:
-  blocks access to **sensitive file paths** (`.env`, keys, `.pem`) by path. It does
-  **not** scan file *content* or intercept `Bash`/`git commit` — commit-time secret
-  scanning is gitleaks + `setup/pre-commit`.
+  blocks access to **sensitive file paths** (`.env`, keys, `.pem`) by path. env
+  templates (`.env.example`/`.sample`/`.template`/`.dist`) are exempt; writes to
+  them get a best-effort high-confidence secret-format content scan (W-016). It
+  does **not** otherwise scan file *content* or intercept `Bash`/`git commit` —
+  commit-time secret scanning is gitleaks + `setup/pre-commit`.
 - `auto-format.py` — auto-formats code after edits (uses ruff for Python) (`PostToolUse`)
 - `stop-validator.py` — on `Stop`, lints edited `.py` (ruff) and runs pytest on
   the test files this session edited (never the full suite — that's CI/`/test`'s
@@ -205,7 +207,7 @@ Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 
 - `gitleaks` scans all pushes/PRs (config: `.gitleaks.toml`)
 - Never hardcode secrets, API keys, internal IPs, or project names
-- `protect-sensitive.py` runs as a `PreToolUse` hook on Edit/Write/MultiEdit/NotebookEdit/Read — path-based, not content/commit-based (see Hooks section)
+- `protect-sensitive.py` runs as a `PreToolUse` hook on Edit/Write/MultiEdit/NotebookEdit/Read — path-based (plus a best-effort content scan only for env-template writes), not commit-based (see Hooks section)
 
 ## CI/CD
 

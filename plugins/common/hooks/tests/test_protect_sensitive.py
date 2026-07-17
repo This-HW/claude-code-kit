@@ -2,7 +2,9 @@
 
 import importlib.util
 import json
+import os
 import sys
+import tempfile
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -201,3 +203,304 @@ class TestMainIntegration:
     def test_missing_file_path_allows(self):
         code = run_main({"tool_name": "Edit", "tool_input": {}})
         assert code == 0
+
+
+class TestEnvTemplateException:
+    """env 템플릿 파일(.env.example 등)은 과차단 예외 대상이다 (W-016 FR-1)."""
+
+    def test_env_example_allowed(self):
+        blocked, _ = check_protected(".env.example")
+        assert not blocked
+
+    def test_env_sample_allowed(self):
+        blocked, _ = check_protected(".env.sample")
+        assert not blocked
+
+    def test_env_template_allowed(self):
+        blocked, _ = check_protected(".env.template")
+        assert not blocked
+
+    def test_env_dist_allowed(self):
+        blocked, _ = check_protected(".env.dist")
+        assert not blocked
+
+    def test_env_local_example_allowed(self):
+        blocked, _ = check_protected(".env.local.example")
+        assert not blocked
+
+    def test_env_example_absolute_path_allowed(self):
+        blocked, _ = check_protected("/repo/project/.env.example")
+        assert not blocked
+
+    def test_env_file_still_blocked(self):
+        blocked, _ = check_protected(".env")
+        assert blocked
+
+    def test_env_local_still_blocked(self):
+        blocked, _ = check_protected(".env.local")
+        assert blocked
+
+    def test_env_production_still_blocked(self):
+        blocked, _ = check_protected(".env.production")
+        assert blocked
+
+    def test_env_example_backup_still_blocked(self):
+        # 정확 suffix 매치가 아닌 뒤붙임 변형은 계속 차단 (DEC-001)
+        blocked, _ = check_protected(".env.example.backup")
+        assert blocked
+
+    def test_secret_prefixed_template_name_still_blocked(self):
+        # ATK-001 회귀: 좌측 미앵커면 보호 파일명에 템플릿 접미사만 붙여 예외가 열린다
+        blocked, _ = check_protected("secret.env.example")
+        assert blocked
+
+    def test_credentials_prefixed_template_name_still_blocked(self):
+        # ATK-001 회귀: credential 패턴 차단이 템플릿 접미사로 무력화되면 안 된다
+        blocked, _ = check_protected("credentials.env.template")
+        assert blocked
+
+
+class TestEnvTemplateMainIntegration:
+    """Read/Edit/Write/MultiEdit 각 도구에서 env 템플릿 예외가 적용되는지 확인."""
+
+    def test_read_env_example_allowed(self):
+        code = run_main(
+            {"tool_name": "Read", "tool_input": {"file_path": ".env.example"}}
+        )
+        assert code == 0
+
+    def test_edit_env_example_allowed(self):
+        code = run_main(
+            {
+                "tool_name": "Edit",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "old_string": "FOO=bar",
+                    "new_string": "FOO=baz",
+                },
+            }
+        )
+        assert code == 0
+
+    def test_write_env_sample_allowed(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": "/tmp/.env.sample",
+                    "content": "API_KEY=your_key_here",
+                },
+            }
+        )
+        assert code == 0
+
+    def test_multiedit_env_template_allowed(self):
+        code = run_main(
+            {
+                "tool_name": "MultiEdit",
+                "tool_input": {
+                    "file_path": ".env.template",
+                    "edits": [{"old_string": "FOO=bar", "new_string": "FOO=baz"}],
+                },
+            }
+        )
+        assert code == 0
+
+    def test_env_symlink_to_real_env_still_blocked(self):
+        # ATK-007 회귀 테스트: .env.example이라는 이름의 symlink가 실제 .env를 가리키면
+        # realpath 재검사가 차단해야 한다.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            real_env = os.path.join(tmpdir, ".env")
+            with open(real_env, "w") as f:
+                f.write("SECRET=abc123")
+            symlink_path = os.path.join(tmpdir, ".env.example")
+            os.symlink(real_env, symlink_path)
+
+            code = run_main(
+                {"tool_name": "Read", "tool_input": {"file_path": symlink_path}}
+            )
+            assert code == 2
+
+
+class TestEnvTemplateContentScan:
+    """FR-4: env 템플릿 쓰기 시 high-confidence 형식 시크릿만 차단, placeholder는 허용."""
+
+    def test_write_real_secret_key_blocked(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    # 대입 형태 원문은 gitleaks generic-api-key에 걸린다(M-1) — 런타임에 조립
+                    "content": "OPENAI_API_KEY=" + "sk-" + "abcdefghij1234567890xyz",
+                },
+            }
+        )
+        assert code == 2
+
+    def test_write_placeholder_allowed(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "content": "API_KEY=your_key_here",
+                },
+            }
+        )
+        assert code == 0
+
+    def test_write_via_symlink_to_template_scanned(self):
+        # 스캔은 원본 경로뿐 아니라 realpath에도 적용 — 비템플릿 이름의 symlink
+        # (notes.txt → .env.example)를 경유한 실제 시크릿 기록도 차단해야 한다.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            template = os.path.join(tmpdir, ".env.example")
+            with open(template, "w") as f:
+                f.write("API_KEY=your_key_here")
+            symlink_path = os.path.join(tmpdir, "notes.txt")
+            os.symlink(template, symlink_path)
+
+            code = run_main(
+                {
+                    "tool_name": "Write",
+                    "tool_input": {
+                        "file_path": symlink_path,
+                        # 대입 형태 원문은 gitleaks generic-api-key에 걸린다(M-1) — 런타임에 조립
+                        "content": "OPENAI_API_KEY="
+                        + "sk-"
+                        + "abcdefghij1234567890xyz",
+                    },
+                }
+            )
+            assert code == 2
+
+    def test_edit_new_string_with_aws_key_blocked(self):
+        code = run_main(
+            {
+                "tool_name": "Edit",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "old_string": "AWS_ACCESS_KEY_ID=",
+                    "new_string": "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
+                },
+            }
+        )
+        assert code == 2
+
+    def test_write_anthropic_key_blocked(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "content": "KEY=" + "sk-ant-" + "api03-abcdefghij1234567890",
+                },
+            }
+        )
+        assert code == 2
+
+    def test_write_stripe_key_blocked(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "content": "KEY=" + "sk_live_" + "abcdefghij1234567890",
+                },
+            }
+        )
+        assert code == 2
+
+    def test_write_google_key_blocked(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "content": "KEY=" + "AIza" + "SyA1234567890abcdefghij_-ABCDEFGHIJK",
+                },
+            }
+        )
+        assert code == 2
+
+
+class TestEnvTemplateContentScanNonStrPayload:
+    """ATK-002 회귀: 비-str payload가 join TypeError → fail-open으로 스캔을 우회하면 안 된다."""
+
+    def test_notebook_list_source_scanned(self):
+        # nbformat 표준 셀 소스(줄 단위 문자열 리스트) 형태
+        code = run_main(
+            {
+                "tool_name": "NotebookEdit",
+                "tool_input": {
+                    "notebook_path": ".env.example",
+                    "new_source": ["KEY=" + "sk-" + "abcdefghij1234567890xyz"],
+                },
+            }
+        )
+        assert code == 2
+
+    def test_write_dict_content_scanned(self):
+        code = run_main(
+            {
+                "tool_name": "Write",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "content": {"KEY": "sk-" + "abcdefghij1234567890xyz"},
+                },
+            }
+        )
+        assert code == 2
+
+    def test_multiedit_non_dict_edit_item_scanned(self):
+        code = run_main(
+            {
+                "tool_name": "MultiEdit",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "edits": ["KEY=" + "sk-" + "abcdefghij1234567890xyz"],
+                },
+            }
+        )
+        assert code == 2
+
+    def test_multiedit_non_list_edits_field_scanned(self):
+        # edits 필드 자체가 list가 아닌 스키마 밖 형태 — 문자 단위 순회로 페이로드가
+        # 쪼개져 스캔이 무력화되면 안 된다 (재검증 LOW 관찰 하드닝)
+        code = run_main(
+            {
+                "tool_name": "MultiEdit",
+                "tool_input": {
+                    "file_path": ".env.example",
+                    "edits": "KEY=" + "sk-" + "abcdefghij1234567890xyz",
+                },
+            }
+        )
+        assert code == 2
+
+
+class TestSensitivePatternsUnion:
+    """ATK-006: message/broadcast 스캔 패턴 = high-confidence + 휴리스틱 합집합 고정."""
+
+    def test_union_composition(self):
+        assert list(_mod.SENSITIVE_CONTENT_PATTERNS) == (
+            _mod.HIGH_CONFIDENCE_CONTENT_PATTERNS + _mod.HEURISTIC_CONTENT_PATTERNS
+        )
+        # 휴리스틱 3종이 message 스캔에서 빠지면 회귀
+        assert len(_mod.HEURISTIC_CONTENT_PATTERNS) == 3
+        descriptions = [d for _, d in _mod.SENSITIVE_CONTENT_PATTERNS]
+        assert "비밀번호 리터럴" in descriptions
+        assert "API 키 (sk-...)" in descriptions
+
+
+class TestMessageBroadcastScanUnchanged:
+    """message/broadcast 콘텐츠 스캔은 기존 휴리스틱 패턴을 그대로 유지한다."""
+
+    def test_message_password_heuristic_still_blocked(self):
+        code = run_main(
+            {
+                "tool_name": "message",
+                "tool_input": {"content": "password=supersecret123"},
+            }
+        )
+        assert code == 2

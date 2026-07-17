@@ -6,6 +6,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.10.5] — 2026-07-17
+
+### Fixed — protect-sensitive: env 템플릿 과차단 예외 (소비자 보고, W-016)
+
+- **env 템플릿 허용**: `.env.example` / `.env.sample` / `.env.template` / `.env.dist`
+  (중간 변형 `.env.local.example` 포함)를 정확-suffix 매치(`ENV_TEMPLATE_RE`)로만
+  보호 대상에서 제외 — placeholder 전용·git-tracked이 정상인 템플릿 파일의
+  Read/Edit까지 차단하던 false positive 해소 (소비자 프로젝트 보고).
+  `.env.example.backup` 같은 뒤붙임 변형과 실제 `.env*`는 계속 차단.
+- **symlink 방어 무회귀 (ATK-007)**: 예외를 `check_protected()` 내부에 배치해
+  main()의 원본 경로 → realpath 2단 검사가 예외에도 일관 적용 — 템플릿 이름의
+  symlink가 실제 `.env`를 가리키면 realpath 검사가 차단 (회귀 테스트 고정).
+- **예외 역이용 완화 (best-effort)**: 템플릿 경로에 대한 쓰기(Edit/MultiEdit/Write/
+  NotebookEdit) 콘텐츠를 형식-확정 패턴(`HIGH_CONFIDENCE_CONTENT_PATTERNS`:
+  sk-/sk-ant-/sk_live·test_/AIza/AKIA/ghp_/PEM/JWT/DB URI 등)으로 스캔해 실제 형식의
+  시크릿 기록을 차단. placeholder(`API_KEY=your_key_here`)는 통과 — 휴리스틱 할당
+  패턴은 이 스캔에서 제외. 형식-확정 패턴 밖 시크릿의 **최종 방어선은 커밋 시
+  gitleaks**(이 스캔은 best-effort 사전 차단). message/broadcast 스캔은 기존 전체
+  패턴 그대로 (동작 불변, 합집합 구성 테스트로 고정).
+- **적대적 검증 반영**: 예외 정규식 좌측 `(^|/)` 앵커(ATK-001 —
+  `credentials.env.example`류 보호 파일명 재개방 차단), 쓰기 스캔 payload `str()`
+  강제(ATK-002 — 비-str payload의 fail-open 우회 차단), 스캔의 realpath 게이트
+  (symlink 경유 쓰기 우회 차단).
+- 회귀 테스트 30건 추가 — protect-sensitive 64건, hooks 스위트 220 passed.
+
 ## [2.10.4] — 2026-07-09
 
 ### Fixed — MCP 이식성: MCP는 스킬에, 배포 에이전트는 빌트인만 (소비자 환각 차단)
