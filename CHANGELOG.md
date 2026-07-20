@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.11.0] — 2026-07-20
+
+### Added — Interoperability as a first-class goal (memory MCP interop)
+
+- **`using-claude-code-kit` 스킬**: "메모리 MCP와 함께 쓸 때" 섹션 신설 — 세션에
+  메모리형 MCP 툴(`recall`/`search`/`remember` 류, 서버 이름 불문)이 있으면
+  **계획 전 recall → 완료 후 remember** 패턴으로 활용, 없으면 완전 스킵
+  (fail-open, consumer-first). 특정 서버 가정·하드코딩 없음.
+- **CLAUDE.md**: 상호운용성을 명시적 설계 목표로 승격 — never assume / never
+  conflict / leverage generically 3원칙. MCP 활용 가이드는 스킬에만, 에이전트
+  `tools:` 허용목록엔 금지(기존 규칙 재확인).
+- **README**: "Works with your MCPs" 섹션 추가 — 메모리 MCP(basic-memory,
+  agentcairn, 사내/개인 서버 등)와의 일반화된 결합 방식 안내.
+
+### Added — review: 복잡도 하이브리드 가드 (advisory 전용)
+
+- **`review` 스킬 0.5단계 신설**: 결정론 flag(`ruff check --select C901`, mccabe
+  기본 임계 10) → review-code 에이전트가 **모듈 경계·IN/OUT 계약 분리 타당성**
+  관점으로만 판단하는 2단 하이브리드. 복잡도 수치·줄수 단독 리젝 금지, 응집적이면
+  flag 기각(근거 명시). 어떤 경우에도 리뷰를 실패시키지 않는 advisory —
+  전역 blocking lint(E,F)·stop-validator 무접촉(소비자 기존 코드 차단 없음),
+  ruff 미설치 시 스킵(fail-open). CLI `--select`가 프로젝트 lint 설정과 독립임을
+  실측 검증(select=E,F 프로젝트에서 C901 flag + blocking 경로 통과 확인).
+
 ## [2.10.5] — 2026-07-17
 
 ### Fixed — protect-sensitive: env 템플릿 과차단 예외 (소비자 보고, W-016)

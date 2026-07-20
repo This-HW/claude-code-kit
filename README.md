@@ -142,6 +142,20 @@ kit에 녹아 있는 개념과 그 장점 — *어떻게* 구현되는지와 함
 - **시너지**: kit의 Definition-of-Done(기계 게이트) + superpowers의 verification-before-completion(원칙)이 상호보강.
 - **단독 동작**: superpowers 없이 claude-code-kit만으로도 자급자족.
 
+## Works with your MCPs (memory 등)
+
+kit은 **특정 MCP 서버를 가정하지 않습니다** (consumer-first). 대신 세션에 있는 MCP를
+일반화된 방식으로 활용합니다:
+
+- **메모리형 MCP** (`recall`/`search`/`remember` 류 툴 — [basic-memory](https://github.com/basicmachines-co/basic-memory),
+  [agentcairn](https://github.com/ccf/agentcairn), 사내/개인 메모리 서버 등 무엇이든):
+  kit 워크플로가 **계획 전 recall → 완료 후 remember** 패턴으로 자동 활용합니다.
+  없으면 조용히 스킵 — 설치 의무 없음.
+- **충돌 없음**: kit 에이전트는 MCP 툴을 허용목록에 하드코딩하지 않습니다
+  (`rules/mcp-usage.md`) — 어떤 MCP 조합에서도 환각·충돌 없이 동작합니다.
+- 다른 플러그인·MCP와의 호환은 kit의 **명시적 설계 목표**입니다 (superpowers 병행이
+  그 예시).
+
 ---
 
 ## What's Included

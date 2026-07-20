@@ -10,6 +10,13 @@ environment** — where the plugin's files live in the plugin cache (not the pro
 where MCP servers may be absent or different, where hooks run on every session? A change
 that only works in this repo is a defect. (Concrete gate in the Contributing checklist.)
 
+**Interoperability is a first-class goal**: the kit must compose cleanly with other
+plugins (e.g., superpowers) and with whatever MCP servers the user has (memory MCPs,
+search MCPs, private/company servers). Three rules: never *assume* a specific plugin/MCP
+is present; never *conflict* with one that is; *leverage* generically when available
+(e.g., recall-before-plan / remember-after-done if memory-style tools exist — fail-open
+otherwise). Guidance lives in skills, never in agent `tools:` allowlists.
+
 ## Installation
 
 ```bash

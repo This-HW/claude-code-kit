@@ -56,6 +56,17 @@ brainstorming → plan-task → auto-dev
 `docs/works/` 폴더가 있으면: Work ID 기반 추적 활성화
 없으면: 파일 없이 파이프라인만 실행 (fallback mode)
 
+## 메모리 MCP와 함께 쓸 때 (interop, 있을 때만)
+
+세션에 **메모리형 MCP 툴**(`recall`/`search`/`remember` 류 — 서버 이름 불문)이 보이면:
+
+- **계획 전 recall**: brainstorming/plan-task 진입 시 현재 작업 주제로 한 번 회상해
+  과거 결정·교훈을 컨텍스트에 반영한다.
+- **완료 후 remember**: 작업 완료(DoD 통과) 시 재사용 가치가 있는 결정·패턴을
+  간결히 저장한다 (통과 사실 나열이 아니라 미래 세션이 쓸 교훈만).
+- **없으면 무시**: 메모리 MCP 부재 시 이 절은 완전히 스킵 — 어떤 서버도 가정하지
+  않는다 (fail-open, consumer-first).
+
 ## superpowers와 함께 쓸 때 (interop)
 
 - **범용 지휘자 = `using-superpowers`** (스킬 규율). **kit = 에이전트·Work·체인·native/loop/DoD 델타.**
