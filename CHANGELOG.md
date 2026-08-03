@@ -6,6 +6,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.12.2] — 2026-08-03
+
+2.12.1 직후 적대적 리뷰에서 나온 결함들. **자기 게이트를 자기 원칙으로 검사**한 결과다.
+
+### Fixed — 소비자 세션에 주입되는 규칙이 이 레포에서만 성립했다 (north-star 위반)
+
+`rules/`는 **모든 소비자 세션에 항상 주입**된다. 그런데 `definition-of-done`의 Iron Law가
+`scripts/verify-done.sh` 실행을 지시하고 기계 검사 목록도 kit 전용 항목(plugin.json·
+agent frontmatter·marketplace.json)이었다 — 소비자 프로젝트엔 없는 것들이라, 규칙이
+"실행 불가 → 규율 자체를 건너뛸 구실"로 작동할 수 있었다.
+
+- Iron Law 1항을 **"그 프로젝트의 검증 명령을 fresh run"**으로 일반화(이 레포는
+  `verify-done.sh`가 그 구현). "스크립트가 없다는 사실이 검증을 면제하지 않는다"를 명시.
+- 기계 검사 목록에 "이 kit 레포 기준 — 다른 프로젝트는 대응물로 치환, 최소 테스트·린트·
+  시크릿·문서sync는 불변" 프레이밍 추가. `loop-engineering` 종료 조건도 동일 정합화.
+
+### Fixed — 2.12.1이 새로 심은 결함 2건
+
+- **`ruff.toml`의 `exclude`가 ruff 기본 제외 목록을 대체**하고 있었다(`.venv`·
+  `node_modules`·`dist` …). 지금은 respect-gitignore가 우연히 가려줄 뿐, gitignore되지
+  않은 벤더 디렉토리 하나면 수천 건을 린트한다 → **`extend-exclude`**로 교정.
+- **`python39-compat` 잡이 에러 문자열 grep 판정**이었다 — 예상 못 한 예외 유형은
+  통과시키는 false-green 통로. `runpy`로 모듈 top-level만 실행하고 **종료코드로 판정**
+  하도록 교체(`__main__` 가드 덕에 main()은 돌지 않아 결정론적).
+
+### Added — 침묵 실패를 관측 가능하게
+
+- **`session-check.py`: python3 < 3.9 경고**. 훅은 fail-open이라 구버전에선 *아무 메시지
+  없이* 사라진다 — 세션 시작에 한 줄로 알린다.
+- **`verify-done.sh` §3: `ruff.toml`·`.ruff-version` 존재 가드**. 설정이 사라지면 ruff가
+  개발자 전역 설정으로 조용히 폴백해 "로컬 green·CI red"가 부활한다(전제 소실 = FAIL).
+- **README**: 훅이 요구하는 python 3.9+ 명시(소비자 사전 조건).
+- `evals/run.py`: `build_claude_command`의 죽은 `timeout` 파라미터 제거(타임아웃은
+  호출부 `subprocess.run(timeout=)`이 강제 — 인자는 어디에도 쓰이지 않았다).
+
 ## [2.12.1] — 2026-08-03
 
 ### Fixed — 소비자 python 3.9에서 죽어 있던 훅 4종 (F-037)

@@ -143,14 +143,18 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: Hooks import/실행 스모크 (python 3.9)
+      - name: Hooks 로드 스모크 (python 3.9)
         run: |
           set -e
+          # 판정은 **종료코드**로 한다. 에러 문자열 grep은 예상 못 한 예외 유형
+          # (AttributeError 등)을 통과시키는 false-green 통로다 (게이트 설계 원칙).
+          # runpy로 모듈 top-level만 실행 — __main__ 가드 안의 main()은 돌지 않으므로
+          # "로드 가능한가"만 결정론적으로 검증된다.
           for f in plugins/common/hooks/*.py plugins/common/setup/*.py scripts/*.py; do
             case "$f" in */tests/*) continue ;; esac
-            out=$(echo '{}' | python3 "$f" --help 2>&1 || true)
-            if echo "$out" | grep -qE "TypeError: unsupported operand|SyntaxError|ModuleNotFoundError"; then
-              echo "❌ $f — python 3.9에서 로드 실패"; echo "$out" | tail -5; exit 1
+            if python3 -c "import runpy,sys; runpy.run_path(sys.argv[1], run_name='__ckkit_smoke__')" "$f"; then
+              echo "✓ $f"
+            else
+              echo "❌ $f — python 3.9에서 로드 실패 (위 트레이스백 참조)"; exit 1
             fi
-            echo "✓ $f"
           done

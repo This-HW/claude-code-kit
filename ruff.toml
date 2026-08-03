@@ -23,7 +23,11 @@ target-version = "py39"
 # eval 시나리오 fixture는 **의도적으로 결함을 심은 검사 대상 코드**다.
 # (예: fix-bugs/mutable-default-arg/fixture/registry.py 의 B006은 에이전트가
 #  찾아내야 할 바로 그 버그다 — 고치면 eval이 무의미해진다.)
-exclude = ["evals/scenarios"]
+#
+# `exclude`가 아니라 **`extend-exclude`**: exclude는 ruff의 기본 제외 목록
+# (.venv/node_modules/dist/.git …)을 *대체*한다. 지금은 respect-gitignore가 .venv를
+# 가려주지만, gitignore되지 않은 벤더 디렉토리 하나면 수천 건을 린트하게 된다.
+extend-exclude = ["evals/scenarios"]
 
 [lint]
 select = [

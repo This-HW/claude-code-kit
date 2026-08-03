@@ -14,7 +14,9 @@ A single, well-tested core plugin built on a native-first foundation, scale-appr
 
 ## Quick Install
 
-**Prerequisites:** [Claude Code CLI](https://code.claude.com) installed (`claude --version`)
+**Prerequisites:** [Claude Code CLI](https://code.claude.com) installed (`claude --version`).
+The hooks run on your machine's `python3` and need **3.9+** (macOS system Python
+qualifies); older interpreters make the hooks no-ops and the session warns you once.
 
 **Path 1 — Anthropic community catalog** (marketplace name: `claude-community`):
 

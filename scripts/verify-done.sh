@@ -65,6 +65,10 @@ EOF
 hdr "3. ruff (레포 전체 — 룰셋은 ruff.toml SSOT)"
 # 대상을 나열하지 않는다: `ruff check .` + 루트 ruff.toml(exclude 포함)이 범위의 단일
 # 소스다. CI도 동일 커맨드를 쓴다 — 목록을 양쪽에 복제하면 드리프트가 난다(F-023·F-036).
+# 설정 파일 자체가 게이트의 전제다 — 사라지면 ruff가 개발자 전역 설정으로 조용히
+# 폴백해 "로컬 green·CI red"가 부활한다. 전제 소실을 pass로 넘기지 않는다(F-022).
+[ -f ruff.toml ] || red "ruff.toml 없음 — 전역 설정 폴백 위험(린트 SSOT 소실)"
+[ -f .ruff-version ] || red ".ruff-version 없음 — CI ruff 설치가 핀을 잃는다"
 if command -v ruff >/dev/null 2>&1; then RUFF="ruff"; elif [ -x /tmp/ckkit-venv/bin/ruff ]; then RUFF="/tmp/ckkit-venv/bin/ruff"; else RUFF=""; fi
 if [ -n "$RUFF" ]; then
   PINNED="$(cat .ruff-version 2>/dev/null || echo "")"

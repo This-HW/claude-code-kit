@@ -6,7 +6,10 @@
 ## Iron Law of Completion
 
 > "완료"를 주장하기 전:
-> 1. `scripts/verify-done.sh`를 실행한다 (fresh run).
+> 1. **그 프로젝트의 검증 명령**을 fresh run 한다 — 이 kit 레포에선
+>    `scripts/verify-done.sh`, 다른 프로젝트에선 그에 해당하는 것(테스트·린트·빌드;
+>    README/CI 설정에서 찾고, 없으면 사용자에게 확인). 스크립트가 없다는 사실이
+>    검증을 면제하지 않는다.
 > 2. 출력을 전부 읽는다.
 > 3. 기계 검사 FAIL이 하나라도 있으면 → "완료"라 하지 않는다. 실제 상태를 증거와 함께 보고.
 > 4. 수동 DoD 항목은 명시적으로 attest(체크)한다 — 건너뛰면 "완료" 아님.
@@ -20,7 +23,12 @@
 
 ## Definition of Done (모든 Work 공통)
 
-### 기계 검사 (verify-done.sh가 강제 — FAIL 시 완료 불가)
+### 기계 검사 (FAIL 시 완료 불가)
+
+아래는 **이 kit 레포**의 게이트 항목이다(`scripts/verify-done.sh`가 강제). 다른
+프로젝트에선 대응물로 치환한다 — 어느 프로젝트든 최소 **테스트 green · 린트 clean ·
+시크릿 clean · 문서/버전 sync**는 남는다.
+
 - [ ] JSON 유효 (모든 plugin.json + hooks.json + marketplace.json)
 - [ ] plugin.json 필수 필드 + agent frontmatter + 금지 필드 (CI 동등)
 - [ ] ruff clean
@@ -37,7 +45,8 @@
 
 ## 루프 종료 조건 (loop-engineering 연계)
 
-배치 루프의 완료 조건 = **verify-done.sh green + 수동 DoD attest 완료 + Work 상태 해소**.
+배치 루프의 완료 조건 = **프로젝트 검증 게이트 green + 수동 DoD attest 완료 + Work 상태 해소**
+(이 레포에선 `scripts/verify-done.sh`).
 "마지막 스텝 도달"은 완료 조건이 아니다. (`rules/loop-engineering.md` 참조)
 
 ## Task 마감 규율

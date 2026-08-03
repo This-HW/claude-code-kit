@@ -38,7 +38,7 @@
 루프는 **반드시** 아래에서 멈춘다:
 
 - **P0 도달**: 데이터/보안/결제/핵심로직 모호함 → 즉시 `AskUserQuestion`.
-- **완료**: `scripts/verify-done.sh` green + 수동 DoD attest 완료 + 배치의 모든 Work/Task 상태 해소. "마지막 스텝 도달"은 완료가 아니다 (`rules/definition-of-done.md`).
+- **완료**: 프로젝트 검증 게이트 green(이 레포: `scripts/verify-done.sh`) + 수동 DoD attest 완료 + 배치의 모든 Work/Task 상태 해소. "마지막 스텝 도달"은 완료가 아니다 (`rules/definition-of-done.md`).
 - **max_iterations**: 한 배치에서 진전 없는 반복이 상한(기본 동일 Task 2회/배치 누적 과다) 초과 → 사람 에스컬레이션.
 - **idle 감지 (커밋 기준)**: 최근 N iteration에서 새 커밋 0건이면 진전 없음으로 보고 종료
   (모델의 "작업 중" 주장이 아닌 git 커밋이라는 관찰 가능한 신호로 idle을 판정).

@@ -14,6 +14,16 @@ warnings = []
 
 # ── 1. 설정 체크 / 경고 ──────────────────────────────────────────────────────
 try:
+    # 1z. python floor — 훅은 이 인터프리터로 실행된다. 3.9 미만이면 다른 훅들이
+    # import 시점에 죽는데, 훅은 fail-open이라 **아무 메시지 없이 조용히** 사라진다.
+    # 침묵 대신 한 줄 경고로 관측 가능하게 만든다 (이 파일 자체는 구버전에서도 로드됨).
+    if sys.version_info < (3, 9):
+        warnings.append(
+            "python3 %d.%d 감지 — kit 훅은 3.9+ 필요. auto-format·stop-validator 등이 "
+            "동작하지 않습니다 (python3 업그레이드 또는 PATH 확인)"
+            % (sys.version_info[0], sys.version_info[1])
+        )
+
     # ATK-005: Plugin-only 사용자(setup.sh 미실행)에게 경고 피로 방지
     setup_state = pathlib.Path.home() / ".claude/.setup-state.json"
     is_plugin_only = not setup_state.exists()

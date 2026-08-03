@@ -536,7 +536,9 @@ def run_judge(stdout: str, judge_cfg: dict, timeout: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def build_claude_command(agent: AgentDef, task: str, timeout: int) -> list[str]:
+def build_claude_command(agent: AgentDef, task: str) -> list[str]:
+    """CLI 인자만 조립한다. 타임아웃은 호출부의 subprocess.run(timeout=)이 강제한다
+    (여기서 받던 timeout 인자는 어디에도 쓰이지 않는 죽은 파라미터였다)."""
     cmd = [
         "claude",
         "-p",
@@ -607,7 +609,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
         else:
             work_dir.mkdir(parents=True)
 
-        cmd = build_claude_command(agent, scenario.task, timeout)
+        cmd = build_claude_command(agent, scenario.task)
         start = time.time()
         try:
             r = subprocess.run(
@@ -740,7 +742,7 @@ def run_all(
 
     if dry_run:
         for agent, sc in plan:
-            cmd = build_claude_command(agent, sc.task, timeout)
+            cmd = build_claude_command(agent, sc.task)
             print(f"[dry-run] {sc.agent}/{sc.scenario_id} model={agent.model}")
             print(f"          cmd: {_shdisplay(cmd)}")
         return {"results": [], "summary": {}}, EXIT_PASS
