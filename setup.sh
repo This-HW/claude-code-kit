@@ -114,6 +114,8 @@ if [ ! -f "$RUFF_DST" ]; then
     mkdir -p "$(dirname "$RUFF_DST")"
     cp "$SCRIPT_DIR/plugins/common/setup/ruff.toml" "$RUFF_DST"
     echo "  ✓ $RUFF_DST 설치됨"
+    echo "    ℹ 전역 '폴백'입니다 — 프로젝트에 ruff.toml/pyproject.toml이 있으면 그쪽이 이깁니다."
+    echo "      (전역 설정에만 의존하면 머신마다 린트 판정이 갈립니다 — 프로젝트에 설정을 두세요)"
 else
     echo "  - 이미 존재, 스킵"
 fi
