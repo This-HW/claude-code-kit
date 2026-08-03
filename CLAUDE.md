@@ -20,7 +20,7 @@ otherwise). Guidance lives in skills, never in agent `tools:` allowlists.
 ## Installation
 
 ```bash
-# Basic — Anthropic community catalog (listed; syncs periodically, ~a day)
+# Basic — Anthropic community catalog (read-only mirror; nightly sync — see Release Checklist)
 /plugin marketplace add anthropics/claude-plugins-community
 /plugin install claude-code-kit@claude-community
 
@@ -242,6 +242,23 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 # Before git commit — update version field:
 # plugins/common/.claude-plugin/plugin.json  → "version": "x.y.z"
 ```
+
+### Distribution & catalog propagation
+
+Two install channels propagate a pushed `main` differently — know which one a user is on:
+
+- **Direct marketplace** (`This-HW/claude-code-kit` → `@claude-code-kit`): reflects `main`
+  HEAD **immediately** on `/plugin marketplace update`. This is the "fastest updates" path.
+- **Anthropic community catalog** (`anthropics/claude-plugins-community` → `@claude-community`):
+  a **read-only mirror synced nightly** from Anthropic's internal review pipeline. Its entry
+  is **pinned to a commit SHA**; the pin advances **automatically** as you push to `main`,
+  but only after the pipeline re-runs safety screening and the nightly mirror sync — expect
+  **~a day, not instant**. You do **NOT** PR the catalog (direct PRs are auto-closed); the
+  one-time listing was via `clau.de/plugin-directory-submission`, and **version updates
+  need no re-submission**. (Verified 2026-07-29 against the catalog repo README.)
+- **Implication**: right after a release, the fix is live on the direct marketplace but the
+  community catalog still serves the previous pinned SHA until the next nightly sync. Point
+  users who need a fix immediately to the direct marketplace path.
 
 ## Contributing
 

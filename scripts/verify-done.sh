@@ -111,31 +111,13 @@ elif [ "$PJ_VER" = "$CL_VER" ]; then
 else
   red "버전 sync: plugin.json $PJ_VER ≠ CHANGELOG 최상단 $CL_VER (릴리스 체크리스트 위반)"
 fi
-RULES_ACTUAL=$(ls plugins/common/rules/*.md 2>/dev/null | wc -l | tr -d ' ')
-SKILLS_C_ACTUAL=$(find plugins/common/skills -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
-SKILLS_T_ACTUAL=$(find plugins -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
-check_count() { # claim_regex file actual label
-  local claim
-  claim=$(grep -oE "$1" "$2" 2>/dev/null | grep -oE '[0-9]+' | head -1)
-  if [ -z "$claim" ]; then green "$4: 주장 없음 (skip)"; elif [ "$claim" = "$3" ]; then green "$4: $3 일치"; else red "$4: 문서 주장 $claim ≠ 실제 $3 ($2)"; fi
-}
-check_count 'rules \([0-9]+\)' CLAUDE.md "$RULES_ACTUAL" "rules(CLAUDE.md)"
-check_count 'rules \([0-9]+\)' README.md "$RULES_ACTUAL" "rules(README)"
-check_count 'skills \([0-9]+\)' CLAUDE.md "$SKILLS_C_ACTUAL" "common skills(CLAUDE.md)"
-check_count '[0-9]+ skills' README.md "$SKILLS_T_ACTUAL" "total skills(README)"
-# What's Included 표 행(| agents | skills |) 검증 — 매직 33 리터럴 커플링 제거
-# (재감사 R2/ATK-001: 33이 바뀌면 검사가 조용히 skip-green되던 self-disable 차단)
-AGENTS_ACTUAL=$(find plugins/common/agents -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-TBL_ROW=$(grep -E '^\| .claude-code-kit. \|' README.md | head -1)
-if [ -z "$TBL_ROW" ]; then
-  red "README What's Included 표 행을 찾지 못함 (형식 변경? 게이트 갱신 필요)"
+# 카운트 검사는 scripts/check_doc_counts.py 가 단일 소스 (F-023) — CI(validate.yml)와
+# 동일 스크립트를 호출한다. bash 재구현 금지(로직 이중화 = 드리프트).
+if python3 scripts/check_doc_counts.py; then
+  green "doc counts 일치 (check_doc_counts.py — CI와 단일 소스)"
 else
-  TBL_AGENTS=$(echo "$TBL_ROW" | grep -oE '[0-9]+' | sed -n 1p)
-  TBL_SKILLS=$(echo "$TBL_ROW" | grep -oE '[0-9]+' | sed -n 2p)
-  [ "$TBL_AGENTS" = "$AGENTS_ACTUAL" ] && green "README 표 에이전트 셀: $TBL_AGENTS 일치" || red "README 표 에이전트 셀: $TBL_AGENTS ≠ 실제 $AGENTS_ACTUAL"
-  [ "$TBL_SKILLS" = "$SKILLS_C_ACTUAL" ] && green "README 표 스킬 셀: $TBL_SKILLS 일치" || red "README 표 스킬 셀: $TBL_SKILLS ≠ 실제 $SKILLS_C_ACTUAL"
+  red "doc counts drift (상세는 위 check_doc_counts.py 출력)"
 fi
-check_count '[0-9]+ agents' README.md "$AGENTS_ACTUAL" "agents(README)"
 
 hdr "7. stale 참조 (hooks.json + rules/agents가 가리키는 스크립트 존재)"
 MISSING=0

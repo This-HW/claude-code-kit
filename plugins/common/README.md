@@ -5,19 +5,24 @@
 ## Install
 
 ```bash
-# Via official marketplace
-/plugin install claude-code-kit@claude-plugins-official
+# Anthropic community catalog (marketplace name: claude-community)
+/plugin marketplace add anthropics/claude-plugins-community
+/plugin install claude-code-kit@claude-community
 ```
 
 ```bash
-# Via custom marketplace
+# Direct marketplace (fastest updates; marketplace name: claude-code-kit)
 /plugin marketplace add This-HW/claude-code-kit
-/plugin install claude-code-kit@This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 ```
 
-For domain-specific plugins (frontend, infra, ops, data, integration), see the [full repository](https://github.com/This-HW/claude-code-kit).
+> The published plugin is **`claude-code-kit`** (the `common` set — 33 agents + 16 skills).
+> Project-specific extensions live in a user's own `project-local/` tier, not as separate
+> published plugins.
 
-## Skills
+## Key Skills
+
+A selection below — 16 skills total, auto-discovered from `skills/` (not hand-listed here).
 
 | Command                     | Description                                     |
 | --------------------------- | ----------------------------------------------- |

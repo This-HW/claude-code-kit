@@ -116,6 +116,11 @@ jobs:
           if [ "$rc" -eq 5 ]; then echo "❌ No tests collected — 테스트 소실은 실패다"; exit 1; fi
           exit "$rc"
 
+      - name: Check doc agent/skill counts (drift guard)
+        # scripts/check_doc_counts.py 가 단일 소스 (F-023) — 로컬 verify-done.sh §6과
+        # 동일 스크립트. 여기 인라인 재구현 금지(로직 이중화 = 드리프트).
+        run: python3 scripts/check_doc_counts.py
+
       - name: Security scan (gitleaks)
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:

@@ -6,6 +6,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.12.0] — 2026-07-20
+
+### Added — 비신뢰 텍스트 방어 프레이밍 일관 적용 (호스트 무관)
+
+외부·타세션 텍스트가 컨텍스트로 들어오는 4개 경로에 동일 규율을 적용. 근거는 외부
+리서치가 아니라 **kit 자신의 원장**: `F-024`(자동화 루프의 자유텍스트 입력은 데이터로만)
+· `F-028`(주입 컨텍스트는 정제·인용 인코딩·방어 프레이밍 선치) — 기존 STALE TASKS
+구현만 준수하고 나머지가 미준수였던 것을 정합화. 외부 근거로 OWASP Agentic AI Top 10
+**ASI06**(Memory & Context Poisoning: 프롬프트 인젝션과 달리 영속됨) 참조.
+
+- **`using-claude-code-kit` 스킬 — "비신뢰 텍스트 취급" 절 신설(단일 소스)**:
+  인용 인코딩 · 방어 프레이밍 선치 · 지시 불이행 3규율 + **요약/distill 단계에도 동일 적용**
+  (외부 텍스트를 읽는 LLM 단계 자체가 인젝션 표면). **툴 중립 서술** — 이 SKILL.md를
+  읽는 어떤 호스트(Codex·Antigravity 등)에서도 동일 적용되며, 호스트별 강제 차이
+  (kit 훅 유무)를 절 안에 명시.
+- **`session-start.py` LESSONS 주입에 방어 프레이밍 선치**: 기존 STALE TASKS 와 동형
+  (페이로드보다 *먼저* 비신뢰 선언 — 순서가 방어의 핵심). 원장 부재 시 fail-open 불변.
+  회귀 테스트 2건 추가(선치 순서 + fail-open).
+- **`web-research` 스킬 / `research-external` 에이전트**: 외부 문서 취급 규율 참조 추가.
+  프로즈는 복제하지 않고 단일 소스를 가리킨다(`F-023` 복제→드리프트 회피).
+- 메모리 MCP 절: **recall 결과도 비신뢰 데이터**임을 명시(2.11.0 가이드 보강).
+
+### Fixed — 문서 stale 정정 (외부 검증 2026-07-29 반영)
+
+- **`plugins/common/README.md`**: (1) 없는 마켓플레이스명 `claude-plugins-official` →
+  실제 두 채널(community `claude-community` / direct `claude-code-kit`)로 정정,
+  (2) 삭제된 도메인 플러그인(frontend/infra/ops/data/integration) 안내 제거 — 현행
+  구조(common + project-local 2-tier) 반영, (3) Skills 표를 "Key Skills"(부분 목록,
+  16 total 명시)로 라벨해 12행이 총개수로 오독되던 문제 해소.
+- 루트 `CLAUDE.md`/`README.md`는 이미 현행(common 단독·33 agents·16 skills)이었음을 실측 확인 — stale은 `plugins/common/README.md` 한정.
+
+### Added — CI 카운트 drift 가드 + 카탈로그 전파 문서화
+
+- **`scripts/check_doc_counts.py` 신설 — 카운트 검사 단일 소스(F-023)**:
+  agents(frontmatter `name:` 보유 .md)/skills/rules 실측 ↔ 문서 수기 카운트 대조.
+  `verify-done.sh §6`(로컬 게이트)과 `.github/workflows/validate.yml`(CI, 신규 스텝)이
+  **같은 스크립트를 호출** — bash/CI 이중 구현으로 인한 검사 로직 자체의 드리프트 차단.
+  §6의 기존 시맨틱 계승(주장 없음=skip, What's Included 표 행 부재=실패 — F-022
+  anti self-disable) + 커버리지 확장(CLAUDE.md agents, plugins/common/README.md).
+  그간 로컬 게이트에만 있던 카운트 검사가 **CI(모든 push/PR)로 승격** — 개수 drift 재발 차단.
+  음성 테스트(drift 주입 픽스처 → exit 1) 검증.
+- **`CLAUDE.md` Release Checklist**: 배포 채널별 전파 모델 명문화 — direct 마켓은 즉시,
+  community 카탈로그는 read-only 미러·SHA 핀·nightly sync(재제출 불요, 직접 PR 자동 닫힘).
+  1차 출처(카탈로그 repo README) 확인.
+
 ## [2.11.0] — 2026-07-20
 
 ### Added — Interoperability as a first-class goal (memory MCP interop)
