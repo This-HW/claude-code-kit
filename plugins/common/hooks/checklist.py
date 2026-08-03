@@ -31,7 +31,9 @@ CLI (scripts/checklist.sh 래퍼로 호출):
   checklist.py verify <work_dir>            # 전 항목 verify 재실행(opt-in 재증명): 0/1/3
   checklist.py pass   <work_dir> <id>       # 아이템 verify 실행 → exit 0이면 passes=true
 """
+from __future__ import annotations
 
+import contextlib
 import fcntl
 import json
 import os
@@ -65,6 +67,7 @@ def _repo_root(work_dir: Path) -> str | None:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
@@ -82,7 +85,10 @@ def _lock(path: Path):
         uid = os.environ.get("USER", "user")
     import hashlib
 
-    key = hashlib.md5(str(path.resolve()).encode()).hexdigest()[:12]
+    # 경로 지문(락 파일명)일 뿐 보안 용도가 아니다 → FIPS 환경에서도 동작하도록 명시.
+    key = hashlib.md5(str(path.resolve()).encode(), usedforsecurity=False).hexdigest()[
+        :12
+    ]
     d = Path(tempfile.gettempdir()) / f"claude-{uid}"
     try:
         d.mkdir(mode=0o700, exist_ok=True)
@@ -253,7 +259,9 @@ def _run_verify(verify: str, work_dir: Path) -> tuple[int, str]:
     자식 그룹이며, checklist.py 자신을 죽이지 않는다(이 플래그 제거 금지).
     lock을 잡지 않은 채 호출되어야 한다(장시간 락 점유 방지)."""
     try:
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # noqa: S602
+            # shell=True는 이 기능의 본질 — verify는 사용자가 Work 체크리스트에 적은
+            # 셸 명령(`pytest && ruff check` 등)이며, 셸 해석이 계약이다.
             verify,
             shell=True,
             cwd=_repo_root(work_dir),  # None이면 현재 cwd 상속(폴백)
@@ -272,10 +280,9 @@ def _run_verify(verify: str, work_dir: Path) -> tuple[int, str]:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         except Exception:
             proc.kill()
-        try:
+        # 좀비 회수 실패는 무시 — 이미 killpg 했고 반환값은 타임아웃으로 확정이다.
+        with contextlib.suppress(Exception):
             proc.communicate(timeout=5)
-        except Exception:
-            pass
         return 124, f"타임아웃 {_VERIFY_TIMEOUT_SECONDS}s 초과 → 프로세스 그룹 종료"
 
 

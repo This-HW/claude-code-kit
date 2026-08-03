@@ -206,6 +206,14 @@ Located in `plugins/common/hooks/` (except `session-check.py`, which lives in
 Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 (`command` + `args[]`) so `${CLAUDE_PLUGIN_ROOT}` paths need no shell quoting.
 
+**Python floor: 3.9** — hooks run on the *consumer's* `python3`, and macOS still
+ships 3.9.x. So hook sources must stay 3.9-loadable: use
+`from __future__ import annotations` and keep 3.10-only syntax out of anything
+evaluated at import time. This is enforced twice, not by convention: ruff's `FA`
+rules (statically, via root `ruff.toml`) and the `python39-compat` CI job (it
+actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
+2.12.1 — that is the failure this guards against.
+
 > Subagent lifecycle tracking is delegated to native OpenTelemetry
 > (`agent_id` / `parent_agent_id` spans, `/usage` breakdown) — the kit no longer
 > ships a custom `agent-lifecycle.py` (removed in the 2.6.0 batch, Spec 1 / W-005).
@@ -222,7 +230,27 @@ Hooks are defined in `plugins/common/hooks/hooks.json` using the **exec form**
 
 1. Validates JSON syntax (`plugin.json`, `marketplace.json`)
 2. Checks agent frontmatter completeness (`name`, `description` required)
-3. Runs gitleaks security scan
+3. Lints with `ruff check .` and runs pytest
+4. Verifies doc counts via `scripts/check_doc_counts.py` (same script as the local gate)
+5. Runs gitleaks security scan
+6. `python39-compat` job: loads every hook under Python 3.9 (consumer floor)
+
+### Lint is one ruleset, everywhere
+
+`ruff.toml` at the repo root is the **single source** for both the rule set and
+the lint scope; `ruff check .` is the only command (CI, `verify-done.sh §3`, and
+the `auto-format` hook all resolve to it). Two traps it exists to close:
+
+- **No project config → ruff falls back to the developer's global
+  `~/.config/ruff/ruff.toml`** (which this kit itself installs). That masked a
+  real CI failure once: local green, CI red.
+- **Ruff's *default* rule set changes between releases** (0.15 enables E402, 0.16
+  does not), so relying on defaults makes two machines disagree. The rules are
+  therefore listed explicitly, and the version is pinned in `.ruff-version`
+  (CI installs exactly that; `verify-done.sh` warns when the local ruff differs).
+
+Raising the ruff pin is a deliberate act: bump `.ruff-version`, fix what the new
+version flags, land both together.
 
 ## Release Checklist
 

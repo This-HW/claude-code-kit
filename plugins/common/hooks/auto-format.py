@@ -11,6 +11,7 @@ exit 코드:
   0 = 에러 없음 (정상)
   2 = 수정 불가 에러 있음 (Claude에게 피드백 → 수정 유도)
 """
+from __future__ import annotations
 
 import json
 import os
@@ -120,6 +121,7 @@ def _ruff_fix(file_path, feedback):
         text=True,
         timeout=STEP_TIMEOUT,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
 
 
@@ -134,6 +136,7 @@ def _ruff_format(file_path, feedback):
         text=True,
         timeout=STEP_TIMEOUT,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
     if result.returncode == 0:
         print(f"✓ Formatted with ruff: {file_path}")
@@ -149,6 +152,7 @@ def _ruff_feedback(file_path, feedback):
         text=True,
         timeout=STEP_TIMEOUT,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
     if result.returncode != 0 and result.stdout.strip():
         lines = result.stdout.strip().split("\n")[:5]
@@ -168,6 +172,7 @@ def _prettier(file_path, feedback):
         text=True,
         timeout=FORMATTER_TIMEOUT_SECONDS,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
     if result.returncode == 0:
         print(f"✓ Formatted with Prettier: {file_path}")
@@ -188,6 +193,7 @@ def _eslint_fix(file_path, feedback):
         text=True,
         timeout=FORMATTER_TIMEOUT_SECONDS,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
 
 
@@ -204,6 +210,7 @@ def _eslint_feedback(file_path, feedback):
         text=True,
         timeout=FORMATTER_TIMEOUT_SECONDS,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
     if result.returncode != 0 and result.stdout.strip():
         error_lines = [
@@ -227,6 +234,7 @@ def _gofmt(file_path, feedback):
         text=True,
         timeout=STEP_TIMEOUT,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
     if result.returncode == 0:
         print(f"✓ Formatted with gofmt: {file_path}")
@@ -243,6 +251,7 @@ def _rustfmt(file_path, feedback):
         text=True,
         timeout=STEP_TIMEOUT,
         cwd=_get_file_dir(file_path),
+        check=False,
     )
     if result.returncode == 0:
         print(f"✓ Formatted with rustfmt: {file_path}")
@@ -258,6 +267,7 @@ def _shellcheck_feedback(file_path, feedback):
         capture_output=True,
         text=True,
         timeout=STEP_TIMEOUT,
+        check=False,
     )
     if result.returncode != 0 and result.stdout.strip():
         lines = result.stdout.strip().split("\n")[:5]

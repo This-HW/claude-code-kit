@@ -62,13 +62,18 @@ if err:
     print("\n".join("    " + e for e in err)); sys.exit(1)
 EOF
 
-hdr "3. ruff (hooks)"
+hdr "3. ruff (레포 전체 — 룰셋은 ruff.toml SSOT)"
+# 대상을 나열하지 않는다: `ruff check .` + 루트 ruff.toml(exclude 포함)이 범위의 단일
+# 소스다. CI도 동일 커맨드를 쓴다 — 목록을 양쪽에 복제하면 드리프트가 난다(F-023·F-036).
 if command -v ruff >/dev/null 2>&1; then RUFF="ruff"; elif [ -x /tmp/ckkit-venv/bin/ruff ]; then RUFF="/tmp/ckkit-venv/bin/ruff"; else RUFF=""; fi
 if [ -n "$RUFF" ]; then
-  RUFF_TARGETS="plugins/common/hooks/"
-  [ -d evals ] && RUFF_TARGETS="$RUFF_TARGETS evals/"
-  # shellcheck disable=SC2086
-  if "$RUFF" check $RUFF_TARGETS >/dev/null 2>&1; then green "ruff clean ($RUFF_TARGETS)"; else red "ruff violations (run: $RUFF check $RUFF_TARGETS)"; fi
+  PINNED="$(cat .ruff-version 2>/dev/null || echo "")"
+  LOCAL_V="$("$RUFF" --version 2>/dev/null | awk '{print $2}')"
+  if [ -n "$PINNED" ] && [ "$LOCAL_V" != "$PINNED" ]; then
+    printf '  \033[33m! 로컬 ruff %s ≠ 핀 %s — CI와 판정이 갈릴 수 있다 (pip install ruff==%s)\033[0m\n' \
+      "$LOCAL_V" "$PINNED" "$PINNED"
+  fi
+  if "$RUFF" check . >/dev/null 2>&1; then green "ruff clean (ruff check . / v$LOCAL_V)"; else red "ruff violations (run: $RUFF check .)"; fi
 else
   red "ruff unavailable — cannot verify lint"
 fi

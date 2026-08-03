@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 from types import ModuleType
 
-
 HOOKS_DIR = Path(__file__).resolve().parent.parent
 
 

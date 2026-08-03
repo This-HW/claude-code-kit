@@ -51,7 +51,7 @@ def _extract_json(output: str) -> dict:
 
 # ── TC1: no_py_changes ───────────────────────────────────────────
 def test_no_py_changes_exits_zero(monkeypatch):
-    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+    monkeypatch.setattr(_mod, "get_modified_py_files", list)
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
@@ -122,7 +122,7 @@ def test_marker_skip_exits_zero_and_consumes_marker(monkeypatch, capsys):
 def test_marker_empty_touch_never_skips(monkeypatch, capsys):
     """빈 내용 마커(구버전 touch)는 무효 — 파일 생성만으로 검증을 우회할 수 없다(M-1)."""
     _mod.VALIDATED_MARKER.touch()
-    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+    monkeypatch.setattr(_mod, "get_modified_py_files", list)
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
@@ -138,7 +138,7 @@ def test_marker_symlink_is_rejected(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "state-y")
     target.write_text("state-y", encoding="utf-8")  # 내용이 일치해도 링크면 무효
     _mod.VALIDATED_MARKER.symlink_to(target)
-    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+    monkeypatch.setattr(_mod, "get_modified_py_files", list)
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()
@@ -535,7 +535,7 @@ def test_marker_with_stale_state_hash_does_not_skip(monkeypatch, capsys):
     """검증 후 파일이 바뀌었거나 다른 세션 상태의 마커는 스킵을 유발하지 않는다."""
     monkeypatch.setattr(_mod, "_worktree_state_hash", lambda: "current-state")
     _mod.VALIDATED_MARKER.write_text("other-session-state", encoding="utf-8")
-    monkeypatch.setattr(_mod, "get_modified_py_files", lambda: [])
+    monkeypatch.setattr(_mod, "get_modified_py_files", list)
 
     with pytest.raises(SystemExit) as exc_info:
         _mod.main()

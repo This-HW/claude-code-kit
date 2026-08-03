@@ -6,6 +6,7 @@ active Work가 없어도 rules는 항상 주입됨.
 공식 output 형식:
   {"hookSpecificOutput": {"additionalContext": "<text>"}}
 """
+from __future__ import annotations
 
 import json
 import os
@@ -13,7 +14,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 HOOK_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(HOOK_DIR))
@@ -32,6 +32,7 @@ except ImportError:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             return result.stdout.strip() if result.returncode == 0 else os.getcwd()
         except subprocess.TimeoutExpired:
@@ -144,7 +145,7 @@ def parse_task_map(progress_path: Path) -> list:
     return tasks
 
 
-def summarize_work(work_dir: Path) -> Optional[str]:
+def summarize_work(work_dir: Path) -> str | None:
     """Work 하나의 요약 문자열 생성."""
     md_files = sorted(work_dir.glob("W-*.md"))
     if not md_files:
@@ -301,10 +302,10 @@ _STALE_TASKS_MAX_FILES_PER_DIR = 100  # 세션당 파일 상한
 
 
 def load_stale_tasks(
-    tasks_root: Optional[Path] = None,
+    tasks_root: Path | None = None,
     current_session_id: str = "",
-    project_root: Optional[Path] = None,
-    projects_root: Optional[Path] = None,
+    project_root: Path | None = None,
+    projects_root: Path | None = None,
 ) -> str:
     """이전 세션들의 미완료 잔존 태스크를 스캔해 알림 섹션을 반환.
 

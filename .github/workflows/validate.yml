@@ -105,8 +105,11 @@ jobs:
 
       - name: Run hook unit tests
         run: |
-          pip install pytest ruff --quiet
-          ruff check plugins/common/hooks/ evals/
+          # ruff 버전은 .ruff-version 에 핀(F-036): 도구 기본 룰셋이 릴리스마다 바뀌어
+          # "코드 변경 없이 CI가 red"가 되는 사고를 막는다(2.12.0 실사고). 룰 집합 자체는
+          # 루트 ruff.toml 이 명시 — 로컬 훅/게이트와 판정이 항상 일치한다.
+          pip install pytest "ruff==$(cat .ruff-version)" --quiet
+          ruff check .   # 범위·룰 = ruff.toml SSOT (verify-done.sh §3과 동일 커맨드)
           # pytest exit 5 = "no tests collected" (OK to skip). 그 외 비정상 종료는
           # 실제 실패이므로 CI를 실패시킨다 (이전 `|| echo`는 실패도 green으로 삼켰음).
           rc=0
@@ -125,3 +128,29 @@ jobs:
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 소비자 환경 최저 파이썬(=macOS 기본 python3 3.9)에서 훅이 실제로 뜨는지 검증한다.
+  # 훅은 소비자 머신의 `python3`로 실행되므로, 3.10 전용 문법이 들어가면 그 사용자에겐
+  # 훅이 전부 죽는다(2.12.0까지 4종이 그 상태였다 — F-037). 린트의 FA 룰이 정적 방어,
+  # 이 잡이 실행 방어다.
+  python39-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.9"
+
+      - name: Hooks import/실행 스모크 (python 3.9)
+        run: |
+          set -e
+          for f in plugins/common/hooks/*.py plugins/common/setup/*.py scripts/*.py; do
+            case "$f" in */tests/*) continue ;; esac
+            out=$(echo '{}' | python3 "$f" --help 2>&1 || true)
+            if echo "$out" | grep -qE "TypeError: unsupported operand|SyntaxError|ModuleNotFoundError"; then
+              echo "❌ $f — python 3.9에서 로드 실패"; echo "$out" | tail -5; exit 1
+            fi
+            echo "✓ $f"
+          done

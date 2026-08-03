@@ -8,7 +8,7 @@ from unittest.mock import patch
 HOOKS_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HOOKS_DIR))
 
-from utils import debug_log, get_project_root, is_debug_mode, safe_path  # noqa: E402
+from utils import debug_log, get_project_root, is_debug_mode, safe_path
 
 
 class TestSafePath:
@@ -103,18 +103,22 @@ class TestGetProjectRoot:
         git_dir.mkdir()
         subdir = tmp_path / "src" / "app"
         subdir.mkdir(parents=True)
-        with patch("os.getcwd", return_value=str(subdir)):
-            with patch.dict(os.environ, {}, clear=False):
-                os.environ.pop("CLAUDE_PROJECT_DIR", None)
-                result = get_project_root()
+        with (
+            patch("os.getcwd", return_value=str(subdir)),
+            patch.dict(os.environ, {}, clear=False),
+        ):
+            os.environ.pop("CLAUDE_PROJECT_DIR", None)
+            result = get_project_root()
         assert result == str(tmp_path)
 
     def test_falls_back_to_cwd_when_no_git(self, tmp_path):
-        with patch("os.getcwd", return_value=str(tmp_path)):
-            with patch.dict(os.environ, {}, clear=False):
-                os.environ.pop("CLAUDE_PROJECT_DIR", None)
-                # tmp_path won't have .git going all the way to root
-                result = get_project_root()
+        with (
+            patch("os.getcwd", return_value=str(tmp_path)),
+            patch.dict(os.environ, {}, clear=False),
+        ):
+            os.environ.pop("CLAUDE_PROJECT_DIR", None)
+            # tmp_path won't have .git going all the way to root
+            result = get_project_root()
         # Should return some valid path (either tmp_path or actual git root above it)
         assert isinstance(result, str)
         assert len(result) > 0

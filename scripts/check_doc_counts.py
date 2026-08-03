@@ -34,7 +34,7 @@ def count_actuals(root: Path) -> dict:
     agents = 0
     for f in root.glob("plugins/*/agents/**/*.md"):
         try:
-            if re.search(r"^name:", f.read_text(encoding="utf-8"), re.M):
+            if re.search(r"^name:", f.read_text(encoding="utf-8"), re.MULTILINE):
                 agents += 1
         except OSError:
             pass

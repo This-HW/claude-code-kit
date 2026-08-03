@@ -20,6 +20,7 @@ repos while still blocking real failures in edited test files.
 To disable: in plugins/common/hooks/hooks.json, replace the Stop section with
 the prompt-based hook (see CHANGELOG.md [2.2.0]) or remove it entirely.
 """
+from __future__ import annotations
 
 import hashlib
 import json
@@ -40,12 +41,13 @@ def _get_project_root() -> Path:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if r.returncode == 0 and r.stdout.strip():
             return Path(r.stdout.strip())
     except Exception:
         pass
-    return Path(".").resolve()
+    return Path.cwd()
 
 
 def _state_dir() -> Path:
@@ -70,7 +72,7 @@ def _state_dir() -> Path:
 
 
 PROJECT_ROOT = _get_project_root()
-_hash = hashlib.md5(str(PROJECT_ROOT).encode()).hexdigest()[:8]
+_hash = hashlib.md5(str(PROJECT_ROOT).encode(), usedforsecurity=False).hexdigest()[:8]
 _STATE_DIR = _state_dir()
 VALIDATED_MARKER = _STATE_DIR / f".claude_validated_{_hash}"
 RETRY_COUNTER = _STATE_DIR / f".claude_stop_retries_{_hash}"
@@ -105,9 +107,11 @@ def _apply_session_scope(session_id) -> None:
     VALIDATED_MARKER는 auto-dev(T-merge)와의 크로스-프로세스 계약이라 이름을
     바꾸지 않는다 — 대신 _consume_marker_if_valid()가 내용으로 유효성을 판정한다.
     """
-    global RETRY_COUNTER
+    global RETRY_COUNTER  # noqa: PLW0603 — 세션별 카운터 경로를 한 번 확정
     if session_id:
-        sid = hashlib.md5(str(session_id).encode()).hexdigest()[:8]
+        sid = hashlib.md5(str(session_id).encode(), usedforsecurity=False).hexdigest()[
+            :8
+        ]
         RETRY_COUNTER = RETRY_COUNTER.with_name(f"{RETRY_COUNTER.name}_{sid}")
 
 
@@ -215,14 +219,20 @@ def get_modified_py_files() -> list[str]:
             "cwd": str(PROJECT_ROOT),
         }
 
-        r1 = subprocess.run(["git", "diff", "--name-only", "HEAD"], **git_opts)
+        r1 = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"], **git_opts, check=False
+        )
         files.update(f for f in r1.stdout.splitlines() if f.endswith(".py"))
 
-        r2 = subprocess.run(["git", "diff", "--cached", "--name-only"], **git_opts)
+        r2 = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"], **git_opts, check=False
+        )
         files.update(f for f in r2.stdout.splitlines() if f.endswith(".py"))
 
         r3 = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard"], **git_opts
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            **git_opts,
+            check=False,
         )
         files.update(f for f in r3.stdout.splitlines() if f.endswith(".py"))
 
@@ -269,8 +279,8 @@ def _session_edited_files(data: dict) -> set[str] | None:
     try:
         # 대용량 transcript를 통째로 올리지 않도록 줄 단위 스트리밍.
         with path.open(encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                line = line.strip()
+            for raw_line in fh:
+                line = raw_line.strip()
                 if not line:
                     continue
                 try:
@@ -365,6 +375,7 @@ def _untracked_py_files() -> set[str]:
             text=True,
             timeout=5,
             cwd=str(PROJECT_ROOT),
+            check=False,
         )
         return {_real(f) for f in r.stdout.splitlines() if f.endswith(".py")}
     except Exception:
@@ -391,10 +402,11 @@ def check_lint(target_files: list[str]) -> tuple[bool, str]:
         return True, ""
     try:
         result = subprocess.run(
-            ["ruff", "check"] + existing,
+            ["ruff", "check", *existing],
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         return result.returncode == 0, result.stdout + result.stderr
     except FileNotFoundError:
@@ -420,10 +432,11 @@ def auto_fix_lint(target_files: list[str]) -> tuple[bool, list[str], str]:
             f: Path(f).read_text(encoding="utf-8", errors="replace") for f in existing
         }
         subprocess.run(
-            ["ruff", "check", "--fix"] + existing,
+            ["ruff", "check", "--fix", *existing],
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         after = {
             f: Path(f).read_text(encoding="utf-8", errors="replace") for f in existing
@@ -492,12 +505,20 @@ def check_tests(modified_files: list[str]) -> tuple[bool, str]:
     timeout = _test_timeout()
     try:
         result = subprocess.run(
-            [_pytest_python(), "-m", "pytest", "--tb=short", "-q", "--no-header"]
-            + edited_tests,
+            [
+                _pytest_python(),
+                "-m",
+                "pytest",
+                "--tb=short",
+                "-q",
+                "--no-header",
+                *edited_tests,
+            ],
             capture_output=True,
             text=True,
             timeout=timeout,
             cwd=str(PROJECT_ROOT),
+            check=False,
         )
         combined = result.stdout + result.stderr
         # pytest 미설치 → 검증 불가. 차단이 아니라 스킵(통과)으로 처리(#332).
@@ -543,6 +564,7 @@ def _worktree_state_hash() -> str:
             text=True,
             timeout=10,
             cwd=str(PROJECT_ROOT),
+            check=False,
         )
         if r.returncode != 0:
             return ""
@@ -557,7 +579,7 @@ def _worktree_state_hash() -> str:
             except Exception:
                 content_sha = "MISSING"
             parts.append(f"{rel}\0{content_sha}")
-        return hashlib.md5("\n".join(parts).encode()).hexdigest()
+        return hashlib.md5("\n".join(parts).encode(), usedforsecurity=False).hexdigest()
     except Exception:
         return ""
 
@@ -640,7 +662,7 @@ def main():
         )
 
     # 5. 린트 검사
-    lint_passed, lint_errors = check_lint(modified_files)
+    lint_passed, _lint_errors = check_lint(modified_files)
     if not lint_passed:
         fixed, fixed_files, remaining = auto_fix_lint(modified_files)
         if fixed:

@@ -29,6 +29,7 @@ try:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if tpl_result.returncode == 1 and not is_plugin_only:
             warnings.append("init.templateDir 미설정 — setup.sh를 다시 실행하세요")
@@ -43,6 +44,7 @@ try:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         ).stdout.strip()
     except subprocess.TimeoutExpired:
         warnings.append("git rev-parse 시간 초과")
@@ -59,6 +61,7 @@ try:
                 text=True,
                 cwd=git_toplevel,
                 timeout=5,
+                check=False,
             )
             raw_hooks_path = hooks_path_result.stdout.strip()
             if hooks_path_result.returncode == 0 and raw_hooks_path:

@@ -98,11 +98,11 @@ class TestRunPipeline:
 
         f = tmp_path / "test.py"
         f.write_text("x = 1\n")
-        with patch.object(_mod, "_has_tool", return_value=True):
-            with patch(
-                "subprocess.run", side_effect=subprocess.TimeoutExpired("ruff", 10)
-            ):
-                result = run_pipeline(str(f))
+        with (
+            patch.object(_mod, "_has_tool", return_value=True),
+            patch("subprocess.run", side_effect=subprocess.TimeoutExpired("ruff", 10)),
+        ):
+            result = run_pipeline(str(f))
         assert result == 0
 
     def test_pipeline_collects_ruff_feedback(self, tmp_path):
@@ -122,9 +122,11 @@ class TestRunPipeline:
             ok.stderr = ""
             return ok
 
-        with patch.object(_mod, "_has_tool", return_value=True):
-            with patch("subprocess.run", side_effect=fake_run):
-                result = run_pipeline(str(f))
+        with (
+            patch.object(_mod, "_has_tool", return_value=True),
+            patch("subprocess.run", side_effect=fake_run),
+        ):
+            result = run_pipeline(str(f))
         assert result == 2
 
 

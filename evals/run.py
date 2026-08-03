@@ -72,7 +72,7 @@ def resolve_pytest_python() -> str | None:
     우선 탐색한다. 없으면 None — 호출부는 이를 '검증 불가'로 명시 처리해야
     하며 green으로 위장해선 안 된다 (false-green 금지).
     """
-    global _PYTEST_PY
+    global _PYTEST_PY  # noqa: PLW0603 — 프로세스 1회 탐색 결과 메모이제이션
     if _PYTEST_PY is not None:
         return _PYTEST_PY or None
     for cand in (
@@ -80,11 +80,14 @@ def resolve_pytest_python() -> str | None:
         str(REPO_ROOT / "venv" / "bin" / "python"),
         sys.executable,
         "python3",
-        "/tmp/ckkit-venv/bin/python",
+        "/tmp/ckkit-venv/bin/python",  # noqa: S108 — verify-done.sh가 만드는 공용 venv 탐색 경로
     ):
         try:
             r = subprocess.run(
-                [cand, "-c", "import pytest"], capture_output=True, timeout=10
+                [cand, "-c", "import pytest"],
+                capture_output=True,
+                timeout=10,
+                check=False,
             )
             if r.returncode == 0:
                 _PYTEST_PY = cand
@@ -343,7 +346,9 @@ def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str
     # scenario 디렉토리에 fixture 밖 .py 금지 (재감사 R2/ATK-005): stop-validator의
     # evals/scenarios/ 제외가 실코드를 은닉하는 통로가 되지 않게 구조로 강제.
     for stray in sorted(sc_dir.glob("*.py")):
-        errors.append(f"{prefix}: 시나리오 루트에 .py 금지 ({stray.name}) — 코드는 fixture/ 안에만")
+        errors.append(
+            f"{prefix}: 시나리오 루트에 .py 금지 ({stray.name}) — 코드는 fixture/ 안에만"
+        )
     if not expect_path.is_file():
         errors.append(f"{prefix}: expect.json 없음")
         return errors
@@ -451,6 +456,7 @@ def check_assertion(
                 capture_output=True,
                 text=True,
                 timeout=int(assertion.get("timeout", 120)),
+                check=False,
             )
         except subprocess.TimeoutExpired:
             # 무한루프 fixture 하나가 전체 런을 크래시시키지 않게 fail로 강등 (ATK-003).
@@ -510,6 +516,7 @@ def run_judge(stdout: str, judge_cfg: dict, timeout: int) -> dict:
             capture_output=True,
             text=True,
             timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return {"ok": None, "score": None, "note": "judge timeout"}
@@ -529,7 +536,7 @@ def run_judge(stdout: str, judge_cfg: dict, timeout: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def build_claude_command(agent: AgentDef, task: str, timeout: int) -> list[str]:  # noqa: ARG001
+def build_claude_command(agent: AgentDef, task: str, timeout: int) -> list[str]:
     cmd = [
         "claude",
         "-p",
@@ -604,7 +611,12 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
         start = time.time()
         try:
             r = subprocess.run(
-                cmd, cwd=str(work_dir), capture_output=True, text=True, timeout=timeout
+                cmd,
+                cwd=str(work_dir),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
             )
             stdout = r.stdout
         except subprocess.TimeoutExpired:
@@ -640,9 +652,8 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                 ok, detail = check_assertion(
                     a, stdout, work_dir, source_fixture=scenario.fixture_dir
                 )
-            except (
-                Exception
-            ) as e:  # 채점기 예외 = fail (크래시로 전체 런 유실 금지, ATK-003)
+            # 채점기 예외 = fail (크래시로 전체 런 유실 금지, ATK-003)
+            except Exception as e:  # noqa: BLE001
                 ok, detail = False, f"{a.get('type')} — 채점 예외: {e!r}"
             checks.append({"type": a.get("type"), "ok": ok, "detail": detail})
             all_ok = all_ok and ok
@@ -757,16 +768,16 @@ def compare_baseline(
     # --agent 필터 실행 시 baseline도 그 에이전트로 좁힌다 — 필터로 실행하지 않은
     # 에이전트를 "커버리지 소실"로 오탐하는 것을 방지 (최종 재감사 ATK-004).
     if agent_filter is not None:
-        base_summary = {
-            k: v for k, v in base_summary.items() if k == agent_filter
-        }
+        base_summary = {k: v for k, v in base_summary.items() if k == agent_filter}
     regressions = []
     for agent, cur in current_summary.items():
         base = base_summary.get(agent)
         if not base:
             continue
         if base.get("pass_rate") is None:
-            regressions.append(f"{agent}: baseline 항목에 pass_rate 없음 (손상된 baseline)")
+            regressions.append(
+                f"{agent}: baseline 항목에 pass_rate 없음 (손상된 baseline)"
+            )
             continue
         if cur["pass_rate"] < base["pass_rate"]:
             regressions.append(
@@ -887,7 +898,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.agent or args.scenario:
             # 부분 실행을 기준선으로 저장하면 이후 compare가 미포함 에이전트의
             # 회귀를 영구히 못 본다 — 침묵 커버리지 은닉 차단 (재감사 R1/ATK-001).
-            print("[eval] baseline 저장 거부 — 필터(--agent/--scenario)가 걸린 부분 실행은 기준선이 될 수 없음")
+            print(
+                "[eval] baseline 저장 거부 — 필터(--agent/--scenario)가 걸린 부분 실행은 기준선이 될 수 없음"
+            )
         elif exit_code != EXIT_PASS:
             # 실패 런을 기준선으로 저장하면 이후 compare가 오염된다 (ATK-010).
             print("[eval] baseline 저장 거부 — 실패한 런은 기준선이 될 수 없음")

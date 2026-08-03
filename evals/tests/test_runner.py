@@ -17,8 +17,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import run as runner  # noqa: E402
-
+import run as runner
 
 # ---------------------------------------------------------------------------
 # parse_frontmatter
@@ -71,7 +70,7 @@ def test_parse_frontmatter_no_frontmatter_returns_empty():
 
 
 def test_parse_frontmatter_unterminated_returns_empty():
-    fm, body = runner.parse_frontmatter("---\nname: x\n(닫는 --- 없음)")
+    fm, _body = runner.parse_frontmatter("---\nname: x\n(닫는 --- 없음)")
     assert fm == {}
 
 
@@ -282,7 +281,7 @@ def test_run_all_skipped_when_claude_missing(tmp_path):
 
 
 def test_run_all_no_scenarios_matched_is_fail(tmp_path):
-    report, exit_code = runner.run_all(
+    _report, exit_code = runner.run_all(
         "no-such-agent",
         None,
         1,
@@ -446,7 +445,8 @@ def test_run_scenario_claude_nonzero_exit_is_error(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: R())
     sc = _scenario(
-        tmp_path, {"assertions": [{"type": "output_contains_any", "values": ["injection"]}]}
+        tmp_path,
+        {"assertions": [{"type": "output_contains_any", "values": ["injection"]}]},
     )
     res = runner.run_scenario(_agent(tmp_path), sc, timeout=5)
     assert res["status"] == "error"
@@ -579,8 +579,16 @@ def test_compare_baseline_malformed_entry_flagged_not_crash(tmp_path):
 def test_main_refuses_baseline_with_filter(tmp_path, monkeypatch):
     """--agent 필터 + --baseline 은 기준선 저장을 거부한다 (R1/ATK-001)."""
     report = {
-        "results": [{"agent": "fix-bugs", "scenario": "s", "status": "pass",
-                     "checks": [], "judge": None, "duration_s": 0.1}],
+        "results": [
+            {
+                "agent": "fix-bugs",
+                "scenario": "s",
+                "status": "pass",
+                "checks": [],
+                "judge": None,
+                "duration_s": 0.1,
+            }
+        ],
         "summary": {"fix-bugs": {"pass": 1, "fail": 0, "total": 1, "pass_rate": 1.0}},
     }
     monkeypatch.setattr(runner, "run_all", lambda *a, **k: (report, runner.EXIT_PASS))
@@ -588,7 +596,11 @@ def test_main_refuses_baseline_with_filter(tmp_path, monkeypatch):
     monkeypatch.setattr(runner, "REPORTS_DIR", tmp_path / "reports")
     rc = runner.main(["--agent", "fix-bugs", "--baseline"])
     assert rc == runner.EXIT_PASS
-    assert not list((tmp_path / "baseline").glob("*.json")) if (tmp_path / "baseline").exists() else True
+    assert (
+        not list((tmp_path / "baseline").glob("*.json"))
+        if (tmp_path / "baseline").exists()
+        else True
+    )
     # 필터 없으면 정상 저장
     rc = runner.main(["--baseline"])
     assert rc == runner.EXIT_PASS
@@ -605,9 +617,7 @@ def test_run_scenario_pass_path_judge_advisory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: R())
     monkeypatch.setenv("CKKIT_EVAL_JUDGE", "1")
-    monkeypatch.setattr(
-        runner, "run_judge", lambda *a, **k: {"ok": False, "score": 2}
-    )
+    monkeypatch.setattr(runner, "run_judge", lambda *a, **k: {"ok": False, "score": 2})
     sc = _scenario(
         tmp_path,
         {

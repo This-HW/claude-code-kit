@@ -6,6 +6,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.12.1] — 2026-08-03
+
+### Fixed — 소비자 python 3.9에서 죽어 있던 훅 4종 (F-037)
+
+훅은 **소비자 머신의 `python3`**로 실행된다. macOS 기본 python3는 여전히 3.9.6인데,
+훅 소스가 런타임 평가되는 PEP 604 어노테이션(`str | None`)을 쓰고 있어 그 환경에선
+import 시점에 `TypeError`로 즉사했다 — `auto-format` · `stop-validator` · `checklist` ·
+`feedback_ledger`. 훅은 fail-open이라 **오류 없이 조용히 아무 일도 안 하는** 상태였다.
+
+- 해당 모듈에 `from __future__ import annotations` 추가 → 3.10 문법을 유지하면서 3.9 동작.
+- **재발 방지 2중**: ruff `FA` 룰(정적) + `python39-compat` CI 잡(3.9에서 전 훅 실제 로드).
+- 검증: 훅/스크립트 9개 전부 python 3.9.6에서 기동 확인, pytest 272건 3.9·3.12 양쪽 통과.
+
+### Fixed — 린트 판정이 환경마다 갈리던 구조 (F-036)
+
+2.12.0 푸시 직후 CI가 red였다(run 30794529796, 105건). 코드 문제가 아니라 **도구 기본값
+드리프트**였다: 레포에 ruff 설정이 없어 로컬은 개발자 전역 설정(`~/.config/ruff/ruff.toml`
+— 이 kit이 배포하는 바로 그 파일)을 집어 green, CI는 설정 없이 ruff 0.16의 확장된 기본
+룰셋을 그대로 맞아 red. 로컬 게이트가 개인 환경에 의존하고 있었다는 뜻이다.
+
+- **`ruff.toml` 신설(SSOT)**: 룰 집합·제외 범위·소비자 floor를 명시. 프로젝트 config가
+  있으면 ruff는 전역 config를 무시하므로 환경 비의존이 된다. 기본값 상속도 금지 —
+  기본 룰셋은 버전마다 다르다(0.15는 E402 on, 0.16은 off).
+- **`.ruff-version` 핀**: CI가 이 버전을 설치, `verify-done.sh`는 로컬 버전이 다르면 경고.
+- **커맨드 단일화**: CI·게이트 모두 `ruff check .` — 대상 목록 복제 제거(F-023).
+- 판정 동일성 실측: ruff 0.15.10과 0.16.1이 같은 룰셋에서 동일 결과.
+
+### Changed — 드러난 실결함 수정 (린트 확장으로 노출된 것들)
+
+- `subprocess.run` 28곳에 **명시적 `check=False`** (묵시적 기본값 의존 제거, AST 기반 삽입).
+- `hashlib.md5(..., usedforsecurity=False)` 5곳 — 락/마커 지문 용도임을 명시(FIPS 환경 대응).
+- `date.today()` → tz 명시 로컬 날짜, `Path().resolve()` → `Path.cwd()`, 암묵적 `Optional`
+  제거, 미사용 `noqa`·언팩 변수 정리, 셰뱅 있는 스크립트 6개 실행권한 부여.
+- fail-open 계약(광범위 except)·eval fixture의 **의도된** 결함은 수정 대상이 아니라
+  `ruff.toml`에 근거와 함께 명문화 — noqa 40여 개 살포 대신 정책 1곳.
+- 훅 tests·evals 포함 **레포 전체가 린트 대상**이 됐다(기존엔 `hooks/`+`evals/`만).
+
 ## [2.12.0] — 2026-07-20
 
 ### Added — 비신뢰 텍스트 방어 프레이밍 일관 적용 (호스트 무관)

@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
 """
 Hooks 공통 유틸리티
 
 여러 hook 스크립트에서 공통으로 사용하는 함수들을 모아놓은 모듈입니다.
 """
+from __future__ import annotations
 
 import os
 import pathlib
@@ -43,7 +43,7 @@ def is_debug_mode() -> bool:
     return os.environ.get("CLAUDE_HOOK_DEBUG", "").lower() in ("1", "true", "yes")
 
 
-def debug_log(message: str, error: Exception = None):
+def debug_log(message: str, error: Exception | None = None):
     """
     디버그 로그 출력
 
@@ -100,7 +100,7 @@ def load_yaml_safe(file_path: str) -> dict:
     try:
         import yaml
 
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             return yaml.safe_load(f) or {}
     except ImportError:
         debug_log("PyYAML not installed, skipping YAML load")

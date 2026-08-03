@@ -17,6 +17,7 @@ session-start가 주입할 digest를 제공하는 학습 루프의 SSOT (Spec 3 
 ledger 경로: <project_root>/docs/works/feedback/ledger.md
 ledger 부재/파싱 실패 시 전 구간 무동작 (fail-open, opt-in).
 """
+from __future__ import annotations
 
 import fcntl
 import hashlib
@@ -26,7 +27,7 @@ import sys
 import tempfile
 import time
 from contextlib import contextmanager
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 CAP = 50  # 최대 엔트리 수
@@ -55,12 +56,13 @@ def _project_root() -> Path:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         if r.returncode == 0 and r.stdout.strip():
             return Path(r.stdout.strip())
     except Exception:
         pass
-    return Path(".").resolve()
+    return Path.cwd()
 
 
 def ledger_path(root: Path | None = None) -> Path:
@@ -178,7 +180,10 @@ def _lock_path_for(path: Path) -> Path:
         uid = os.getuid()
     except AttributeError:
         uid = os.environ.get("USER", "user")
-    key = hashlib.md5(str(path.resolve()).encode()).hexdigest()[:12]
+    # 경로 지문(락 파일명)일 뿐 보안 용도가 아니다 → FIPS 환경에서도 동작하도록 명시.
+    key = hashlib.md5(str(path.resolve()).encode(), usedforsecurity=False).hexdigest()[
+        :12
+    ]
     d = Path(tempfile.gettempdir()) / f"claude-{uid}"
     try:
         d.mkdir(mode=0o700, exist_ok=True)
@@ -229,7 +234,8 @@ def upsert(category: str, severity: str, pattern: str, root: Path | None = None)
         severity = ""
     pattern = _sanitize(pattern)
     path = ledger_path(root)
-    today = date.today().isoformat()
+    # 로컬 날짜를 유지하되 tz를 명시(naive 시각 금지) — 원장 날짜는 사용자 기준일이다.
+    today = datetime.now().astimezone().date().isoformat()
     with _ledger_lock(path):
         entries = parse_ledger(path)
         key = _normalize(category, pattern)
