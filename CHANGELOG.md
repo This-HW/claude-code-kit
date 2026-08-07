@@ -6,6 +6,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.12.3] — 2026-08-07
+
+### Fixed — protect-sensitive: 파일명 'token' substring 오탐 완화 (외부 사용 보고)
+
+- **보고된 실사례**: 공개 블로그 글 `token-efficiency-discipline.md`가 파일명에
+  'token' 부분 문자열이 있다는 이유만으로 Read/Edit 차단됨.
+- **파일명 매칭 협소화**: token/tokens/password/passwords 4패턴을 substring 매치
+  (`(^|/|_|-)token($|\.|_|-)`)에서 **자격증명 관례 결합형**으로 교체 —
+  차단 유지: 정확명(`token`, `token.json`, `.token`, `passwords.yml`) + 접미 결합
+  (`api_token.json`, `github-token.txt`, `user-password.txt`).
+  통과로 전환: 산문 복합어(`token-efficiency-*.md`, `password-reset-flow.md`)와
+  소스 파일(`tokenizer.py`, `oauth/token.py` — oauthlib 관례).
+- **콘텐츠 스캔은 무변경**: 실제 시크릿 형식(HIGH_CONFIDENCE_CONTENT_PATTERNS)
+  스캔과 커밋 시 gitleaks가 협소화의 잔여 리스크(예: `token_prod.json` 접두 복합형)
+  를 커버하는 최종 방어선.
+- **회귀 테스트 2건 추가**: 정탐 8케이스 유지 + 오탐 6케이스 통과 고정 (총 66 passed).
+
 ## [2.12.2] — 2026-08-03
 
 2.12.1 직후 적대적 리뷰에서 나온 결함들. **자기 게이트를 자기 원칙으로 검사**한 결과다.

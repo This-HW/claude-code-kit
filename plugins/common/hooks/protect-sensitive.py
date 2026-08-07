@@ -87,11 +87,16 @@ PROTECTED_PATTERNS = [
     r"private.*key",  # 개인 키
     r".*_rsa$",  # RSA 키
     r".*_ecdsa$",  # ECDSA 키
-    # 기타 민감 파일
-    r"(^|/|_|-)token($|\.|_|-)",  # api_token, my-token, token.json
-    r"(^|/|_|-)tokens($|\.|_|-)",  # api_tokens, my-tokens
-    r"(^|/|_|-)password($|\.|_|-)",  # my_password, user-password
-    r"(^|/|_|-)passwords($|\.|_|-)",  # my_passwords
+    # 기타 민감 파일 — 자격증명 관례 결합만 차단 (외부 사용 보고 2026-07-31: 산문
+    # 복합어 파일명 'token-efficiency-discipline.md'가 substring 매치로 오차단).
+    # 차단: 정확명(token, token.json, .token) + 접미 결합(api_token.json, github-token.txt).
+    # 통과: 산문 복합어(token-efficiency-*.md), 소스 파일(tokenizer.py, oauth/token.py).
+    # 좁힌 만큼의 잔여 리스크(예: token_prod.json 같은 접두 복합)는 콘텐츠 스캔
+    # (HIGH_CONFIDENCE_CONTENT_PATTERNS) + 커밋 시 gitleaks가 최종 방어선.
+    r"(^|/)\.?tokens?(\.(json|ya?ml|txt|env|cfg|conf|ini|toml|properties))?$",
+    r"[_-]tokens?(\.(json|ya?ml|txt|env|cfg|conf|ini|toml|properties))?$",
+    r"(^|/)\.?passwords?(\.(json|ya?ml|txt|env|cfg|conf|ini|toml|properties))?$",
+    r"[_-]passwords?(\.(json|ya?ml|txt|env|cfg|conf|ini|toml|properties))?$",
     r"\.htpasswd$",  # Apache htpasswd
 ]
 

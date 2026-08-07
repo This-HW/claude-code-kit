@@ -78,6 +78,35 @@ class TestCheckProtected:
         blocked, _ = check_protected("/config/my_password.txt")
         assert blocked
 
+    # --- token/password 파일명 협소화 (외부 사용 보고 2026-07-31) ---
+    # 정탐 유지: 자격증명 관례 결합형은 계속 차단
+    def test_token_credential_shapes_still_blocked(self):
+        for p in [
+            "/config/token.json",
+            "/home/user/.token",
+            "/config/.tokens",
+            "/repo/github-token.txt",
+            "/repo/my_tokens.yaml",
+            "/etc/app/token",  # 확장자 없는 정확명
+            "/config/passwords.yml",
+            "/config/user-password.txt",
+        ]:
+            blocked, _ = check_protected(p)
+            assert blocked, f"정탐 후퇴: {p} 는 차단돼야 함"
+
+    # 오탐 해소: 산문 복합어·소스 파일은 통과
+    def test_token_prose_and_source_filenames_allowed(self):
+        for p in [
+            "/blog/token-efficiency-discipline.md",  # 보고된 실사례
+            "/docs/tokens-and-context-windows.md",
+            "/src/tokenizer.py",
+            "/lib/oauth/token.py",  # 소스 파일 (oauthlib 관례)
+            "/src/token_utils.py",
+            "/docs/password-reset-flow.md",
+        ]:
+            blocked, msg = check_protected(p)
+            assert not blocked, f"오탐 재발: {p} 가 차단됨 ({msg})"
+
     def test_normal_python_file_allowed(self):
         blocked, _ = check_protected("/app/src/main.py")
         assert not blocked
