@@ -80,7 +80,8 @@ def resolve_pytest_python() -> str | None:
         str(REPO_ROOT / "venv" / "bin" / "python"),
         sys.executable,
         "python3",
-        "/tmp/ckkit-venv/bin/python",  # noqa: S108 — verify-done.sh가 만드는 공용 venv 탐색 경로
+        # 여기에 /tmp 경로를 후보로 되돌리지 말 것: world-writable + 예측 가능한
+        # 이름이라 아무 로컬 사용자나 인터프리터를 심어둘 수 있다. ruff S108이 잡는다.
     ):
         try:
             r = subprocess.run(

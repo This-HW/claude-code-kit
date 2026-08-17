@@ -83,8 +83,8 @@ next_work_number() {
 # 중복은 병합 후 find_work_dir가 경고로 표면화한다(치명 실패 아님).
 claim_work_id() {
   mkdir -p "${WORKS_DIR}/.claimed"
-  local attempt num
-  for attempt in $(seq 1 20); do
+  local num
+  for _ in $(seq 1 20); do
     num="$(next_work_number)"
     if mkdir "${WORKS_DIR}/.claimed/W-${num}" 2>/dev/null; then
       printf "%s" "$num"
@@ -429,7 +429,8 @@ cmd_start() {
     exit 1
   fi
 
-  local dest="${WORKS_DIR}/active/$(basename "$dir")"
+  local dest
+  dest="${WORKS_DIR}/active/$(basename "$dir")"
   mv "$dir" "$dest"
 
   local md
@@ -509,7 +510,8 @@ cmd_complete() {
     exit 1
   fi
 
-  local dest="${WORKS_DIR}/completed/$(basename "$dir")"
+  local dest
+  dest="${WORKS_DIR}/completed/$(basename "$dir")"
   mv "$dir" "$dest"
 
   local md

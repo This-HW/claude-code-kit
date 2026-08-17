@@ -105,10 +105,12 @@ jobs:
 
       - name: Run hook unit tests
         run: |
-          # ruff 버전은 .ruff-version 에 핀(F-036): 도구 기본 룰셋이 릴리스마다 바뀌어
-          # "코드 변경 없이 CI가 red"가 되는 사고를 막는다(2.12.0 실사고). 룰 집합 자체는
-          # 루트 ruff.toml 이 명시 — 로컬 훅/게이트와 판정이 항상 일치한다.
-          pip install pytest "ruff==$(cat .ruff-version)" --quiet
+          # 검증 도구는 **둘 다** 버전을 핀한다(.ruff-version / .pytest-version, F-036):
+          # 도구 기본 동작이 릴리스마다 바뀌어 "코드 변경 없이 CI가 red"가 되는 사고를
+          # 막는다(2.12.0 실사고). ruff는 기본 룰셋이, pytest는 수집·fixture·deprecation
+          # 처리가 메이저마다 달라진다 — 핀이 없으면 CI만 조용히 최신으로 떠내려간다.
+          # 룰 집합 자체는 루트 ruff.toml 이 명시 — 로컬 훅/게이트와 판정이 항상 일치한다.
+          pip install "pytest==$(cat .pytest-version)" "ruff==$(cat .ruff-version)" --quiet
           ruff check .   # 범위·룰 = ruff.toml SSOT (verify-done.sh §3과 동일 커맨드)
           # pytest exit 5 = "no tests collected" (OK to skip). 그 외 비정상 종료는
           # 실제 실패이므로 CI를 실패시킨다 (이전 `|| echo`는 실패도 green으로 삼켰음).
@@ -118,6 +120,27 @@ jobs:
           # 전멸/경로 붕괴 신호다. verify-done §4와 fail-closed 방향 통일 (재감사 R2/ATK-004).
           if [ "$rc" -eq 5 ]; then echo "❌ No tests collected — 테스트 소실은 실패다"; exit 1; fi
           exit "$rc"
+
+      - name: Shell lint (shellcheck)
+        # 이 레포의 완료 게이트와 설치 스크립트는 셸이다 — 파이썬만 린트하고 셸을
+        # 방치하면 정작 "완료"를 판정하는 코드가 무검사다. 대상 목록·심각도 임계값은
+        # scripts/lint-shell.sh 가 단일 소스 (verify-done.sh §3b와 동일 커맨드).
+        run: |
+          # 러너 이미지에 미리 깔린 shellcheck는 버전이 떠다녀 "코드 변경 없이 red"를
+          # 만든다(.ruff-version과 같은 이유). 릴리스 tarball을 핀 + sha256 검증해서 쓴다.
+          # 핀을 올릴 때 SC_SHA256도 함께 바꾼다 — 어긋나면 이 스텝이 즉시 실패한다.
+          SC_VER="$(cat .shellcheck-version)"
+          SC_SHA256="8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+          TARBALL="shellcheck-v${SC_VER}.linux.x86_64.tar.xz"
+          curl -fsSL --retry 3 -o "$TARBALL" \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SC_VER}/${TARBALL}"
+          echo "${SC_SHA256}  ${TARBALL}" | sha256sum -c -
+          tar -xJf "$TARBALL"
+          # sudo로 설치하지 않고 PATH만 앞에 붙인다 — 러너는 일회용이고, 추출물은
+          # 추적되지 않으므로 lint-shell.sh의 `git ls-files` 대상에도 들어가지 않는다.
+          export PATH="$PWD/shellcheck-v${SC_VER}:$PATH"
+          shellcheck --version
+          ./scripts/lint-shell.sh
 
       - name: Check doc agent/skill counts (drift guard)
         # scripts/check_doc_counts.py 가 단일 소스 (F-023) — 로컬 verify-done.sh §6과

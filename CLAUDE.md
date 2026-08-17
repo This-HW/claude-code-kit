@@ -235,9 +235,10 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 1. Validates JSON syntax (`plugin.json`, `marketplace.json`)
 2. Checks agent frontmatter completeness (`name`, `description` required)
 3. Lints with `ruff check .` and runs pytest
-4. Verifies doc counts via `scripts/check_doc_counts.py` (same script as the local gate)
-5. Runs gitleaks security scan
-6. `python39-compat` job: loads every hook under Python 3.9 (consumer floor)
+4. Lints shell via `scripts/lint-shell.sh` (same script as the local gate §3b)
+5. Verifies doc counts via `scripts/check_doc_counts.py` (same script as the local gate)
+6. Runs gitleaks security scan
+7. `python39-compat` job: loads every hook under Python 3.9 (consumer floor)
 
 ### Lint is one ruleset, everywhere
 
@@ -255,6 +256,34 @@ the `auto-format` hook all resolve to it). Two traps it exists to close:
 
 Raising the ruff pin is a deliberate act: bump `.ruff-version`, fix what the new
 version flags, land both together.
+
+**The test runner is pinned the same way.** `.pytest-version` is the pin; CI
+installs exactly it, and `verify-done.sh §4` warns when the local pytest differs.
+pytest changes collection, fixture, and deprecation behavior across majors, so an
+unpinned runner means CI silently floats to the newest release and can go red with
+no code change — the same failure `.ruff-version` exists to prevent. Both pins are
+also what makes a dev venv reproducible:
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install "pytest==$(cat .pytest-version)" "ruff==$(cat .ruff-version)"
+```
+
+### Shell is linted too
+
+The completion gate (`verify-done.sh`) and the installer (`setup.sh`) *are* shell —
+linting Python rigorously while leaving them unchecked means the code that decides
+"done" is the code nobody checks. `scripts/lint-shell.sh` is the single command
+(CI and `verify-done.sh §3b` both call it); it owns the target list and the
+severity threshold, so neither side can drift. Targets are resolved from
+`git ls-files` by extension **and** shebang, so extensionless scripts like
+`plugins/common/setup/pre-commit` are covered and new scripts need no registration.
+shellcheck is pinned in `.shellcheck-version` and CI verifies the release tarball's
+sha256 — bump both together or the step fails loudly.
+
+One deliberate asymmetry with ruff: a *missing* shellcheck is a yellow note locally,
+not a red. CI (pinned version) is the authoritative verdict; the local run is fast
+feedback. It never reports green when it could not check.
 
 ## Release Checklist
 

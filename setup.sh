@@ -82,8 +82,11 @@ _check_version() {
         echo "  ? $cmd 버전 확인 불가 (설치는 됨)"
         return 0
     fi
-    local IFS=.
-    local cur=($cur_ver) min=($min_ver)
+    # 버전 문자열을 '.' 기준으로 쪼갠다. `arr=($str)` 대신 `IFS=. read -ra`를 쓰는 이유:
+    # 전자는 분할과 동시에 **글로빙**도 타서(`*` 포함 시) 예기치 않게 파일명으로 확장된다.
+    local cur min
+    IFS=. read -ra cur <<<"$cur_ver"
+    IFS=. read -ra min <<<"$min_ver"
     for i in 0 1 2; do
         local c="${cur[$i]:-0}" m="${min[$i]:-0}"
         if (( c > m )); then echo "  ✓ $cmd $cur_ver"; return 0; fi

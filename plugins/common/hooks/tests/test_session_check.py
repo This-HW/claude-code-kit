@@ -113,6 +113,47 @@ def test_no_venv_warning_when_shebang_is_inside_project(tmp_path, monkeypatch, c
     assert "venv" not in capsys.readouterr().err
 
 
+def test_stale_venv_warning_keeps_sessionstart_contract(tmp_path, monkeypatch, capsys):
+    """경고를 내는 경로에서도 stdout은 유효한 SessionStart JSON이어야 한다."""
+    _make_venv(tmp_path, "/old/path/kit/.venv/bin/python")
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+    assert out["hookSpecificOutput"]["additionalContext"] == ""
+
+
+def test_detects_stale_venv_in_plain_venv_dir(tmp_path, monkeypatch, capsys):
+    """`.venv`뿐 아니라 `venv`도 본다 — 두 이름 다 실제로 쓰인다."""
+    _make_venv(tmp_path, "/old/path/kit/venv/bin/python", name="venv")
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    assert "venv 스크립트" in capsys.readouterr().err
+
+
+def test_malformed_shebang_does_not_abort_later_checks(tmp_path, monkeypatch, capsys):
+    """깨진 shebang 하나가 **뒤따르는 검사들을 통째로 삼키면** 안 된다.
+
+    venv 스캔은 설정 체크 블록의 중간에 있다. 여기서 예상 못 한 예외가 나면 같은
+    try 안의 후속 검사(dual-load 감지)가 조용히 사라지고, 사용자는 그 사실을
+    영영 모른다 — 훅의 침묵 실패를 막으려고 넣은 코드가 새 침묵 실패를 만드는 셈.
+
+    NUL이 박힌 경로는 `os.path.realpath`에서 OSError가 아니라 **ValueError**를 낸다.
+    """
+    _make_venv(tmp_path, "/old/\x00path/python")
+    agents = tmp_path / ".claude/agents"
+    agents.mkdir(parents=True)
+    (agents / "x.md").write_text("---\nname: x\n---\n")
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    captured = capsys.readouterr()
+    # 판정 불가한 shebang은 조용히 건너뛴다 — 예외가 새어나온 흔적이 없어야 한다.
+    assert "null" not in captured.err
+    # 그리고 뒤따르는 검사(dual-load)는 정상적으로 도달해야 한다.
+    assert "동시 감지" in captured.err
+    assert (
+        json.loads(captured.out)["hookSpecificOutput"]["hookEventName"]
+        == "SessionStart"
+    )
+
+
 def test_venv_warning_escapes_control_chars_from_shebang(tmp_path, monkeypatch, capsys):
     """shebang은 파일에서 읽은 값 — 터미널 이스케이프를 그대로 stderr에 흘리지 않는다."""
     _make_venv(tmp_path, "/old/\x1b[2Jpath/python")

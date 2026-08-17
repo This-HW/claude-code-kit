@@ -53,10 +53,13 @@ def stale_venv_interp(venv_dir):
         # 링크를 **따라가지 않고** 디렉토리 기준으로 비교한다. venv의 `bin/python`은
         # 보통 시스템 python으로 가는 심링크라, shebang 경로 자체를 resolve()하면
         # 멀쩡한 venv도 전부 "밖을 가리킨다"로 오탐한다.
+        # ValueError도 잡는다: NUL이 박힌 경로에서 realpath는 OSError가 아니라
+        # ValueError를 낸다. 이게 새어나가면 **같은 try 안의 후속 검사(dual-load)가
+        # 통째로 사라진다** — 침묵 실패를 막으려던 코드가 새 침묵 실패를 만드는 셈.
         try:
             if os.path.realpath(os.path.dirname(interp)) != bindir_real:
                 return interp
-        except OSError:
+        except (OSError, ValueError):
             continue
         return None  # 정상 shebang 확인 — 더 볼 필요 없다
     return None

@@ -25,7 +25,11 @@ hdr()   { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
 # Python 선택 — pytest 가용 인터프리터 탐색
 PYTEST_PY=""
-for cand in ".venv/bin/python" "venv/bin/python" "python3" "/tmp/ckkit-venv/bin/python"; do
+# 후보에 /tmp 경로를 넣지 말 것: world-writable + 예측 가능한 이름이라 아무 로컬
+# 사용자나 인터프리터를 심어 게이트 실행자의 권한으로 코드를 돌릴 수 있다. 아래 임시
+# 디렉토리를 mktemp로 잡는 것과 같은 이유다 — 실행 대상이면 위험은 오히려 더 크다.
+# venv가 레포 밖에 있으면 activate해서 `python3` 후보로 잡히게 하면 된다.
+for cand in ".venv/bin/python" "venv/bin/python" "python3"; do
   if "$cand" -c "import pytest" 2>/dev/null; then PYTEST_PY="$cand"; break; fi
 done
 
@@ -69,7 +73,7 @@ hdr "3. ruff (레포 전체 — 룰셋은 ruff.toml SSOT)"
 # 폴백해 "로컬 green·CI red"가 부활한다. 전제 소실을 pass로 넘기지 않는다(F-022).
 [ -f ruff.toml ] || red "ruff.toml 없음 — 전역 설정 폴백 위험(린트 SSOT 소실)"
 [ -f .ruff-version ] || red ".ruff-version 없음 — CI ruff 설치가 핀을 잃는다"
-if command -v ruff >/dev/null 2>&1; then RUFF="ruff"; elif [ -x /tmp/ckkit-venv/bin/ruff ]; then RUFF="/tmp/ckkit-venv/bin/ruff"; else RUFF=""; fi
+if command -v ruff >/dev/null 2>&1; then RUFF="ruff"; else RUFF=""; fi  # /tmp 폴백 금지 — §PYTEST_PY 주석 참고
 if [ -n "$RUFF" ]; then
   PINNED="$(cat .ruff-version 2>/dev/null || echo "")"
   LOCAL_V="$("$RUFF" --version 2>/dev/null | awk '{print $2}')"
@@ -82,8 +86,42 @@ else
   red "ruff unavailable — cannot verify lint"
 fi
 
+hdr "3b. shellcheck (셸 스크립트 — 대상·임계값은 scripts/lint-shell.sh SSOT)"
+# 번호가 3b인 이유: §4·§7·§10은 CLAUDE.md·validate.yml·run.py 주석에서 참조된다.
+# 재번호는 그 참조들을 조용히 깨뜨리므로 삽입 번호를 쓴다.
+[ -f .shellcheck-version ] || red ".shellcheck-version 없음 — CI shellcheck 설치가 핀을 잃는다"
+if command -v shellcheck >/dev/null 2>&1; then
+  SC_PINNED="$(cat .shellcheck-version 2>/dev/null || echo "")"
+  SC_LOCAL_V="$(shellcheck --version 2>/dev/null | awk '/^version:/{print $2}')"
+  if [ -n "$SC_PINNED" ] && [ -n "$SC_LOCAL_V" ] && [ "$SC_LOCAL_V" != "$SC_PINNED" ]; then
+    printf '  \033[33m! 로컬 shellcheck %s ≠ 핀 %s — CI와 판정이 갈릴 수 있다\033[0m\n' \
+      "$SC_LOCAL_V" "$SC_PINNED"
+  fi
+fi
+./scripts/lint-shell.sh >"$TMPD/shellcheck" 2>&1
+SC_RC=$?
+if [ "$SC_RC" -eq 0 ]; then
+  green "shellcheck clean (scripts/lint-shell.sh — CI와 동일 커맨드)"
+elif [ "$SC_RC" -eq 127 ]; then
+  # ruff와 달리 red로 막지 않는다: 셸 린트의 **권위 있는 판정은 CI**(핀된 버전)이고,
+  # 로컬은 빠른 피드백용이다. 미설치를 green으로 위장하지도 않는다 — 노란 줄로 남긴다.
+  printf '  \033[33m! shellcheck 미설치 — 셸 린트는 CI가 판정 (brew install shellcheck)\033[0m\n'
+else
+  red "shellcheck 위반 (run: scripts/lint-shell.sh)"
+  sed 's/^/    /' "$TMPD/shellcheck" | head -20
+fi
+
 hdr "4. pytest (hook tests)"
+# ruff와 동일한 이유로 러너 버전도 핀한다(§3 참고): pytest는 메이저마다 수집·fixture·
+# deprecation 처리가 바뀌어, 핀이 없으면 CI만 최신으로 떠내려가 "코드 변경 없이 red"가 난다.
+[ -f .pytest-version ] || red ".pytest-version 없음 — CI pytest 설치가 핀을 잃는다"
 if [ -n "$PYTEST_PY" ]; then
+  PY_PINNED="$(cat .pytest-version 2>/dev/null || echo "")"
+  PY_LOCAL_V="$("$PYTEST_PY" -m pytest --version 2>/dev/null | awk '{print $2}')"
+  if [ -n "$PY_PINNED" ] && [ -n "$PY_LOCAL_V" ] && [ "$PY_LOCAL_V" != "$PY_PINNED" ]; then
+    printf '  \033[33m! 로컬 pytest %s ≠ 핀 %s — CI와 판정이 갈릴 수 있다 (pip install pytest==%s)\033[0m\n' \
+      "$PY_LOCAL_V" "$PY_PINNED" "$PY_PINNED"
+  fi
   # evals 러너 테스트도 게이트에 포함 (최종 재감사 ATK-003: 러너 보안가드 회귀 방지).
   PYTEST_TARGETS="plugins/common/hooks/tests/"
   [ -d evals/tests ] && PYTEST_TARGETS="$PYTEST_TARGETS evals/tests/"
@@ -153,7 +191,9 @@ fi
 # Context7/Tavily/mcp__를 자기 능력으로 지시 금지(web-research 스킬 위임 문맥은 허용).
 # 미설치 소비자 환각(CC #13898) 방지 — frontmatter-only 가드의 산문 맹점 보완(적대리뷰 ATK-004).
 MCP_VIOL=0
-for f in $(find plugins/common/agents -name "*.md" 2>/dev/null); do
+# `< <(find -print0)`: 파이프가 아니라 프로세스 치환이어야 한다 — `find | while`로 쓰면
+# 루프가 서브셸에서 돌아 red()의 FAIL 증가와 MCP_VIOL 대입이 통째로 버려진다(false-green).
+while IFS= read -r -d '' f; do
   fm=$(awk 'NR==1&&/^---/{fr=1;next} fr&&/^---/{exit} fr{print}' "$f")
   printf '%s' "$fm" | grep -q "mcp__" && { red "MCP: frontmatter에 mcp__ — $f"; MCP_VIOL=1; }
   # 산문이 Context7/Tavily/mcp__를 언급하면서 web-research 위임 문맥이 없으면 위반
@@ -161,7 +201,7 @@ for f in $(find plugins/common/agents -name "*.md" 2>/dev/null); do
   if grep -qE "Context7|Tavily|mcp__" "$f" && ! grep -q "web-research" "$f"; then
     red "MCP: 에이전트 산문이 MCP를 자기 능력으로 지시(스킬 위임 아님) — $f"; MCP_VIOL=1
   fi
-done
+done < <(find plugins/common/agents -name "*.md" -print0 2>/dev/null)
 [ "$MCP_VIOL" -eq 0 ] && green "MCP: 배포 에이전트 frontmatter·산문 모두 MCP 미배선(스킬 위임)"
 
 hdr "8. Durable checklist 완료 게이트 (active Work, W-013)"

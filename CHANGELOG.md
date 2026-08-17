@@ -27,8 +27,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`uv --relocatable`의 `#!/bin/sh` 래퍼)는 판정 불가로 보고 **침묵**한다.
 - 경고 문자열은 shebang을 `!r`로 감싼다 — 파일에서 읽은 값이 터미널 이스케이프를
   그대로 stderr에 흘리지 못하게 (`core.hooksPath` 경고와 동일 관례).
-- 회귀 테스트 6건 추가 (stale 감지 / 정상 venv / 심링크 python / relocatable /
-  venv 부재 / 이스케이프) — 총 284 passed. python 3.9 로드·런타임 동작 확인.
+- **판정 불가 shebang은 예외를 흘리지 않는다**: NUL이 박힌 경로에서 `os.path.realpath`는
+  OSError가 아니라 **ValueError**를 낸다. 이게 새어나가면 같은 try 안의 후속 검사
+  (dual-load 감지)가 통째로 사라져, 침묵 실패를 막으려던 코드가 새 침묵 실패를 만든다.
+  적대적 검수에서 재현 → `except (OSError, ValueError)` + 회귀 테스트로 고정.
+- 회귀 테스트 9건 추가 (stale 감지 / `venv` 디렉토리 / 정상 venv / 심링크 python /
+  relocatable / venv 부재 / 이스케이프 / SessionStart 계약 / 깨진 shebang 격리) —
+  총 287 passed. python 3.9 로드·런타임 동작 확인.
+
+### Security — 게이트가 world-writable `/tmp` 경로를 인터프리터로 실행할 수 있었다
+
+`verify-done.sh`와 `evals/run.py`가 pytest/ruff 후보로 `/tmp/ckkit-venv/bin/{python,ruff}`를
+탐색했다. `/tmp`는 world-writable이고 이름이 예측 가능하므로, 아무 로컬 사용자나 거기에
+인터프리터를 심어두면 **게이트 실행자의 권한으로 임의 코드가 돌 수 있었다**. 같은
+스크립트가 임시 출력에 대해서는 "예측 가능한 /tmp 고정 이름 = 심링크 선점 위험"이라며
+`mktemp`를 쓰고 있었다 — 실행 대상이면 위험은 오히려 더 크다.
+
+- 세 곳 전부 제거. 게다가 **죽은 참조**였다: `evals/run.py` 주석은 "verify-done.sh가
+  만드는 공용 venv"라고 주장했지만 그걸 만드는 코드는 레포 어디에도 없다.
+- `# noqa: S108`(bandit hardcoded-tmp 억제)도 함께 제거 — 이제 파이썬 쪽 재발은
+  ruff가 자동으로 잡는다. 레포 밖 venv는 activate해서 `python3` 후보로 잡으면 된다.
+
+### Added — 셸 스크립트 린트 (`scripts/lint-shell.sh` + CI, 핀+체크섬)
+
+완료 게이트와 설치 스크립트가 셸인데 파이썬만 린트하고 있었다 — "완료"를 판정하는
+코드가 정작 무검사였다.
+
+- `scripts/lint-shell.sh`가 **단일 소스**: 대상 목록(확장자 + shebang 판별, 그래서
+  확장자 없는 `setup/pre-commit`도 포함)과 심각도 임계값(`-S warning`)을 여기만 둔다.
+  CI와 `verify-done.sh §3b`가 이 커맨드를 그대로 호출 — 목록 이중화 금지(F-023).
+- shellcheck는 `.shellcheck-version`에 핀 + CI가 릴리스 tarball sha256 검증. 러너
+  기본 shellcheck는 버전이 떠다녀 "코드 변경 없이 red"를 만든다.
+- 미설치는 로컬에서 **노란 줄**(권위 판정은 핀된 CI), 위반은 red. green 위장 없음.
+- 검출된 warning 5건 수정. 그중 `verify-done.sh`의 MCP 가드는 `for f in $(find …)`
+  → `while read -d '' … done < <(find -print0)`로 바꿨다. **파이프가 아니라 프로세스
+  치환**이어야 한다 — `find | while`로 썼으면 루프가 서브셸에서 돌아 `red()`의 FAIL
+  증가가 통째로 버려지는 false-green이 됐다. 위반 주입으로 검출 동작 재확인.
+
+### Changed — pytest도 버전을 핀한다 (`.pytest-version`)
+
+CI가 `pip install pytest`로 **핀 없이** 설치하고 있었다. 레포가 ruff를 핀한 이유
+("도구 기본 동작이 릴리스마다 바뀌어 코드 변경 없이 CI가 red")가 테스트 러너에는
+적용돼 있지 않았다 — pytest는 수집·fixture·deprecation 처리가 메이저마다 달라진다.
+
+- `.pytest-version`(= 9.1.1) 추가, CI가 정확히 그 버전 설치.
+- `verify-done.sh §4`: 파일 부재는 red, 로컬 pytest ≠ 핀은 노란 경고 (§3 ruff와 대칭).
+- 두 핀은 dev venv 재현의 단일 소스이기도 하다 — 이번 디렉토리 이동에서 venv를
+  복구할 때 설치 목록을 옛 freeze에서 고고학하듯 되살려야 했던 부채를 없앤다.
 
 ## [2.12.3] — 2026-08-07
 
