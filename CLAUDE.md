@@ -188,7 +188,11 @@ Located in `plugins/common/hooks/` (except `session-check.py`, which lives in
 `plugins/common/setup/`):
 
 - `session-check.py` — `SessionStart` environment/setup check (runs before
-  `session-start.py`; registered from `setup/`)
+  `session-start.py`; registered from `setup/`). Warns on: python below the 3.9
+  floor, missing global setup, `.claude/agents` dual-load, and a **stale venv**
+  (`.venv`/`venv` console-script shebangs still pointing at the project's old
+  path after a directory move/copy — `bin/python` keeps working while every
+  script dies with `bad interpreter`, or silently runs the old site-packages)
 - `session-start.py` — injects rules + active Work status at `SessionStart`
 - `protect-sensitive.py` — `PreToolUse` on Edit/Write/MultiEdit/NotebookEdit/Read:
   blocks access to **sensitive file paths** (`.env`, keys, `.pem`) by path. env

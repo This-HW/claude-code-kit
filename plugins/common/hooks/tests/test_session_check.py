@@ -62,6 +62,93 @@ def test_no_python_warning_on_supported_version(tmp_path, monkeypatch, capsys):
     assert "3.9+" not in capsys.readouterr().err
 
 
+# ── stale venv 감지 (프로젝트 디렉토리 이동/복사) ────────────────────────────
+#
+# venv의 콘솔 스크립트(pytest·pip·ruff …)는 생성 시점의 **절대경로** shebang이 구워진다.
+# 프로젝트를 옮기면 `.venv/bin/python`(진짜 바이너리)은 계속 동작하는데 스크립트는 전부
+# "bad interpreter"로 죽는다 — 더 나쁜 경우, 옛 경로가 남아 있으면 옛 venv의
+# site-packages로 **조용히** 실행된다. 둘 다 침묵 실패라 경고가 유일한 관측 통로다.
+
+
+def _init_repo(tmp_path):
+    """전역 templateDir 영향을 받지 않는 빈 git 저장소를 만든다(테스트 격리)."""
+    empty_tpl = tmp_path / "empty-template"
+    empty_tpl.mkdir()
+    subprocess.run(
+        ["git", "init", "-q", f"--template={empty_tpl}", str(tmp_path)],
+        capture_output=True,
+        timeout=30,
+        check=True,
+    )
+
+
+def _make_venv(root, interp, name=".venv"):
+    """shebang이 `interp`를 가리키는 콘솔 스크립트 하나를 가진 가짜 venv."""
+    bindir = root / name / "bin"
+    bindir.mkdir(parents=True)
+    script = bindir / "pytest"
+    script.write_text(f"#!{interp}\n# -*- coding: utf-8 -*-\n")
+    script.chmod(0o755)
+    return root / name
+
+
+def _run_in_repo(tmp_path, monkeypatch):
+    _init_repo(tmp_path)
+    return _run_isolated(tmp_path, monkeypatch)
+
+
+def test_warns_when_venv_shebang_points_outside_project(tmp_path, monkeypatch, capsys):
+    """디렉토리 이동 후의 stale venv — 경고가 없으면 원인 파악에 한참 걸린다."""
+    _make_venv(tmp_path, "/old/path/claude-code-kit/.venv/bin/python")
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    err = capsys.readouterr().err
+    assert ".venv" in err
+    assert "/old/path/claude-code-kit/.venv/bin/python" in err
+
+
+def test_no_venv_warning_when_shebang_is_inside_project(tmp_path, monkeypatch, capsys):
+    """정상 venv를 stale로 오탐하면 경고가 노이즈가 되어 아무도 안 읽는다."""
+    _make_venv(tmp_path, str(tmp_path / ".venv/bin/python"))
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    assert "venv" not in capsys.readouterr().err
+
+
+def test_venv_warning_escapes_control_chars_from_shebang(tmp_path, monkeypatch, capsys):
+    """shebang은 파일에서 읽은 값 — 터미널 이스케이프를 그대로 stderr에 흘리지 않는다."""
+    _make_venv(tmp_path, "/old/\x1b[2Jpath/python")
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    err = capsys.readouterr().err
+    assert ".venv" in err
+    assert "\x1b" not in err
+
+
+def test_no_venv_warning_when_venv_python_is_a_symlink(tmp_path, monkeypatch, capsys):
+    """실제 venv의 `bin/python`은 시스템 python으로 가는 **심링크**다.
+
+    shebang 경로를 그대로 resolve()하면 링크를 따라 venv 밖으로 나가버려 멀쩡한 venv를
+    전부 stale로 오탐한다(이 프로젝트의 실제 venv에서 재현됨). 판정은 링크를 따라가지
+    않는 디렉토리 기준이어야 한다.
+    """
+    venv = _make_venv(tmp_path, str(tmp_path / ".venv/bin/python"))
+    outside = tmp_path / "system-python"
+    outside.write_text("#!/bin/sh\n")
+    (venv / "bin" / "python").symlink_to(outside)
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    assert "venv" not in capsys.readouterr().err
+
+
+def test_no_venv_warning_for_relocatable_shebang(tmp_path, monkeypatch, capsys):
+    """`#!/bin/sh` 래퍼(uv --relocatable 등)는 절대경로 python이 없다 → 판정 불가 → 침묵."""
+    _make_venv(tmp_path, "/bin/sh")
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    assert "venv" not in capsys.readouterr().err
+
+
+def test_no_venv_warning_when_no_venv_exists(tmp_path, monkeypatch, capsys):
+    assert _run_in_repo(tmp_path, monkeypatch) == 0
+    assert "venv" not in capsys.readouterr().err
+
+
 def test_subprocess_run_never_blocks_session(tmp_path):
     """실제 프로세스로도 계약 확인 — in-process 테스트가 놓치는 import-time 오류 포함."""
     r = subprocess.run(

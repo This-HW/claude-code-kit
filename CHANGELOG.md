@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.12.4] — 2026-08-17
+
+### Added — session-check: 프로젝트 디렉토리 이동 후의 stale venv 감지
+
+이 레포를 다른 경로로 옮기면서 실제로 밟은 침묵 실패다. venv 콘솔 스크립트
+(`pytest`·`pip`·`ruff` …)에는 생성 시점의 **절대경로** shebang이 구워지는데,
+`bin/python`은 shebang 없는 진짜 바이너리라 계속 동작한다. 그래서 증상이
+"python은 되는데 pytest만 `bad interpreter`"로 쪼개지고, 옛 경로가 아직 살아 있으면
+**옛 venv의 site-packages로 조용히** 실행된다. 어떤 파이썬 프로젝트든 디렉토리를
+옮기거나 복사하면 걸리는 소비자 환경 결함이라 훅이 한 줄 경고로 관측 가능하게 만든다.
+
+- `setup/session-check.py`: repo 루트의 `.venv`/`venv`에서 콘솔 스크립트 shebang을
+  훑어(앞쪽 40개 제한) 절대경로 python이 이 venv의 `bin` 밖을 가리키면 경고 + 재생성
+  명령 안내. SessionStart 계약대로 **fail-open**(경고만, 세션 차단 없음).
+- **오탐 억제**: 판정은 심링크를 따라가지 않는 **디렉토리 기준** 비교다. venv의
+  `bin/python`은 보통 시스템 python으로 가는 심링크라, shebang 경로를 그대로
+  `resolve()`하면 멀쩡한 venv가 전부 stale로 잡힌다 (이 레포 실제 venv에서 재현 →
+  회귀 테스트로 고정). 절대경로 python shebang이 없는 relocatable venv
+  (`uv --relocatable`의 `#!/bin/sh` 래퍼)는 판정 불가로 보고 **침묵**한다.
+- 경고 문자열은 shebang을 `!r`로 감싼다 — 파일에서 읽은 값이 터미널 이스케이프를
+  그대로 stderr에 흘리지 못하게 (`core.hooksPath` 경고와 동일 관례).
+- 회귀 테스트 6건 추가 (stale 감지 / 정상 venv / 심링크 python / relocatable /
+  venv 부재 / 이스케이프) — 총 284 passed. python 3.9 로드·런타임 동작 확인.
+
 ## [2.12.3] — 2026-08-07
 
 ### Fixed — protect-sensitive: 파일명 'token' substring 오탐 완화 (외부 사용 보고)

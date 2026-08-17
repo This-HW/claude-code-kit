@@ -12,6 +12,56 @@ SETUP_DIR = pathlib.Path(__file__).resolve().parent  # plugins/common/setup/
 
 warnings = []
 
+
+def stale_venv_interp(venv_dir):
+    """venv 콘솔 스크립트의 shebang이 이 venv 밖 python을 가리키면 그 경로를 반환한다.
+
+    venv 스크립트(pytest·pip·ruff …)에는 생성 시점의 **절대경로** shebang이 구워진다.
+    프로젝트 디렉토리를 옮기거나 복사하면 그 경로가 이전 위치에 고정된 채 남는데,
+    `bin/python`은 진짜 바이너리(shebang 없음)라 계속 동작한다. 그래서 증상이
+    "python은 되는데 pytest만 bad interpreter"로 쪼개져 원인 파악이 오래 걸리고,
+    옛 경로가 아직 살아 있으면 **옛 venv의 site-packages로 조용히** 실행된다.
+
+    판정 불가(절대경로 python shebang이 하나도 없는 relocatable venv 등)면 None —
+    오탐 경고는 노이즈가 되어 전체 경고를 안 읽게 만든다. 침묵이 낫다.
+    스캔은 bin 앞쪽 40개로 제한한다(SessionStart 지연 방지).
+    """
+    bindir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
+    if not bindir.is_dir():
+        return None
+    try:
+        bindir_real = os.path.realpath(bindir)
+        entries = sorted(bindir.iterdir())[:40]
+    except OSError:
+        return None
+    for entry in entries:
+        try:
+            with open(entry, "rb") as fh:
+                first = fh.readline(512)
+        except OSError:
+            continue  # 디렉토리·깨진 심링크·권한 — 다음 후보로
+        if not first.startswith(b"#!"):
+            continue  # 바이너리(bin/python 본체 포함) 또는 shebang 없는 파일
+        tokens = first[2:].decode("utf-8", "replace").strip().split()
+        if not tokens:
+            continue
+        interp = tokens[0]
+        if not os.path.isabs(interp):
+            continue  # `#!/usr/bin/env python` 류 — venv 귀속을 판정할 수 없다
+        if not os.path.basename(interp).startswith("python"):
+            continue  # `#!/bin/sh` 래퍼(uv --relocatable 등)
+        # 링크를 **따라가지 않고** 디렉토리 기준으로 비교한다. venv의 `bin/python`은
+        # 보통 시스템 python으로 가는 심링크라, shebang 경로 자체를 resolve()하면
+        # 멀쩡한 venv도 전부 "밖을 가리킨다"로 오탐한다.
+        try:
+            if os.path.realpath(os.path.dirname(interp)) != bindir_real:
+                return interp
+        except OSError:
+            continue
+        return None  # 정상 shebang 확인 — 더 볼 필요 없다
+    return None
+
+
 # ── 1. 설정 체크 / 경고 ──────────────────────────────────────────────────────
 try:
     # 1z. python floor — 훅은 이 인터프리터로 실행된다. 3.9 미만이면 다른 훅들이
@@ -93,6 +143,19 @@ try:
         except subprocess.TimeoutExpired:
             warnings.append("git config core.hooksPath 시간 초과")
             git_hooks_dir = repo_root / ".git/hooks"
+
+        # 1c. stale venv 감지 — 프로젝트 디렉토리 이동/복사 후의 침묵 실패 (stale_venv_interp 참고)
+        for venv_name in (".venv", "venv"):
+            stale_interp = stale_venv_interp(repo_root / venv_name)
+            if stale_interp:
+                warnings.append(
+                    # !r — shebang은 파일에서 읽은 값이다. 터미널 이스케이프가 섞여도
+                    # 그대로 렌더되지 않도록 repr로 감싼다(core.hooksPath 경고와 동일 관례).
+                    f"{venv_name} 스크립트의 shebang이 프로젝트 밖 python을 가리킵니다 "
+                    f"({stale_interp!r}) — 디렉토리 이동/복사 후 stale 상태입니다. "
+                    f"재생성: rm -rf {venv_name} && python3 -m venv {venv_name} (의존성 재설치)"
+                )
+                break
 
         # D-015: dual-load 감지 (CR-07)
         claude_agents = repo_root / ".claude/agents"
