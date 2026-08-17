@@ -817,6 +817,21 @@ Or remove the `Stop` section entirely to disable all stop validation.
 
 ---
 
+## [2.1.0] — 2026-04-24
+
+> 이 항목은 릴리스 당시 누락됐다가 **2026-08-17에 git 이력에서 사실만 복원**한 것이다
+> (PR #1 `feat/discipline-layer`, 커밋 `5e7f6f7`·`9c65c73`·`2b5bd12`). 당시 의도를
+> 기억으로 채우지 않고, 실제 diff에 있는 변경만 적는다.
+
+### Changed — discipline layer
+
+- `auto-dev`: fallback 모드 조건을 "Work ID 없음"에서 **"`docs/works/` 폴더 자체가 없는
+  경우"**로 정정. Work ID 없이 새 요청으로 진입하는 경우(`/auto-dev <요청>`)와 구분된다.
+- `brainstorming`: Task 네이밍 규약 `[Brainstorm] {항목명}` 명시(plan-task의 `[Planning]`
+  Task와 구분) + brainstorming 단계는 Work ID가 없으므로 metadata를
+  `{"phase": "brainstorming"}`만 사용하도록 고정.
+- `test_session_start_workflow.py`: 앰비언트 환경 의존을 monkeypatch로 격리.
+
 ## [2.0.0] — 2026-04-22
 
 ### Breaking Changes
