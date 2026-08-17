@@ -35,6 +35,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   relocatable / venv 부재 / 이스케이프 / SessionStart 계약 / 깨진 shebang 격리) —
   총 287 passed. python 3.9 로드·런타임 동작 확인.
 
+### Fixed — 릴리스 태그가 20개 릴리스 동안 조용히 끊겨 있었다
+
+태그는 v2.10.4(2026-07-09)에서 멈췄고 이후 2.10.5~2.12.3의 **20개 릴리스가 무태그**였다.
+릴리스 체크리스트에 태그 항목이 아예 없어서, 관례가 끊긴 사실을 아무도 몰랐다.
+
+- 20개 태그 소급 부여. 규칙: **plugin.json이 그 버전이었던 마지막 커밋**(= 해당 버전
+  소비자가 받을 수 있었던 트리). 부여 전 28개 태그 전부 "태그가 가리키는 커밋의
+  plugin.json == 태그 버전"으로 검증(불일치 0).
+- 기존 8개 태그는 규칙이 제각각(범프 커밋/마지막 커밋/그 외)이라 **건드리지 않았다** —
+  이미 공개된 ref를 옮기는 건 파괴적이고 얻는 게 없다. CLAUDE.md에 그 사실을 명시.
+- `v2.6.0-with-domains`는 v2.6.0과 동일 커밋이라 중복으로 보였으나 CHANGELOG와
+  `docs/marketplace-submission.md`가 **참조 중**이라 유지했다(지웠으면 문서가 깨진다).
+- `verify-done.sh §6`에 기계 검사 추가: CHANGELOG의 과거 릴리스에 태그가 없으면 FAIL.
+  최상단(작업 중 버전)은 제외. 산문 규율은 또 끊긴다 — 그래서 게이트로 옮겼다.
+
 ### Security — 게이트가 world-writable `/tmp` 경로를 인터프리터로 실행할 수 있었다
 
 `verify-done.sh`와 `evals/run.py`가 pytest/ruff 후보로 `/tmp/ckkit-venv/bin/{python,ruff}`를

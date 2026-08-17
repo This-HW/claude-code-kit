@@ -165,6 +165,21 @@ if python3 scripts/check_doc_counts.py; then
 else
   red "doc counts drift (상세는 위 check_doc_counts.py 출력)"
 fi
+# 릴리스 태그 sync — CHANGELOG의 **과거** 릴리스는 전부 태그가 있어야 한다.
+# 최상단(=지금 작업 중인 버전)은 아직 커밋 전일 수 있으므로 제외한다.
+# 실제로 v2.10.4 이후 20개 릴리스가 무태그로 방치됐다(2026-08-17 소급 부여) —
+# 관례가 조용히 끊긴 것을 아무도 몰랐던 게 문제라 산문 대신 기계 검사로 못박는다.
+# 로컬 전용 검사다(CI의 shallow checkout은 태그를 안 가져온다).
+MISSING_TAGS=""; _skip_top=1
+for v in $(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'); do
+  if [ "$_skip_top" -eq 1 ]; then _skip_top=0; continue; fi
+  git rev-parse -q --verify "refs/tags/v$v" >/dev/null 2>&1 || MISSING_TAGS="$MISSING_TAGS v$v"
+done
+if [ -n "$MISSING_TAGS" ]; then
+  red "릴리스 태그 누락:$MISSING_TAGS — 릴리스 후 'git tag -a vX <릴리스 커밋>' + push --tags"
+else
+  green "릴리스 태그 sync: 과거 릴리스 전부 태그 존재"
+fi
 
 hdr "7. stale 참조 (hooks.json + rules/agents가 가리키는 스크립트 존재)"
 MISSING=0

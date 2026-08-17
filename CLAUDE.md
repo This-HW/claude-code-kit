@@ -297,6 +297,15 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
   the plugin.json version and the CHANGELOG top entry diverge)
 - Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
 - Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
+- Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`,
+  then `git push --tags`. Later commits that leave the version untouched (docs, repo
+  tooling) are not a new release and do not move the tag. `verify-done.sh §6` fails when
+  any past CHANGELOG release lacks a tag — the practice lapsed silently once (20 untagged
+  releases between 2.10.4 and 2.12.3), so it is a machine check now, not a convention.
+  Two caveats on existing tags: the 2026-08-17 backfill could not recover which commit was
+  actually pushed as each old release, so it used the closest approximation — the last
+  commit carrying that version; and tags predating v2.11.0 were placed ad hoc and follow
+  no single rule. Every tag does point at a commit whose `plugin.json` matches it.
 - Run `scripts/verify-done.sh` (green) before claiming a release ready (definition-of-done)
 
 ```bash
