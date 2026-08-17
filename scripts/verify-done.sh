@@ -202,6 +202,14 @@ elif (cd plugins/common/rules && $_SHA *.md 2>/dev/null | grep -v CHECKSUMS | di
 else
   red "rules CHECKSUMS 불일치/신규 파일 — 재생성: (cd plugins/common/rules && $_SHA *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)"
 fi
+# 룰 해설본 미러 동기 — 검사 로직은 scripts/sync-rule-mirror.sh 가 단일 소스.
+# docs/architecture/rules/ 가 주입 룰보다 뒤처지면 FAIL (실제로 3건 드리프트했었다).
+if ./scripts/sync-rule-mirror.sh >"$TMPD/mirror" 2>&1; then
+  green "rules 해설본 미러 동기 (docs/architecture/rules ↔ plugins/common/rules)"
+else
+  red "rules 해설본 미러 드리프트 (run: scripts/sync-rule-mirror.sh)"
+  sed 's/^/    /' "$TMPD/mirror" | head -10
+fi
 # 배포 에이전트 MCP 미배선 가드 (W-015): frontmatter tools에 mcp__ 금지 + description/body가
 # Context7/Tavily/mcp__를 자기 능력으로 지시 금지(web-research 스킬 위임 문맥은 허용).
 # 미설치 소비자 환각(CC #13898) 방지 — frontmatter-only 가드의 산문 맹점 보완(적대리뷰 ATK-004).

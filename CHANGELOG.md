@@ -35,6 +35,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   relocatable / venv 부재 / 이스케이프 / SessionStart 계약 / 깨진 shebang 격리) —
   총 287 passed. python 3.9 로드·런타임 동작 확인.
 
+### Fixed — 룰 해설본 미러가 조용히 드리프트했다 (그중 1건은 north-star와 모순)
+
+`docs/architecture/rules/`(9)는 주입 룰의 장문 해설본인데(W-004 신설), 둘을 잇는 장치가
+없어 어긋난 걸 아무도 몰랐다. 감사 결과 3건이 주입 룰보다 뒤처져 있었다:
+
+- **`planning-check`** — 해설본이 "1순위 docs/planning → 2순위 Notion MCP → 3순위 Figma
+  MCP" 로 **MCP 설치를 전제**했다. 주입 룰은 v2.10.4에서 이미 "(설치돼 있으면) … 없으면
+  건너뛴다 — 설치를 가정하지 않는다"로 고쳐졌는데 해설본만 옛말이었다. consumer-first
+  north-star와 정면 모순이라 3건 중 가장 무겁다.
+- **`task-resume`** — `{"phase": "brainstorming"}` 고아 태스크 처리(v2.10.3) 누락.
+- **`agent-delegation-chain`** — leaf 중첩 금지·`ultracode` 위임 근거(2.6.0) 누락.
+  해설본이 DELEGATION_SIGNAL 형식을 **재정의**하는 구조라 드리프트가 재발하기 쉬웠다 →
+  "형식의 정본은 주입 룰, 여기는 설명"임을 머리말에 명시.
+
+- **재발 방지**: `docs/architecture/rules/MIRROR.sha256` — 해설본이 마지막으로 반영한
+  주입 룰의 sha256을 기록. `scripts/sync-rule-mirror.sh`가 검사/재생성의 단일 소스이고
+  `verify-done §7`이 이를 호출한다(드리프트 주입·복원으로 양방향 확인). 재생성은 의식적
+  행위여야 해서 자동 갱신하지 않는다 — 자동이면 검사가 무의미하다.
+- 미러가 없는 4개 룰(definition-of-done·feedback-loop·loop-engineering·parallel-worktree)은
+  **의도적 무미러**임을 CLAUDE.md에 명시. "빠뜨린 것"과 구분되지 않던 상태를 없앤다.
+
+### Fixed — GitHub Actions Node 20 런타임 (2026-09-16 제거 예정)
+
+CI가 green이면서 남기던 deprecation annotation을 추적했더니 **시한이 있었다**: 2026-06-02에
+러너 기본이 Node 24로 바뀌었고(현재는 강제 실행으로 통과 중), **2026-09-16에 Node 20이
+러너에서 완전 제거**된다. 그때 CI는 코드 변경 없이 죽는다.
+
+- 핀된 액션 6종을 Node 24 런타임 버전으로 상향(SHA 핀 유지):
+  `checkout` v4→v7, `setup-python` v5→v7, `gitleaks-action` v2→v3,
+  `configure-pages` v5→v6, `upload-pages-artifact` v3→v5, `deploy-pages` v4→v5.
+- gitleaks v3는 릴리스 노트상 **런타임 이관만**(입출력·동작 변경 없음)이라 설정 무변경.
+- `pages.yml`도 함께 상향 — 처음엔 `validate.yml`만 보고 있었는데 워크플로가 2개였다.
+
 ### Fixed — 릴리스 태그가 20개 릴리스 동안 조용히 끊겨 있었다
 
 태그는 v2.10.4(2026-07-09)에서 멈췄고 이후 2.10.5~2.12.3의 **20개 릴리스가 무태그**였다.

@@ -2,6 +2,14 @@
 
 > 이 문서는 메인 Claude가 에이전트 결과를 받아 다음 에이전트로 자동 위임하는 체인 메커니즘을 설명합니다.
 
+> **DELEGATION_SIGNAL 형식의 정본은 `plugins/common/rules/agent-delegation-chain.md`**
+> (세션에 주입되는 룰)이다. 아래 §4의 TYPE별 예시는 그 정의를 **설명**하는 것이지
+> 재정의가 아니다 — 형식이 바뀌면 정본을 먼저 고친다.
+
+> **leaf 에이전트는 중첩하지 않는다.** 네이티브 중첩 서브에이전트가 가능해도, 이 레포
+> 스케일에서 leaf 중첩은 성능 이득 없이 예측불가능성·디버깅 부채만 더한다. 대규모 병렬은
+> 네이티브 `ultracode`로 위임한다 (Spec 2 / W-006, `CLAUDE.md` → Orchestration Model).
+
 ---
 
 ## 1. 핵심 원칙

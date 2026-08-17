@@ -97,9 +97,12 @@ ALWAYS stop and verify specs first.
      ▼
 문서 검색 순서:
   1순위: docs/planning/ (로컬 기획 문서)
-  2순위: Notion MCP (팀 위키)
-  3순위: Figma MCP (UI 명세)
+  2순위: Notion MCP (팀 위키)      ← 설치돼 있을 때만
+  3순위: Figma MCP (UI 명세)       ← 설치돼 있을 때만
   4순위: GitHub Issues (요구사항 이슈)
+
+  ※ MCP는 소비자마다 설치가 다르다. 없으면 그냥 건너뛴다 —
+    설치를 가정하지 않는다 (consumer-first north-star).
      │
      ├─ 문서에서 답변 찾음 ──────► 문서 기반으로 구현
      │                              결정 근거를 코드 주석에 기록

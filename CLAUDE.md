@@ -269,6 +269,25 @@ python3 -m venv .venv
 ./.venv/bin/python -m pip install "pytest==$(cat .pytest-version)" "ruff==$(cat .ruff-version)"
 ```
 
+### Rules have a long-form mirror — and it is checksum-guarded
+
+`plugins/common/rules/` (13) is what gets **injected every session**, so it is compressed.
+`docs/architecture/rules/` (9) is the long-form human explanation of nine of those rules,
+created in W-004 — tables, worked examples, anti-patterns. The remaining four
+(`definition-of-done`, `feedback-loop`, `loop-engineering`, `parallel-worktree`) have no
+mirror by design; the injected rule is the whole story for them.
+
+Nothing linked the two, so they drifted silently — a 2026-08-17 audit found three behind,
+and the `planning-check` mirror still told readers to search Notion/Figma MCP in order,
+**assuming those MCPs are installed**, which contradicts the consumer-first north-star.
+`docs/architecture/rules/MIRROR.sha256` now records, per mirrored rule, the sha256 of the
+injected rule the explanation last reflected. `verify-done.sh §7` fails when they diverge;
+`scripts/sync-rule-mirror.sh --regenerate` updates it. Regeneration is deliberate on
+purpose — auto-updating the manifest would make the check meaningless.
+
+Normative statements live in the injected rule. The mirror explains and points at it; it
+must not redefine anything, or the drift comes back through the front door.
+
 ### Shell is linted too
 
 The completion gate (`verify-done.sh`) and the installer (`setup.sh`) *are* shell —
@@ -297,6 +316,7 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
   the plugin.json version and the CHANGELOG top entry diverge)
 - Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
 - Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
+- 그 룰에 **해설본 미러**가 있으면(아래 참조) 해설본도 함께 손보고 `scripts/sync-rule-mirror.sh --regenerate`
 - Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`,
   then `git push --tags`. Later commits that leave the version untouched (docs, repo
   tooling) are not a new release and do not move the tag. `verify-done.sh §6` fails when
