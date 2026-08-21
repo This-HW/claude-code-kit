@@ -6,6 +6,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [2.13.0] — 2026-08-21
+
+### Breaking — 에이전트 스코프 식별자에서 중복 세그먼트 제거
+
+플러그인 서브에이전트는 `agents/` 아래 **하위 폴더가 스코프 식별자에 포함**된다.
+`agents/dev/review-code/review-code.md`처럼 같은 이름 디렉토리에 파일 하나만 든 구조가
+3건 남아 있어, 실제 호출명이 `claude-code-kit:dev:review-code:review-code`로 중복됐다.
+2.13.0 이전 호출명을 직접 참조하는 코드가 있으면 아래 이름으로 고쳐야 한다.
+
+- `agents/dev/review-code/review-code.md` → `agents/dev/review-code.md`
+- `agents/dev/implement-code/implement-code.md` → `agents/dev/implement-code.md`
+- `agents/dev/plan-implementation/plan-implementation.md` → `agents/dev/plan-implementation.md`
+
+새 호출명: `claude-code-kit:dev:review-code` / `…:dev:implement-code` /
+`…:dev:plan-implementation`.
+
+**발견 경위(실측):** 위임 A/B 실험 트랜스크립트에서 짧은 이름
+(`claude-code-kit:dev:review-code`) 호출이 실패한 뒤 중복 이름으로 재시도해 성공하는
+로그가 잡혔다. 3회 중 1회에서 낭비 호출이 발생했다. 이 구조는 v1.1.1
+(`fix: hook JSON validation + flatten references dir`)에서 참조 파일만 걷어내고 남은
+빈 껍데기 디렉토리의 잔재다. 레포 내 긴 이름 참조는 0건이었고,
+`evals/run.py`는 `rglob(f"{name}.md")`로 찾으므로 영향 없음(검증함).
+
+### Added — rules: 서브에이전트 위임 상시 사전 승인 조항
+
+`rules/agent-delegation-chain.md` 최상단에 상시 위임 승인 조항을 추가했다. SessionStart
+훅의 `ALWAYS_RULES`가 이미 이 파일을 주입하므로 새 훅·새 파일 없이 적용된다.
+
+**실측 근거(2026-08-21, n=3+3):** 동일 과제·동일 레포에서 승인문구 없는 조건 메인 루프
+Agent 직접 호출 **0/3**, `--append-system-prompt`로 문단만 주입한 조건 **3/3**.
+Fisher exact 단측 p=0.05 경계값 — 표본 확대 필요.
+
+억제 원인은 미규명이다. Claude Code v2.1.219+의 서버사이드 섹션 `heron_brook`
+("Do not call the AgentTool unless the user requested it", Opus 5 전용, 문서화된
+opt-out 없음, anthropics/claude-code#80988)이 유력 후보이나 위 실측은 Sonnet 5
+세션이라 해당 문자열이 부재했다. 조항은 그 인과를 전제하지 않는다 — 원인과 무관하게
+위임 사전 승인은 이 프로젝트의 의도된 정책이다. 결정론적 보장이 필요한 단계는 Stop 훅이
+담당한다.
+
+### Fixed — multi-perspective-review frontmatter 파손
+
+2.0.0에서 스킬 frontmatter의 비표준 필드 `allowed-tools`를 걷어낼 때 **키 줄만 지우고
+값 리스트 6줄이 남았다**. YAML 파싱 에러는 아니지만 plain scalar multiline으로 흡수되어
+`effort` 값이 `'max - Read - Glob - Grep - Task - Write - AskUserQuestion'`이 됐다
+(유효값은 `low|medium|high|xhigh|max`). 2.0.0의 원래 의도대로 고아 리스트를 제거해
+`effort: max`로 복구했다.
+
+---
+
 ## [2.12.4] — 2026-08-17
 
 ### Added — session-check: 프로젝트 디렉토리 이동 후의 stale venv 감지
