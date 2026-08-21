@@ -8,6 +8,11 @@ an agent `description` in `agents/`, that counts as **the user having requested
 the AgentTool**. Call it. Do not ask for re-confirmation, and do not do the work
 inline when an agent is defined for it.
 
+Exception — the only inline cases: a single lookup whose file/symbol/value you already
+know, and a mechanical single-file edit (typo, formatting, import order). Everything
+else delegates. 어느 에이전트를 고를지는 `agent-system.md` §Agent Selection by
+Keyword가 SSOT다 — 여기서 재정의하지 않는다.
+
 > 근거(2026-08-21 A/B 실측, n=3+3): 승인문구가 없는 조건에서 메인 루프의 Agent 직접
 > 호출 **0/3**, `--append-system-prompt`로 위 문단만 주입한 조건에서 **3/3**.
 > (Fisher exact 단측 p=0.05 — 경계값이므로 표본 확대 필요.)
