@@ -3,12 +3,6 @@ name: multi-perspective-review
 description: Multi-perspective collaborative review of plans or documents. Ten expert viewpoints deliberate in 3 rounds to reach consensus.
 model: opus
 effort: max
-  - Read
-  - Glob
-  - Grep
-  - Task
-  - Write
-  - AskUserQuestion
 ---
 
 # multi-perspective-review: 다관점 협업 리뷰
