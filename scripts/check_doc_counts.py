@@ -47,12 +47,27 @@ def count_actuals(root: Path) -> dict:
 
 
 def check_claim(root: Path, rel: str, pattern: str, actual: int, label: str) -> bool:
-    """첫 매치의 숫자를 실측과 대조. 주장 없음 = skip(통과)."""
+    """**모든** 매치의 숫자를 실측과 대조. 주장 없음 = skip(통과).
+
+    첫 매치만 보면 같은 파일에 같은 주장이 여러 번 있을 때 앞의 하나가 뒤를 가린다 —
+    실제로 `site/content/_index.md`의 설명줄이 본문 불릿을 가려, 불릿만 stale해도
+    게이트가 초록이었다(2026-08-23 리뷰 후속 실측). 매직 리터럴에 커플링된 검사가
+    조용히 무력해지는 F-022와 같은 계열이다.
+    """
     p = root / rel
     if not p.exists():
         print(f"{OK} {label}: 파일 없음 (skip)")
         return True
-    m = re.search(pattern, p.read_text(encoding="utf-8"))
+    text = p.read_text(encoding="utf-8")
+    matches = list(re.finditer(pattern, text))
+    if len(matches) > 1:
+        bad = [int(m.group(1)) for m in matches if int(m.group(1)) != actual]
+        if bad:
+            print(f"{NG} {label}: 주장 {bad} ≠ 실제 {actual} ({rel}, 매치 {len(matches)}건)")
+            return False
+        print(f"{OK} {label}: {actual} 일치 (매치 {len(matches)}건 전부)")
+        return True
+    m = matches[0] if matches else None
     if m is None:
         print(f"{OK} {label}: 주장 없음 (skip)")
         return True
@@ -115,6 +130,24 @@ def main() -> int:
     # 배포 플러그인 README (2026-07-29 외부 검증에서 stale 발견된 파일 — 이후 상시 검사)
     ok &= check_claim(root, "plugins/common/README.md", r"(\d+) agents", a["agents"], "agents(common/README)")
     ok &= check_claim(root, "plugins/common/README.md", r"(\d+) skills", a["skills_common"], "skills(common/README)")
+    # 공개 사이트도 카운트를 주장한다. 여기 없으면 README/CLAUDE.md만 갱신되고
+    # 사이트가 조용히 stale해진다 — 게이트의 사각지대였다(2026-08-23 리뷰 지적).
+    # 한국어/영어 페이지는 **어순이 다르다**("19개 스킬" vs "스킬 **19개**"). 한 패턴만
+    # 걸면 한쪽 표기가 아예 매치되지 않아 조용히 skip(통과)된다 — 검사가 있는 척만 한다.
+    site_patterns = [
+        (r"(\d+)\s*개 전문 에이전트", "agents"),
+        (r"에이전트\s*\*\*(\d+)\s*개\*\*", "agents"),
+        (r"(\d+)\s+specialized agents", "agents"),
+        (r"\*\*(\d+)\*\*\s+agents", "agents"),
+        (r"(\d+)\s*개 스킬", "skills"),
+        (r"스킬\s*\*\*(\d+)\s*개\*\*", "skills"),
+        (r"(\d+)\s+skills", "skills"),
+        (r"\*\*(\d+)\*\*\s+skills", "skills"),
+    ]
+    for rel in ("site/content/_index.md", "site/content/_index.en.md"):
+        for pat, kind in site_patterns:
+            actual = a["agents"] if kind == "agents" else a["skills_common"]
+            ok &= check_claim(root, rel, pat, actual, f"{kind}({rel}: {pat[:18]}…)")
 
     if ok:
         print(f"{OK} doc counts: {a['agents']} agents / {a['skills_common']} skills / {a['rules']} rules — 문서와 일치")

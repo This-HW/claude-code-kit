@@ -62,6 +62,8 @@ ignore = [
 # "/tmp/.env" 류는 실제 파일이 아니라 경로 판정을 먹이는 **문자열 픽스처**다.
 "plugins/common/hooks/tests/*.py" = ["E402", "S101", "S108"]
 "evals/tests/*.py" = ["E402", "S101", "S108"]
+# scripts/ 의 게이트 스크립트 테스트도 동일 — 하이픈 파일명이라 importlib로 로드한다.
+"scripts/tests/*.py" = ["E402", "S101", "S108"]
 # 훅의 fail-open 계약: 훅은 어떤 예외로도 세션을 죽이면 안 되고, 항상 안전한
 # 기본값으로 degrade한다(각 사이트에 명시적 폴백 존재 — 예: git 실패 시 cwd).
 # 따라서 광범위 except는 결함이 아니라 설계다. 코드에 noqa를 40여 개 뿌리는 대신

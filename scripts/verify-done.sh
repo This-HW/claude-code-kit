@@ -122,14 +122,75 @@ if [ -n "$PYTEST_PY" ]; then
     printf '  \033[33m! 로컬 pytest %s ≠ 핀 %s — CI와 판정이 갈릴 수 있다 (pip install pytest==%s)\033[0m\n' \
       "$PY_LOCAL_V" "$PY_PINNED" "$PY_PINNED"
   fi
-  # evals 러너 테스트도 게이트에 포함 (최종 재감사 ATK-003: 러너 보안가드 회귀 방지).
-  PYTEST_TARGETS="plugins/common/hooks/tests/"
-  [ -d evals/tests ] && PYTEST_TARGETS="$PYTEST_TARGETS evals/tests/"
-  # shellcheck disable=SC2086
-  if "$PYTEST_PY" -m pytest $PYTEST_TARGETS -q >"$TMPD/pytest" 2>&1; then
-    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1) ($PYTEST_TARGETS)"
+  # 수집 대상은 **pytest.ini의 testpaths가 단일 소스**다 (F-023). 여기서도 CI에서도
+  # 인자 없이 호출한다 — 목록을 양쪽에 적어두면 새 테스트 디렉토리를 한쪽만 등록해
+  # "로컬은 돌고 CI는 안 도는" 구멍이 생긴다. 실제로 scripts/tests/ 추가 때 발생했다.
+  [ -f pytest.ini ] || red "pytest.ini 없음 — 수집 대상 단일소스 소실 (F-023)"
+  # SSOT는 옳지만, 그 SSOT를 한 줄 지우면 테스트 디렉토리 하나가 통째로 사라지면서
+  # 로컬·CI 둘 다 green이 된다(self-disable). 실재하는 테스트 디렉토리가 전부
+  # testpaths에 덮이는지 검사한다 — check_doc_counts의 "표 행 부재 = 실패"와 같은 방어.
+  if [ -f pytest.ini ]; then
+    UNCOVERED=$(python3 - <<'PYEOF'
+import pathlib, re, subprocess, sys
+
+# testpaths 파싱은 INI 연속 줄 규칙을 그대로 따른다: `testpaths =` 다음의 **들여쓴 줄**만
+# 값이고, 들여쓰지 않은 줄에서 끝난다. 주석은 제거한다.
+#   예전 정규식(`(.*?)(?=^\w|\Z)`)은 `#`가 \w가 아니라 주석 블록에서 멈추지 않았고,
+#   주석의 낱말("evals" 같은)이 .split()으로 경로가 됐다. 그 결과 `evals/tests` 한 줄을
+#   지워도 "덮였다"고 판정 — 테스트 50건이 조용히 사라지는데 게이트는 초록이었다.
+#   (2026-08-23 적대적 리뷰가 잡은 self-disable. 이 검사 자체가 false-green이었다.)
+paths = set()
+in_block = False
+for raw in pathlib.Path("pytest.ini").read_text(encoding="utf-8").splitlines():
+    line = raw.split("#", 1)[0].rstrip()
+    if not line:
+        continue
+    if re.match(r"^testpaths\s*=", line):
+        in_block = True
+        rest = line.split("=", 1)[1].strip()
+        paths.update(rest.split())
+        continue
+    if in_block:
+        if raw[:1].isspace():
+            paths.update(line.split())
+        else:
+            break
+if not paths:
+    print("PARSE-FAILED")
+    sys.exit(0)
+
+out = subprocess.run(
+    ["git", "ls-files", "-z", "--", "*test_*.py", "*_test.py"],
+    capture_output=True, text=True, check=False,
+).stdout
+missing = set()
+for f in out.split("\0"):
+    if not f or f.startswith("evals/scenarios/"):
+        continue  # 의도적으로 실패하는 fixture — 수집 대상이 아니다
+    d = str(pathlib.PurePosixPath(f).parent)
+    if not any(d == p or d.startswith(p.rstrip("/") + "/") for p in paths):
+        missing.add(d)
+print(" ".join(sorted(missing)))
+PYEOF
+) || UNCOVERED="PARSE-FAILED"
+    # 검사 스크립트가 죽어도 빈 문자열 → green이 되던 착시를 막는다: 파싱 실패는 red다.
+    if [ "$UNCOVERED" = "PARSE-FAILED" ]; then
+      red "pytest.ini testpaths 파싱 실패 — 커버리지 검사 불가 (검사 불가를 통과로 세지 않는다)"
+    elif [ -n "$UNCOVERED" ]; then
+      red "pytest testpaths 미포함 테스트 디렉토리: $UNCOVERED (수집되지 않아 조용히 미실행)"
+    else
+      green "pytest testpaths 커버리지: 모든 테스트 디렉토리 포함"
+    fi
+  fi
+  "$PYTEST_PY" -m pytest >"$TMPD/pytest" 2>&1; PYTEST_RC=$?
+  # exit 5 = 수집 0. 테스트가 상존하는 레포에서 수집 0은 경로 붕괴 신호이므로 실패다
+  # (CI와 fail-closed 방향 통일).
+  if [ "$PYTEST_RC" -eq 0 ]; then
+    green "pytest: $(grep -oE '[0-9]+ passed' "$TMPD/pytest" | tail -1) (pytest.ini testpaths)"
+  elif [ "$PYTEST_RC" -eq 5 ]; then
+    red "pytest 수집 0 — testpaths 붕괴 (pytest.ini 확인)"
   else
-    red "pytest failed (see: $PYTEST_PY -m pytest $PYTEST_TARGETS)"
+    red "pytest failed (see: $PYTEST_PY -m pytest)"
   fi
 else
   red "pytest unavailable — install pytest to verify tests"
@@ -355,6 +416,58 @@ if [ -f evals/run.py ]; then
   fi
 else
   red "evals/run.py 없음 (fail-closed — W-B 산출물 누락)"
+fi
+
+hdr "12. 에이전트 출력 계약 위치 (W-017)"
+# CLAUDE.md는 "모든 에이전트는 구조화된 delegation signal로 **끝난다**"고 규정한다.
+# 그런데 3종에서 계약이 문서 중간에 있었고(뒤로 186~496줄), 뒤따르는 참고 자료가
+# 컨텍스트의 끝을 차지해 **리뷰 리포트가 실제로 유실됐다**(2026-08-23 실측 2회).
+# 산문 규정만 두면 또 밀린다 — 위치를 기계로 강제한다 (F-027: 규율에는 감지 장치를).
+if python3 - <<'PYEOF'
+import pathlib, sys
+BAD_TAIL = 50  # 계약 언급 뒤에 이만큼 넘게 남으면 끝이 아니다
+bad = []
+for f in sorted(pathlib.Path("plugins").glob("*/agents/**/*.md")):
+    lines = f.read_text(encoding="utf-8").splitlines()
+    idx = [i for i, l in enumerate(lines) if "DELEGATION_SIGNAL" in l or "출력 계약" in l]
+    if not idx:
+        bad.append(f"{f} (계약 없음)")
+        continue
+    tail = len(lines) - (idx[-1] + 1)
+    if tail > BAD_TAIL:
+        bad.append(f"{f} (뒤에 {tail}줄 남음)")
+if bad:
+    print("  " + "\n  ".join(bad))
+    sys.exit(1)
+print(f"에이전트 33종 모두 출력 계약이 문서 끝({BAD_TAIL}줄 이내)에 있음")
+PYEOF
+then
+  green "에이전트 출력 계약 위치 정상"
+else
+  red "출력 계약이 문서 끝에 없는 에이전트 — 뒤따르는 내용에 밀려 반환값이 유실된다"
+fi
+
+hdr "11. AGENTS.md 하네스 이식 드리프트 (W-017)"
+# rules/ 를 고치고 AGENTS.md를 재생성하지 않으면, Codex·OpenCode 등 다른 하네스에서
+# 도는 에이전트는 **옛 규범**을 읽는다. 같은 레포에서 하네스마다 규율이 갈리는 상태를
+# 침묵으로 두지 않는다. exit 2(SKIPPED)는 소스 미탐지 — green으로 세지 않는다.
+if [ -f scripts/export-harness.sh ] && [ -f plugins/common/hooks/export_harness.py ]; then
+  ./scripts/export-harness.sh --check >"$TMPD/agents_md" 2>&1
+  EH_RC=$?
+  if [ "$EH_RC" -eq 0 ]; then
+    green "AGENTS.md 최신 (rules 원문 + 블록 본문 일치)"
+  elif [ "$EH_RC" -eq 2 ]; then
+    red "export-harness SKIPPED — 규범 소스 미탐지"
+    sed 's/^/      /' "$TMPD/agents_md" | head -6
+  else
+    # exit 1은 드리프트만이 아니다 — 분류 미등재/유령 엔트리, 마커 손상, 본문 변조,
+    # 인코딩 실패가 모두 여기 모인다. 원인을 안 보여주면 "재생성하라"가 무한루프가 된다
+    # (분류 문제는 재생성으로 안 고쳐진다).
+    red "AGENTS.md 검사 실패 — 아래 원인 확인 (재생성으로 안 고쳐지는 경우가 있다)"
+    sed 's/^/      /' "$TMPD/agents_md" | head -10
+  fi
+else
+  red "export-harness 산출물 누락 (scripts/export-harness.sh 또는 hooks/export_harness.py) — W-017"
 fi
 
 # ── 결과 ──────────────────────────────────────────────────────────

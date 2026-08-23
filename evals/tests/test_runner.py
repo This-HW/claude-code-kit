@@ -647,3 +647,67 @@ def test_validate_scenario_rejects_module_scope_danger(tmp_path):
     errors = runner.validate_scenario(sc, agents_root)
     joined = "\n".join(errors)
     assert "위험 호출" in joined and "시나리오 루트에 .py 금지" in joined
+
+
+# ─────────────────────────────────────────────────────────────────────
+# fixture 모듈 스코프 위험 호출 판정 (2026-08-23 적대적 리뷰 Critical)
+#
+# 이 검사의 유일한 목적은 "import 시 임의 코드가 도는 fixture를 커밋되게 두지 않는다"다.
+# 1세대(정규식)는 별칭으로, 2세대(AST)는 클래스 본문·데코레이터·기본인자로 뚫렸다.
+# 두 세대 모두 **우회 케이스 테스트가 0건**이었다는 게 진짜 결함이었으므로,
+# 알려진 우회를 전부 표로 고정한다.
+# ─────────────────────────────────────────────────────────────────────
+
+MUST_BLOCK = [
+    ("직접", 'import os\nos.system("x")\n'),
+    ("import 별칭", 'import os as x\nx.system("x")\n'),
+    ("from-import", 'from os import system\nsystem("x")\n'),
+    ("클래스 본문(import 시 실행됨)", 'import os\nclass C:\n    _ = os.system("p")\n'),
+    ("데코레이터 참조", "import os\n@os.popen\ndef f(): pass\n"),
+    ("데코레이터 호출", 'import os\n@os.popen("x")\ndef f(): pass\n'),
+    ("기본 인자", 'import os\ndef f(x=os.system("id")): pass\n'),
+    ("star import", 'from os import *\nsystem("p")\n'),
+    ("재바인딩", 'import os\nf = os.system\nf("p")\n'),
+    ("getattr 우회", 'import os\ngetattr(os,"system")("p")\n'),
+    ("importlib 우회", 'import importlib\nimportlib.import_module("os").system("x")\n'),
+    ("subprocess", 'import subprocess\nsubprocess.run(["id"])\n'),
+    ("from subprocess", 'from subprocess import run\nrun(["id"])\n'),
+    ("shutil.rmtree", 'import shutil\nshutil.rmtree("/x")\n'),
+    ("NUL 바이트(파싱 불가)", "a=1\x00\n"),
+    ("구문 오류(검사 불가)", "this is not python(((\n"),
+]
+
+MUST_PASS = [
+    ("정상 fixture", "def f(a=[]):\n    a.append(1)\n    return a\n"),
+    ("함수 본문(import 시 미실행)", 'def f():\n    import os\n    os.system("x")\n'),
+    ("os.path.join", 'import os\nP = os.path.join("a","b")\n'),
+    ("urlparse", 'from urllib.parse import urlparse\nU = urlparse("http://x")\n'),
+    ("shutil.which", 'from shutil import which\nW = which("git")\n'),
+    ("open", 'D = open("data.txt")\n'),
+    ("json", 'import json\nD = json.loads("{}")\n'),
+    ("클래스 메서드 본문", 'class C:\n    def m(self):\n        import os\n        os.system("x")\n'),
+    ("정상 데코레이터", "import functools\n@functools.cache\ndef f(): pass\n"),
+]
+
+
+def test_module_scope_danger_blocks_known_bypasses():
+    missed = [
+        label for label, src in MUST_BLOCK if not runner._module_scope_danger(src)
+    ]
+    assert missed == [], f"우회가 통과했다: {missed}"
+
+
+def test_module_scope_danger_has_no_false_positives():
+    """오탐은 단순한 불편이 아니다 — 정상 fixture를 만들 수 없게 만들어
+    eval 커버리지 확대를 막는다."""
+    flagged = [
+        (label, runner._module_scope_danger(src))
+        for label, src in MUST_PASS
+        if runner._module_scope_danger(src)
+    ]
+    assert flagged == [], f"정상 코드가 거부됐다: {flagged}"
+
+
+def test_unparseable_source_is_never_silently_passed():
+    """검사 불가를 통과로 삼지 않는다 (false-green 금지)."""
+    assert runner._module_scope_danger("def f(:\n") != []

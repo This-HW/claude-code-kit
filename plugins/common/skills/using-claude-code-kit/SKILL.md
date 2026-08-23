@@ -38,6 +38,9 @@ brainstorming → plan-task → auto-dev
 | 리서치 필요 | `claude-code-kit:web-research` |
 | 네이티브 흡수 점검(정기) | `claude-code-kit:native-watch` |
 | 반복 결함 근원 개선 | `claude-code-kit:self-improve` |
+| 여러 하네스가 한 레포를 만짐 | `claude-code-kit:harness-export` |
+| eval 커버리지 없는 에이전트 수정 | `claude-code-kit:eval-forge` |
+| 어려운 문제를 풀고 절차를 남기고 싶음 | `claude-code-kit:skill-forge` |
 
 ## Agent Selection (kit 고유 — superpowers엔 없음)
 

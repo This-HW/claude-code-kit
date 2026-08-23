@@ -51,8 +51,12 @@ evals/
 # 기준선 저장 (릴리스 시점 1회)
 ./scripts/run-evals.sh --baseline
 
-# 기준선 대비 후퇴 검출 (pass-rate 하락 시 exit 1)
+# 기준선 대비 후퇴 검출 (pass-rate 하락 시 exit 1) — **전량 재실행**한다
 ./scripts/run-evals.sh --compare evals/baseline/2026-07-07.json
+
+# 이미 실행한 리포트로 비교만 (재실행 없음, API 비용 0)
+./scripts/run-evals.sh --compare evals/baseline/2026-07-07.json \
+  --report evals/reports/<timestamp>.json
 ```
 
 환경 변수:

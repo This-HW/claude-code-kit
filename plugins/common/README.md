@@ -16,13 +16,13 @@
 /plugin install claude-code-kit@claude-code-kit
 ```
 
-> The published plugin is **`claude-code-kit`** (the `common` set — 33 agents + 16 skills).
+> The published plugin is **`claude-code-kit`** (the `common` set — 33 agents + 19 skills).
 > Project-specific extensions live in a user's own `project-local/` tier, not as separate
 > published plugins.
 
 ## Key Skills
 
-A selection below — 16 skills total, auto-discovered from `skills/` (not hand-listed here).
+A selection below — 19 skills total, auto-discovered from `skills/` (not hand-listed here).
 
 | Command                     | Description                                     |
 | --------------------------- | ----------------------------------------------- |

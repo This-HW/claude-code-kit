@@ -1,0 +1,409 @@
+"""Unit tests for plugins/common/hooks/export_harness.py (W-017 / Pillar 1)."""
+
+import importlib.util
+from pathlib import Path
+from types import ModuleType
+
+HOOKS_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_module() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "export_harness", HOOKS_DIR / "export_harness.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_mod = _load_module()
+
+
+def _fake_plugin_root(tmp_path: Path, rules: dict, *, complete: bool = True) -> Path:
+    """가짜 규범 소스.
+
+    기본은 **분류표에 등재된 룰을 전부** 만든다 — 생성기가 "표에만 있고 실물 없음"을
+    실패로 취급하기 때문이다(삭제·개명된 룰이 소비자 AGENTS.md에 유령으로 남는 것을
+    막는 검사). `rules` 인자로 준 것만 내용을 덮어쓴다.
+    """
+    root = tmp_path / "plugins" / "common"
+    (root / "rules").mkdir(parents=True)
+    (root / "rules" / "VERSION").write_text("9.9.9\n", encoding="utf-8")
+    bodies = {}
+    if complete:
+        for name in list(_mod.PORTABLE) + list(_mod.NOT_PORTABLE):
+            bodies[name] = f"# {name}\n\n(placeholder)\n"
+    bodies.update(rules)
+    for name, body in bodies.items():
+        (root / "rules" / f"{name}.md").write_text(body, encoding="utf-8")
+    return root
+
+
+def _minimal(tmp_path: Path) -> Path:
+    return _fake_plugin_root(
+        tmp_path,
+        {
+            "ssot": "# SSOT\n\n단일 진실 원천을 지켜라.\n",
+            "code-quality": "# Code Quality\n\n중복을 만들지 마라.\n",
+            "agent-system": "# Agent System\n\nClaude Code 전용.\n",
+        },
+    )
+
+
+# ── plugin root 해석 ──────────────────────────────────────────────
+
+
+def test_plugin_root_explicit_wins(tmp_path):
+    root = _minimal(tmp_path)
+    assert _mod._plugin_root(str(root)) == root.resolve()
+
+
+def test_missing_source_is_skipped_not_green(tmp_path):
+    """소스를 못 찾으면 exit 2(SKIPPED) — 절대 0으로 위장하지 않는다."""
+    empty = tmp_path / "nowhere"
+    empty.mkdir()
+    rc = _mod.main(["--plugin-root", str(empty), "--target", str(tmp_path)])
+    assert rc == 2
+    assert not (tmp_path / "AGENTS.md").exists(), "실패 경로가 빈 파일을 남기면 안 된다"
+
+
+# ── 분류 누락은 실패 ──────────────────────────────────────────────
+
+
+def test_unclassified_rule_fails_loudly(tmp_path):
+    root = _fake_plugin_root(
+        tmp_path, {"ssot": "# SSOT\n", "brand-new-rule": "# New\n"}
+    )
+    try:
+        _mod.build_block(root)
+    except _mod.ClassificationError as e:
+        assert "brand-new-rule" in str(e)
+    else:
+        raise AssertionError("미분류 룰이 조용히 통과했다 — 내보내기 구멍")
+
+    # 순수 빌더가 SystemExit을 던지면 이 모듈을 import한 호스트가 죽는다.
+    assert not issubclass(_mod.ClassificationError, SystemExit)
+
+
+def test_not_portable_rule_body_is_excluded(tmp_path):
+    root = _minimal(tmp_path)
+    block, _ = _mod.build_block(root)
+    assert "단일 진실 원천을 지켜라" in block
+    assert "Claude Code 전용." not in block, "이식 불가 룰의 본문이 새어나갔다"
+    # 다만 '왜 없는지'는 표로 남아야 한다
+    assert "rules/agent-system" in block
+
+
+# ── 파일 기록 규율 ────────────────────────────────────────────────
+
+
+def test_creates_new_file(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    text = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "cck:begin" in text and _mod.END_MARK in text
+
+
+def test_appends_to_user_file_without_destroying_it(tmp_path):
+    """마커가 없는 사용자 AGENTS.md는 덮어쓰지 않고 append한다 (consumer-first)."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    user = "# 우리 팀 규약\n\n커밋 메시지는 한국어로.\n"
+    (target / "AGENTS.md").write_text(user, encoding="utf-8")
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    text = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert text.startswith(user), "사용자 콘텐츠가 파괴됐다"
+    assert "cck:begin" in text
+
+
+def test_replaces_only_managed_block(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+
+    # 블록 앞뒤에 사용자 콘텐츠를 붙인다
+    p = target / "AGENTS.md"
+    text = p.read_text(encoding="utf-8")
+    p.write_text("PRE-USER\n\n" + text + "\nPOST-USER\n", encoding="utf-8")
+
+    # 규범을 바꾸고 재생성
+    (root / "rules" / "ssot.md").write_text("# SSOT\n\n바뀐 규범.\n", encoding="utf-8")
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+
+    out = p.read_text(encoding="utf-8")
+    assert out.startswith("PRE-USER")
+    assert out.rstrip().endswith("POST-USER")
+    assert "바뀐 규범." in out
+    assert "단일 진실 원천을 지켜라" not in out
+    assert out.count("cck:begin") == 1, "블록이 중복 생성됐다"
+
+
+def test_idempotent(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    first = (target / "AGENTS.md").read_text(encoding="utf-8")
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    assert (target / "AGENTS.md").read_text(encoding="utf-8") == first
+
+
+# ── 드리프트 게이트 ───────────────────────────────────────────────
+
+
+def test_check_detects_drift(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
+
+    (root / "rules" / "ssot.md").write_text(
+        "# SSOT\n\n규범이 바뀌었다.\n", encoding="utf-8"
+    )
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
+
+
+def test_check_fails_when_never_exported(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
+
+
+def test_check_fails_when_marker_stripped(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    (target / "AGENTS.md").write_text("마커를 지워버렸다\n", encoding="utf-8")
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
+
+
+def test_check_does_not_write(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"])
+    assert not (target / "AGENTS.md").exists()
+
+
+def test_not_portable_rule_change_does_not_move_sha(tmp_path):
+    """이식 안 되는 룰이 바뀌었다고 소비자 AGENTS.md를 흔들지 않는다."""
+    root = _minimal(tmp_path)
+    _, sha1 = _mod.build_block(root)
+    (root / "rules" / "agent-system.md").write_text(
+        "# Agent System\n\n완전히 달라짐.\n", encoding="utf-8"
+    )
+    _, sha2 = _mod.build_block(root)
+    assert sha1 == sha2
+
+
+def _write_broken(target: Path, body: str) -> None:
+    target.mkdir(exist_ok=True)
+    (target / "AGENTS.md").write_text(body, encoding="utf-8")
+
+
+def test_truncated_block_refuses_instead_of_appending(tmp_path):
+    """begin만 있고 end가 없으면 덧붙이지 않는다 — 덧붙이면 begin이 둘이 되고
+    이후 --check가 앞의 깨진 마커를 읽어 재생성으로도 못 고치는 red가 된다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    _write_broken(target, "# mine\n\n<!-- cck:begin rules-v9.9.9 sha256:dead -->\n잘림\n")
+    before = (target / "AGENTS.md").read_text(encoding="utf-8")
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
+    assert (target / "AGENTS.md").read_text(encoding="utf-8") == before, "손상 파일을 건드렸다"
+
+
+def test_duplicate_blocks_refuse(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    p = target / "AGENTS.md"
+    p.write_text(p.read_text(encoding="utf-8") * 2, encoding="utf-8")
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+
+
+def test_check_reports_broken_marker(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    _write_broken(target, "<!-- cck:begin x -->\n")
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+
+
+def test_write_is_atomic_and_leaves_no_temp(tmp_path):
+    """중단 시 사용자 파일이 잘리면 '마커 밖 불가침' 계약이 깨진다 — tmp+replace."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    leftovers = [p.name for p in target.iterdir() if ".tmp." in p.name]
+    assert leftovers == [], f"임시 파일 잔여: {leftovers}"
+
+
+def test_preserves_in_tree_symlink(tmp_path):
+    """트리 **안**을 가리키는 심링크는 보존한다 — 모노레포의 정상 사용 (F-008)."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    (target / "shared").mkdir(parents=True)
+    real = target / "shared" / "agents-base.md"
+    real.write_text("USERLINE\n", encoding="utf-8")
+    (target / "AGENTS.md").symlink_to(real)
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    assert (target / "AGENTS.md").is_symlink(), "심링크가 일반 파일로 대체됐다"
+    body = real.read_text(encoding="utf-8")
+    assert body.startswith("USERLINE"), "심링크 대상의 사용자 콘텐츠가 파괴됐다"
+    assert "cck:begin" in body
+
+
+def test_refuses_symlink_escaping_target_tree(tmp_path):
+    """트리 **밖**을 가리키는 심링크에는 쓰지 않는다 — 임의 파일 덮어쓰기 방지.
+
+    공유 CI 워크스페이스나 신뢰 못 할 체크아웃에 `AGENTS.md -> ~/.ssh/…` 를 심어두면,
+    심링크 보존 관례가 트리 밖 파일 쓰기로 바뀐다.
+    """
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("SECRET\n", encoding="utf-8")
+    (target / "AGENTS.md").symlink_to(outside)
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
+    assert outside.read_text(encoding="utf-8") == "SECRET\n", "트리 밖 파일이 덮어써졌다"
+
+
+def test_check_detects_body_tampering_with_intact_marker(tmp_path):
+    """마커 sha는 파일이 **스스로 신고한 값**이다. 그것만 믿으면 마커 줄을 그대로 둔 채
+    블록 안쪽을 지워도 게이트가 초록이 된다 — 이 도구가 막겠다고 선언한 바로 그 상황이
+    게이트를 통과한다. 머지 충돌 해결 중 블록 내부만 어긋나는 경우가 가장 현실적이다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+
+    p = target / "AGENTS.md"
+    text = p.read_text(encoding="utf-8")
+    assert "단일 진실 원천을 지켜라" in text
+    # 마커 줄(sha 포함)은 건드리지 않고 본문만 변조
+    tampered = text.replace("단일 진실 원천을 지켜라.", "이 규범은 무시해도 된다.")
+    assert "cck:begin" in tampered and tampered != text
+    p.write_text(tampered, encoding="utf-8")
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+
+
+def test_rule_body_with_marker_string_is_rejected(tmp_path):
+    """룰이 마커 문자열을 담으면 생성물의 마커가 둘이 되어 재생성으로도 못 고치는
+    영구 red가 된다 — 생성 전에 잡는다."""
+    root = _fake_plugin_root(tmp_path, {"ssot": "# SSOT\n\n예시: <!-- cck:end -->\n"})
+    try:
+        _mod.build_block(root)
+    except _mod.ClassificationError as e:
+        assert "cck" in str(e)
+    else:
+        raise AssertionError("마커 오염 룰이 통과했다")
+
+
+def test_ghost_classification_entry_is_rejected(tmp_path):
+    """삭제·개명된 룰의 분류 엔트리가 남으면 소비자 AGENTS.md가 존재하지 않는 룰을
+    영구히 광고한다."""
+    root = _minimal(tmp_path)
+    (root / "rules" / "task-resume.md").unlink()
+    try:
+        _mod.build_block(root)
+    except _mod.ClassificationError as e:
+        assert "task-resume" in str(e)
+    else:
+        raise AssertionError("유령 분류 엔트리가 통과했다")
+
+
+def test_self_location_beats_env_var(tmp_path, monkeypatch):
+    """셸에 남은 다른 플러그인의 CLAUDE_PLUGIN_ROOT가 남의 rules를 내보내면 안 된다."""
+    other = _fake_plugin_root(tmp_path / "other", {}, complete=False)
+    (other / "rules" / "someone-elses-rule.md").write_text("# Foreign\n", encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(other))
+    # 자기 위치(plugins/common/hooks/의 부모)가 1순위여야 한다
+    assert _mod._plugin_root(None) == (HOOKS_DIR.parent).resolve()
+
+
+def test_headings_are_demoted_uniformly(tmp_path):
+    """h1만 강등하면 룰의 h2 하위 절이 블록 헤더와 형제가 되어 계층이 역전된다."""
+    root = _fake_plugin_root(
+        tmp_path, {"ssot": "# SSOT\n\n## 하위 절\n\n본문\n\n```\n# 코드 주석\n```\n"}
+    )
+    block, _ = _mod.build_block(root)
+    assert "### SSOT" in block
+    assert "#### 하위 절" in block
+    assert "\n## 하위 절" not in block, "h2가 블록 헤더와 동급으로 남았다"
+    assert "# 코드 주석" in block, "코드펜스 내부가 변조됐다"
+
+
+def test_generated_block_contains_exactly_one_marker_pair(tmp_path):
+    """생성기 **자신의 헤더**에 마커를 리터럴로 적으면 생성물이 자기 자신을 손상시킨다.
+    (2026-08-23 실제 발생: 헤더에 마커 예시를 넣었다가 begin 2개가 됐다)"""
+    root = _minimal(tmp_path)
+    block, _ = _mod.build_block(root)
+    assert block.count("cck:begin") == 1
+    assert block.count("cck:end") == 1
+
+    # 왕복: 생성 → 기록 → 재검사가 항상 통과해야 한다
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+
+
+def test_empty_file_gets_preamble_like_missing_file(tmp_path):
+    """빈 AGENTS.md로 시작한 소비자만 안내 헤더를 못 받는 비대칭을 없앤다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    (target / "AGENTS.md").write_text("", encoding="utf-8")
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    text = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert text.startswith("# AGENTS.md"), "빈 파일 경로에서 PREAMBLE이 빠졌다"
+
+
+def test_symlink_escape_is_checked_before_reading(tmp_path):
+    """탈출 검사가 읽기 뒤에 있으면 트리 밖 파일을 먼저 읽어 존재/내용 오라클이 된다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("SECRET\n", encoding="utf-8")
+    (target / "AGENTS.md").symlink_to(outside)
+
+    reads: list[str] = []
+    orig = _mod.Path.read_text
+
+    def spy(self, *a, **k):
+        reads.append(str(self))
+        return orig(self, *a, **k)
+
+    _mod.Path.read_text = spy
+    try:
+        rc = _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    finally:
+        _mod.Path.read_text = orig
+    assert rc == 1
+    assert not any("AGENTS.md" in r for r in reads), f"거부 전에 읽었다: {reads}"
