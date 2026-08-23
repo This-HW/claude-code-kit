@@ -11,7 +11,12 @@ if command -v ruff &>/dev/null; then
     if [ -n "$STAGED_PY" ]; then
         while IFS= read -r f; do
             before="$(md5 -q "$f" 2>/dev/null || md5sum "$f" 2>/dev/null | cut -d' ' -f1)"
-            ruff check --fix "$f" 2>/dev/null || true
+            # --force-exclude 필수: 파일 경로를 **명시**하면 ruff는 프로젝트 설정의
+            # exclude/extend-exclude를 무시한다. 그 결과 훅이 제외 대상(이 레포에선
+            # evals/scenarios의 *의도적 결함 픽스처*)까지 린트하고, --fix가 붙어 있어
+            # 그 결함을 자동 수정한 뒤 재스테이징할 수 있다 — eval 자산이 조용히 망가진다.
+            # ruff.toml은 룰셋뿐 아니라 **범위**의 단일 소스이며(CLAUDE.md), 훅도 그 계약을 지킨다.
+            ruff check --force-exclude --fix "$f" 2>/dev/null || true
             after="$(md5 -q "$f" 2>/dev/null || md5sum "$f" 2>/dev/null | cut -d' ' -f1)"
             if [ "$before" != "$after" ]; then
                 git add "$f"

@@ -19,7 +19,8 @@ exit code 규율 (false-green 금지 — v2.9.3 교훈):
   python3 evals/run.py --dry-run                # 실행 계획만 출력 (claude 미호출)
   python3 evals/run.py [--agent X] [--scenario Y] [--parallel N] [--timeout SEC]
   python3 evals/run.py --baseline               # 결과를 evals/baseline/<date>.json 저장
-  python3 evals/run.py --compare evals/baseline/<date>.json   # 후퇴 시 exit 1
+  python3 evals/run.py --compare evals/baseline/<date>.json   # 후퇴 시 exit 1 (전량 재실행)
+  python3 evals/run.py --compare <baseline> --report evals/reports/<ts>.json  # 재실행 없이 비교
 
 환경 변수:
   CKKIT_EVAL_TIMEOUT   시나리오당 기본 타임아웃(초). 기본 300.
@@ -29,6 +30,7 @@ exit code 규율 (false-green 금지 — v2.9.3 교훈):
 from __future__ import annotations
 
 import argparse
+import ast
 import concurrent.futures
 import json
 import os
@@ -314,6 +316,168 @@ def validate_expect_schema(expect: dict, prefix: str) -> list[str]:
     return errors
 
 
+# fixture 모듈 스코프 위험 호출 판정 (AST 우선 + 정규식 폴백)
+#
+# 판정 원칙: **import 시 실제로 실행되는 위치**만 본다.
+#   실행됨   — 모듈 최상위 문장, 클래스 본문, 데코레이터 표현식, 기본 인자 값
+#   실행 안 됨 — 함수/메서드 **본문**
+# 함수든 클래스든 통째로 스킵하면 위 셋이 전부 새어나간다(2026-08-23 적대적 리뷰가
+# 클래스 본문·데코레이터·기본인자 우회를 실증했다).
+# 모듈 등급 2단:
+#   ANY  — 이 모듈의 **어떤 호출이든** 모듈 스코프에서는 위험 (프로세스/네트워크/동적 import)
+#   ATTR — 위험한 **속성 이름일 때만** 위험. `os.path.join`·`shutil.which`·`urlparse` 같은
+#          정상 사용을 막지 않기 위해 필요하다(1단 블록리스트는 이들을 오탐했다).
+_ANY_CALL_DANGER = frozenset({"subprocess", "socket", "requests", "importlib"})
+_ATTR_CALL_DANGER = frozenset({"os", "shutil", "urllib"})
+_DANGER_MODULES = _ANY_CALL_DANGER | _ATTR_CALL_DANGER
+# 이름만으로 위험한 호출 (from-import 되어 모듈 접두어가 사라진 경우)
+_DANGER_NAMES = frozenset(
+    {
+        "system", "popen", "execv", "execve", "execl", "execlp", "spawnv", "spawnl",
+        "remove", "unlink", "rmdir", "removedirs", "rmtree", "kill", "urlopen",
+    }
+)
+# 빌트인: 임의 실행·동적 해석 통로만. `open`/`input`/`compile`은 **넣지 않는다** —
+# 모듈 스코프에서 데이터를 읽는 정상 fixture를 막아버린다(오탐으로 실증됨).
+_DANGER_BUILTINS = frozenset({"eval", "exec", "__import__", "getattr", "setattr"})
+_DANGER_DYNAMIC = frozenset({"importlib"})
+_DANGER_RE = re.compile(
+    r"^(?!\s)(?:.*\b(?:os\.system|subprocess\.|socket\.|eval\(|exec\(|__import__)\b)"
+)
+
+
+def _danger_ref(node: ast.AST) -> tuple[str | None, str | None]:
+    """참조 표현식에서 (최상위 이름, 마지막 속성)을 뽑는다.
+
+    `os.system` → ("os", "system") · `os.path.join` → ("os", "join") · `f` → ("f", None)
+    `getattr(os,"x")("id")` 처럼 호출이 중첩되면 안쪽으로 내려간다.
+    """
+    f = node.func if isinstance(node, ast.Call) else node
+    last = f.attr if isinstance(f, ast.Attribute) else None
+    while isinstance(f, ast.Attribute):
+        f = f.value
+    if isinstance(f, ast.Name):
+        return f.id, last
+    if isinstance(f, ast.Call):
+        root, inner = _danger_ref(f)
+        return root, last or inner
+    return None, last
+
+
+def _collect_aliases(tree: ast.AST) -> tuple[dict, dict, list]:
+    """import 별칭과 위험 재바인딩을 추적한다.
+
+    `import os as x` / `from os import system` / `f = os.system` / `from os import *`
+    — 전부 모듈 접두어를 지우거나 바꿔서 단순 부분문자열 검사를 무력화하는 경로다.
+    """
+    alias_mod: dict[str, str] = {}   # 별칭 → 원본 모듈
+    alias_name: dict[str, str] = {}  # 별칭 → "module.name"
+    star_imports: list[str] = []     # `from X import *` 의 X
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                alias_mod[a.asname or a.name.split(".")[0]] = a.name.split(".")[0]
+        elif isinstance(node, ast.ImportFrom):
+            mod = (node.module or "").split(".")[0]
+            for a in node.names:
+                if a.name == "*":
+                    star_imports.append(mod)
+                else:
+                    alias_name[a.asname or a.name] = f"{mod}.{a.name}"
+        elif isinstance(node, ast.Assign):
+            # `f = os.system` 재바인딩 — 대입 자체는 Call이 아니라 별도로 잡는다.
+            target = node.targets[0] if node.targets else None
+            if isinstance(target, ast.Name) and isinstance(node.value, ast.Attribute):
+                base = node.value.value
+                if isinstance(base, ast.Name):
+                    origin = alias_mod.get(base.id, base.id)
+                    if origin in _DANGER_MODULES or node.value.attr in _DANGER_NAMES:
+                        alias_name[target.id] = f"{origin}.{node.value.attr}"
+    return alias_mod, alias_name, star_imports
+
+
+def _executed_at_import(tree: ast.Module) -> list[ast.AST]:
+    """import 시 실제로 평가되는 노드만 모은다."""
+    out: list[ast.AST] = []
+    stack: list[ast.AST] = list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # 본문은 실행되지 않지만 데코레이터와 기본 인자 값은 실행된다.
+            out.extend(node.decorator_list)
+            out.extend(d for d in node.args.defaults if d is not None)
+            out.extend(d for d in getattr(node.args, "kw_defaults", []) if d is not None)
+            continue
+        if isinstance(node, ast.ClassDef):
+            # 클래스 **본문은 import 시 실행된다**.
+            out.extend(node.decorator_list)
+            out.extend(node.bases)
+            stack.extend(node.body)
+            continue
+        out.append(node)
+    return out
+
+
+def _module_scope_danger(src: str) -> list[str]:
+    """모듈 스코프(=import 시 실행되는 위치)의 위험 호출 목록."""
+    try:
+        tree = ast.parse(src)
+    except (SyntaxError, ValueError):
+        # 파싱 불가 = 검사 불가. 통과로 삼지 않는다 (NUL 바이트는 ValueError를 던진다 —
+        # 이걸 안 잡으면 --validate 전체가 트레이스백으로 죽는다).
+        return [
+            ln.strip()[:60] for ln in src.splitlines() if _DANGER_RE.match(ln)
+        ] or ["구문 오류로 AST 검사 불가"]
+
+    alias_mod, alias_name, star_imports = _collect_aliases(tree)
+    hits: list[str] = []
+
+    # `from os import *` 는 이름이 통째로 쏟아져 들어와 추적이 불가능하다 — 거부한다.
+    for mod in star_imports:
+        if mod in _DANGER_MODULES:
+            hits.append(f"from {mod} import * (별칭 추적 불가 — 명시 import를 쓰라)")
+
+    for node in _executed_at_import(tree):
+        for sub in ast.walk(node):
+            # 데코레이터는 `@os.popen` 처럼 **Call이 아닌 참조**로도 쓰이고, 그때도
+            # import 시 평가·적용된다. Call만 보면 이 경로가 통째로 샌다.
+            if not isinstance(sub, (ast.Call, ast.Attribute, ast.Name)):
+                continue
+            if isinstance(sub, (ast.Attribute, ast.Name)) and not _is_decorator(sub, node):
+                continue
+            root, last = _danger_ref(sub)
+            if root is None:
+                continue
+            if _is_dangerous(root, last, alias_mod, alias_name):
+                hits.append(f"line {getattr(sub, 'lineno', '?')}: {root}(...)")
+    return hits
+
+
+def _is_decorator(node: ast.AST, parent: ast.AST) -> bool:
+    """`_executed_at_import`가 데코레이터 표현식을 그대로 넘겨준다 — 그 자신인지 확인."""
+    return node is parent
+
+
+def _is_dangerous(
+    root: str, last: str | None, alias_mod: dict, alias_name: dict
+) -> bool:
+    origin = alias_mod.get(root)
+    imported = alias_name.get(root)
+    if root in _DANGER_BUILTINS or root in _DANGER_DYNAMIC or origin in _DANGER_DYNAMIC:
+        return True
+    if origin in _ANY_CALL_DANGER:
+        return True
+    if origin in _ATTR_CALL_DANGER:
+        # `os.path.join`은 통과, `os.system`은 차단.
+        return last in _DANGER_NAMES
+    if imported is not None:
+        head, tail = imported.split(".")[0], imported.split(".")[-1]
+        if head in _ANY_CALL_DANGER:
+            return True
+        return tail in _DANGER_NAMES
+    return False
+
+
 def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str]:
     errors: list[str] = []
     agent_name = sc_dir.parent.name
@@ -335,15 +499,18 @@ def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str
             errors.append(f"{prefix}: fixture에 conftest.py 금지 ({bad.name})")
         # 모듈 스코프 부작용 차단 (재감사 R2/ATK-003): fixture는 stop-validator
         # 검증에서 제외되므로, import-time에 실행되는 위험 호출을 여기서 거부한다.
-        danger = re.compile(
-            r"^(?!\s)(?:.*\b(?:os\.system|subprocess\.|socket\.|eval\(|exec\(|__import__)\b)",
-        )
+        #
+        # 1차는 AST다. 이전에는 정규식 부분문자열 블록리스트뿐이었고, 그건 **별칭으로
+        # 뚫린다** — `import os as x; x.system("id")`, `from os import system;
+        # system("id")`가 전부 통과했다(2026-08-23 보안 점검 실증). AST는 import 별칭을
+        # 따라가므로 그 경로를 닫는다. 정규식은 파싱 불가(SyntaxError) 파일에 대한
+        # 2차 방어로 남긴다 — 검사 불가를 통과로 삼지 않기 위해서다.
         for py in sorted(fixture_dir.rglob("*.py")):
-            for ln in py.read_text(encoding="utf-8", errors="replace").splitlines():
-                if danger.match(ln):
-                    errors.append(
-                        f"{prefix}: fixture 모듈 스코프에 위험 호출 금지 ({py.name}: {ln.strip()[:60]})"
-                    )
+            src = py.read_text(encoding="utf-8", errors="replace")
+            for hit in _module_scope_danger(src):
+                errors.append(
+                    f"{prefix}: fixture 모듈 스코프에 위험 호출 금지 ({py.name}: {hit})"
+                )
     # scenario 디렉토리에 fixture 밖 .py 금지 (재감사 R2/ATK-005): stop-validator의
     # evals/scenarios/ 제외가 실코드를 은닉하는 통로가 되지 않게 구조로 강제.
     for stray in sorted(sc_dir.glob("*.py")):
@@ -845,6 +1012,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--compare", metavar="BASELINE_JSON", help="baseline 대비 pass-rate 후퇴 검출"
     )
+    p.add_argument(
+        "--report",
+        metavar="REPORT_JSON",
+        help="이미 기록된 리포트로 --compare 수행 (재실행하지 않음 — API 비용 0)",
+    )
     return p
 
 
@@ -852,13 +1024,51 @@ def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
 
     if args.validate:
-        errors = validate_all()
+        # --agent/--scenario는 --validate에도 적용된다. 예전에는 조용히 무시돼서,
+        # "내 시나리오 하나만 검증"이 불가능했다 — 무관한 기존 시나리오의 결함이
+        # 신규 생성 도구(eval-forge)의 판정을 오염시키는 원인이었다.
+        errors = validate_all(
+            agent_filter=args.agent, scenario_filter=args.scenario
+        )
         if errors:
             for e in errors:
                 print(f"  [FAIL] {e}")
             print(f"\n{len(errors)}건 검증 실패")
             return EXIT_FAIL
         print("[validate] 모든 시나리오 스키마 OK")
+        return EXIT_PASS
+
+    if args.report:
+        # 이미 실행한 리포트를 재사용해 비교만 한다.
+        #   --compare는 항상 전체를 **다시 실행**했다. 방금 전량 실행을 마친 직후에도
+        #   후퇴 여부를 보려면 API 비용을 한 번 더 내야 했다(2026-08-23 릴리스 작업에서
+        #   실측). 실행과 판정은 분리 가능한 관심사다.
+        if not args.compare:
+            print("[report] --report 는 --compare 와 함께 써야 한다.", file=sys.stderr)
+            return EXIT_FAIL
+        try:
+            prev = json.loads(Path(args.report).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"[report] 리포트 읽기 실패: {e}", file=sys.stderr)
+            return EXIT_FAIL
+        summary = prev.get("summary")
+        if not summary:
+            print(f"[report] summary 없음: {args.report}", file=sys.stderr)
+            return EXIT_FAIL
+        print_console_summary(summary)
+        try:
+            regressions = compare_baseline(
+                summary, args.compare, agent_filter=args.agent
+            )
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"[compare] baseline 읽기 실패: {e}", file=sys.stderr)
+            return EXIT_FAIL
+        if regressions:
+            print("\n[compare] baseline 대비 후퇴 감지:")
+            for r in regressions:
+                print(f"  - {r}")
+            return EXIT_FAIL
+        print("\n[compare] baseline 대비 후퇴 없음")
         return EXIT_PASS
 
     report, exit_code = run_all(

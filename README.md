@@ -1,6 +1,6 @@
 # claude-code-kit
 
-> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 16 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
+> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 19 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
 
 A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling. (Not a TUI component library or a scaffolding installer — this is the agents + skills plugin.)
 
@@ -164,7 +164,7 @@ kit은 **특정 MCP 서버를 가정하지 않습니다** (consumer-first). 대�
 
 | Plugin            | Agents | Skills | Description                               |
 | ----------------- | ------ | ------ | ----------------------------------------- |
-| `claude-code-kit` | 33     | 16     | Core: planning, development, review, meta |
+| `claude-code-kit` | 33     | 19     | Core: planning, development, review, meta |
 
 ---
 
@@ -240,6 +240,9 @@ Merge-back rules (verify-then-exit, sequential merge, conflict escalation to
 | `agent-teams`              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` (dynamic workflow) |
 | `native-watch`             | `/native-watch`             | Audit native-feature absorption against the SSOT ledger (`docs/native-absorption.md`) |
 | `self-improve`             | `/self-improve`             | Propose agent/skill improvements from ledger + evals — proposal-only, double-gated    |
+| `harness-export`           | `/harness-export`           | Export host-neutral rules to `AGENTS.md` so Codex/OpenCode/Pi/Hermes share the discipline |
+| `eval-forge`               | `/eval-forge`               | Forge an eval scenario from an observed defect — generated, self-validated, atomic        |
+| `skill-forge`              | `/skill-forge`              | Distill a solved hard problem into a reusable skill draft — proposal-only, 3-condition    |
 
 ### Planning Agents (5 — Opus)
 
@@ -344,7 +347,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (16) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (19) + rules (13) + hooks
 ```
 
 The plugin contains:

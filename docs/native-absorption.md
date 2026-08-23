@@ -41,10 +41,14 @@
 | 시크릿 커밋 차단 | gitleaks + pre-commit (외부 도구) | `kit-only` | 네이티브 무관 — 외부 표준 도구 조합 |
 | Definition-of-Done 기계 게이트 (`scripts/verify-done.sh`) | (대응 네이티브 없음) | `kit-only` | 완료 판정을 명령 출력으로 강제하는 게이트 — 네이티브 대응물 부재 (2026-07-07 확인) |
 | 재귀 개선 루프 (`/self-improve`) | Auto Dream (research preview, 메모리 한정) | `kit-only` | Auto Dream은 메모리 정리 한정 — 정의 파일 개선 제안 루프는 네이티브 부재. Auto Dream GA·확장 시 재평가 (2026-07-07 확인) |
+| 하네스 중립 규범 배포 (`/harness-export` → `AGENTS.md`) | (대응 네이티브 없음 — CC는 자기 세션만 주입) | `kit-only` | 2026-08-23 ADE 벤치마킹(W-017): Orca·Paseo가 한 레포에 다중 하네스를 붙이는 것이 표준이 됨. CC의 SessionStart 주입은 CC 세션에만 걸리므로 구멍. `AGENTS.md`는 Codex·OpenCode·Copilot·Cursor 공통 사실상 표준 — 네이티브 대응물 부재 |
+| eval 시나리오 포징 (`/eval-forge`) | Skills 2.0 evals (스킬 대상, 부분) | `kit-only` | 2026-08-23 W-017: 위 `Agent Evals` 행과 동일 판정 — 범용 에이전트 행동 evals 프리미티브 부재. 포징 도구는 그 위의 커버리지 확장 수단이며 네이티브 대응물 없음 |
+| 성공 trajectory → 스킬 승격 (`/skill-forge`) | Hermes Agent의 자동 스킬 생성 (외부 하네스) / Auto Dream (research preview, 메모리 한정) | `kit-only` | 2026-08-23 W-017: Hermes가 이 계열의 선행 사례이나 **다른 하네스의 기능**이지 CC 네이티브가 아님. CC 네이티브는 skill-creator(수동)까지 — trajectory 기반 자동 승격 프리미티브 부재. Auto Dream GA·확장 시 재평가 |
 
 ## 전수 검토 기록
 
 | 날짜 | 검토자 | 변경 |
 | --- | --- | --- |
 | 2026-07-07 | /native-watch 첫 실행 (v2.10.1) | 8행 watch 격상(cross-session Tasks 신호), 9·10행 근거 갱신(Auto Dream·Skills 2.0), 6·11행 확인일/뉘앙스, 신규 2행(DoD 게이트·self-improve). 호환성 경고 0건 |
+| 2026-08-23 | ADE 벤치마킹 (W-017, v2.14.0) | 외부 ADE/하네스 3종(Orca·Paseo·Hermes) 대조 후 신규 3행 추가. **앱 레이어(병렬 플릿 UI·터미널·모바일·디프 뷰어)는 명시적 비목표로 확정** — 네이티브 `isolation: worktree`·`ultracode`가 이미 흡수했고 나머지는 플러그인이 복제할 영역이 아님 |
 | 2026-07-07 | v2.10.0 배치 (초기 역기입) | 기존 결정(CHANGELOG [2.3.0-계획→2.6.0]·[2.10.0], specs 참조) 역기입, 초기 13행 작성 |

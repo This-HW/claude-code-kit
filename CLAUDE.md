@@ -36,7 +36,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (16) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (19) + rules (13) + hooks
 ```
 
 `plugins/common/` contains:
@@ -65,6 +65,9 @@ plugins/
 | agent-teams              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` |
 | native-watch             | `/native-watch`             | Audit native-feature absorption vs the kit (SSOT: docs/native-absorption.md) |
 | self-improve             | `/self-improve`             | Propose agent/skill/rule improvements from ledger+evals (proposal-only, gated) |
+| harness-export           | `/harness-export`           | Export host-neutral rules to AGENTS.md for Codex/OpenCode/Pi/Hermes (drift-gated) |
+| eval-forge               | `/eval-forge`               | Forge an eval scenario from an observed defect — generated + self-validated       |
+| skill-forge              | `/skill-forge`              | Distill a solved hard problem into a reusable skill draft (proposal-only)         |
 
 ## Agent Architecture
 
@@ -130,6 +133,27 @@ CONTEXT: [handoff context]
 ```
 
 ## Development Conventions
+
+### Editing an agent/skill does NOT affect the current session
+
+Agents and skills are loaded from the **installed plugin cache**
+(`~/.claude/plugins/cache/claude-code-kit/claude-code-kit/<version>/`), not from this
+repo's working tree. So editing `plugins/common/agents/*.md` and immediately dispatching
+that agent runs the **old** definition — the change is invisible until the version is
+bumped, pushed, and the plugin updated.
+
+This bit us in 2.14.0 development: `review-code`'s output contract was buried 496 lines
+from the end of its definition, its reports came back empty twice, and the working-tree
+fix could not be verified in the same session. Two consequences:
+
+- **Never conclude "the definition change worked" from in-session behavior.** Verify by
+  reading the file, or by a machine check (`verify-done.sh §12` is exactly that).
+- To actually exercise a definition change, bump the version and reinstall
+  (`/plugin marketplace update` → `/plugin install`), or point a scratch install at the
+  working tree.
+
+Hooks and `scripts/` are different — hooks run from `${CLAUDE_PLUGIN_ROOT}` (also the
+cache), but `scripts/` and `evals/` are repo-local and take effect immediately.
 
 ### Adding a New Agent
 
@@ -365,5 +389,7 @@ PRs welcome. Checklist:
 - [ ] File-modifying agents have `isolation: worktree`
 - [ ] Regular agents have `disallowedTools: [Task]`
 - [ ] Skill `description` field is in English
-- [ ] Registered in `plugins/common/.claude-plugin/plugin.json`
+- [ ] Version bumped in `plugins/common/.claude-plugin/plugin.json` + matching `CHANGELOG.md` entry
+      (the manifest has **no** agent/skill registry — both are auto-discovered from their
+      directories; the only thing a new component must touch there is the version)
 - [ ] CI passes (JSON valid, frontmatter complete, no forbidden fields, pytest green, no secrets)
