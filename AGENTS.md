@@ -4,7 +4,7 @@
 > 재생성: `./scripts/export-harness.sh` (플러그인 사용자는 `/harness-export` 스킬 참조)
 > 마커 블록 **밖의 내용은 생성기가 건드리지 않는다** — 프로젝트 고유 규약을 자유롭게 적어라.
 
-<!-- cck:begin rules-v1.4.0 sha256:37aa2b0ca3769cb6e573d997a9d3c36270fb7ce633d2a34e59831ef021aa52dd -->
+<!-- cck:begin rules-v1.4.0 sha256:3fe264bea5f3846eec48ee8ecf64e7106884edff71c81f94d546cc17d29d413d -->
 
 ## claude-code-kit — 하네스 중립 규범
 
@@ -25,6 +25,19 @@ brainstorming  →  plan-task  →  auto-dev
 
 각 단계는 앞 단계의 산출물 없이 시작하지 않는다. 완료 선언 전에는 프로젝트의 검증
 명령을 **실제로 실행**하고 그 출력을 근거로 삼는다 (아래 definition-of-done).
+
+### 이식된 룰
+
+| 룰 | 이식 사유 |
+| --- | --- |
+| `rules/code-quality` | 코드 품질 규범 — 호스트 무관 |
+| `rules/definition-of-done` | 완료 판정 규율 — 호스트 무관 |
+| `rules/feedback-loop` | 결함 학습 루프 — 호스트 무관 |
+| `rules/loop-engineering` | 루프/재시도 규율 — 호스트 무관 |
+| `rules/planning-check` | 계획 전 확인 규율 — 호스트 무관 |
+| `rules/planning-protocol` | 계획 수립 프로토콜 — 호스트 무관 |
+| `rules/ssot` | 단일 진실 원천 규범 — 호스트 무관 |
+| `rules/tool-usage-priority` | 도구 선택 우선순위 — 개념 수준에서 호스트 무관 |
 
 ### 이 파일이 이식하지 **못하는** 것 (정직한 한계)
 

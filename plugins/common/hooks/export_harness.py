@@ -39,7 +39,10 @@ AGENTS.md는 **텍스트 규범만** 이식한다. 훅(protect-sensitive·stop-v
 exit code:
   0 = 성공 (또는 --check 드리프트 없음)
   1 = --check 드리프트 / 분류 누락 / 기록 실패
-  2 = SKIPPED — 규범 소스(plugin root)를 찾지 못함. 절대 0으로 위장하지 않는다.
+  2 = SKIPPED — 규범 소스(plugin root)를 **자동 탐색**으로 찾지 못함(kit 미설치 등).
+      절대 0으로 위장하지 않는다. 반면 `--plugin-root`를 명시했는데 그곳에 rules/가
+      없으면 SKIPPED가 아니라 exit 1이다 — 사용자가 지정한 것이 틀렸다는 뜻이고,
+      이걸 2로 내면 CI가 "kit 미설치"로 오분류한다.
 """
 
 from __future__ import annotations
@@ -47,6 +50,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -54,8 +58,33 @@ import sys
 import tempfile
 from pathlib import Path
 
-BEGIN_RE = re.compile(r"<!--\s*cck:begin\s+([^>]*?)\s*-->")
-END_MARK = "<!-- cck:end -->"
+# 마커는 "문자열"이 아니라 **구조**다.
+#
+# 앵커 없이 관대한 패턴은 산문 속 마커 *설명*을 진짜 블록으로 오인한다 — 그리고 이
+# 도구의 대상 파일은 하필 "에이전트에게 CCK를 설명하는 문서"다. 실제로 자기 AGENTS.md에
+# `<!-- cck:begin ... -->` ~ `<!-- cck:end -->` 를 인용해 설명을 적어둔 소비자에게
+# 재생성을 돌리면, 두 인용 **사이의 사용자 문장이 침묵 속에 삭제**되고 exit 0이 났다.
+# 게다가 그 뒤로 `--check`는 green을 돌려줘 흔적조차 남지 않았다
+# (2026-08-24 적대적 리뷰 ATK-001 — 재현 확인).
+#
+# 그래서 두 가지를 요구한다: (1) 줄 전체를 차지할 것, (2) 메타가
+# `rules-v… sha256:<64hex>` 형식일 것. 인라인 인용·백틱 예시는 둘 중 어느 것도
+# 만족하지 못하므로 더 이상 블록으로 오인되지 않는다.
+BEGIN_RE = re.compile(
+    r"^<!--[ \t]*cck:begin[ \t]+(rules-v\S+[ \t]+sha256:[0-9a-f]{64})[ \t]*-->[ \t]*$",
+    re.MULTILINE,
+)
+# end도 같은 규율로 대칭화한다. begin만 공백에 관대하면, 소비자 레포의 포맷터가
+# `<!--cck:end-->`로 정규화하는 순간 end가 0개가 되어 쓰기·검사 양쪽이 영구 red가 된다
+# (ATK-013). 비대칭이 의도적일 이유가 없다.
+END_RE = re.compile(r"^<!--[ \t]*cck:end[ \t]*-->[ \t]*$", re.MULTILINE)
+END_MARK = "<!-- cck:end -->"  # 생성 시 쓰는 정규형
+# 엄격화에는 반대편 구멍이 있다: 손으로 망가뜨린 **진짜** 마커 줄(`sha256:dead` 등)이
+# 이제 패턴에 안 걸려 "마커 없음"으로 읽히고, 새 블록이 덧붙으면서 낡은 규범 본문이
+# 파일에 고아로 남는다. 그래서 "줄 전체를 차지하는 cck 마커꼴"을 따로 세어, 엄격
+# 패턴과 개수가 어긋나면 손상으로 보고 멈춘다. 인라인 인용(백틱·문장 중간)은 줄 앵커에
+# 걸리지 않으므로 ATK-001이 되살아나지는 않는다.
+SUSPECT_RE = re.compile(r"^<!--[ \t]*cck:(begin|end)\b.*-->[ \t]*$", re.MULTILINE)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 이식 가능성 분류 (SSOT)
@@ -111,6 +140,12 @@ brainstorming  →  plan-task  →  auto-dev
 각 단계는 앞 단계의 산출물 없이 시작하지 않는다. 완료 선언 전에는 프로젝트의 검증
 명령을 **실제로 실행**하고 그 출력을 근거로 삼는다 (아래 definition-of-done).
 
+### 이식된 룰
+
+| 룰 | 이식 사유 |
+| --- | --- |
+{portable_rows}
+
 ### 이 파일이 이식하지 **못하는** 것 (정직한 한계)
 
 | 영역 | 이유 |
@@ -150,6 +185,23 @@ def _plugin_root(explicit: str | None) -> Path | None:
         p = Path(explicit)
         return p.resolve() if (p / "rules").is_dir() else None
 
+    def _is_cck(root: Path) -> bool:
+        """이 경로가 정말 claude-code-kit인가.
+
+        후보 판정이 "rules/ 디렉터리 존재"뿐이면, 셸에 남은 **다른 플러그인의**
+        CLAUDE_PLUGIN_ROOT가 남의 rules/를 CCK 규범으로 내보낸다 — 생성물은 그것을
+        "claude-code-kit의 규범을 원문 그대로 옮긴 것"이라고 소비자에게 선언한다.
+        순서 조정은 검사가 아니다 (ATK-011).
+        """
+        try:
+            manifest = root / ".claude-plugin" / "plugin.json"
+            return (
+                json.loads(manifest.read_text(encoding="utf-8")).get("name")
+                == "claude-code-kit"
+            )
+        except (OSError, ValueError):
+            return False
+
     here = Path(__file__).resolve().parent
     # **자기 위치가 1순위다.** 이 파일은 plugins/common/hooks/ 안에 살고, 플러그인
     # 캐시에 설치돼도 그 상대관계는 유지된다 — 가장 신뢰도 높은 소스다.
@@ -162,7 +214,7 @@ def _plugin_root(explicit: str | None) -> Path | None:
     # 레포에서 scripts/ 등 다른 위치로 복사된 경우의 폴백
     candidates.append(here.parent / "plugins" / "common")
     for c in candidates:
-        if (c / "rules").is_dir():
+        if (c / "rules").is_dir() and _is_cck(c):
             return c.resolve()
     return None
 
@@ -191,15 +243,34 @@ def _classify(rules: list[Path]) -> tuple[list[Path], list[str], list[str]]:
     return portable, unknown, ghosts
 
 
+#: 마커 줄에 그대로 인터폴레이션되는 값이므로 마커 문법을 깰 수 없는 문자만 허용한다.
+_VERSION_RE = re.compile(r"[0-9A-Za-z._+-]{1,32}")
+
+
 def _rules_version(plugin_root: Path) -> str:
+    """rules/VERSION. 읽기 실패는 **조용히** 넘기지 않는다.
+
+    이 값은 `<!-- cck:begin rules-v{...} sha256:… -->` 줄에 직접 들어간다. 조용히
+    "unknown"으로 폴백하면 버전 추적이 소실된 채 마커만 그럴듯해진다 (ATK-007).
+    """
     v = plugin_root / "rules" / "VERSION"
     try:
-        return v.read_text(encoding="utf-8").strip() or "unknown"
-    except OSError:
+        raw = v.read_text(encoding="utf-8").strip()
+    except OSError as err:
+        print(
+            f"[export-harness] ! rules/VERSION을 읽지 못했다 ({err})"
+            " — rules-vunknown으로 기록한다.",
+            file=sys.stderr,
+        )
         return "unknown"
+    return raw or "unknown"
 
 
-def _demote_headings(body: str, levels: int = 2) -> str:
+_FENCE_RE = re.compile(r"^(`{3,}|~{3,})")
+_SETEXT_RE = re.compile(r"^=+[ \t]*$")
+
+
+def _demote_headings(body: str, levels: int = 2, source: str = "<rules>") -> str:
     """ATX 헤딩을 균일하게 강등한다 (펜스 코드블록 내부는 제외).
 
     h1만 강등하면 룰의 h2 하위 절이 블록 헤더(`## claude-code-kit …`)와 **형제**가 되어
@@ -210,14 +281,37 @@ def _demote_headings(body: str, levels: int = 2) -> str:
     for line in body.split("\n"):
         stripped = line.lstrip()
         emitted = line
-        if fence is None and stripped.startswith(("```", "~~~")):
-            fence = stripped[:3]
-        elif fence is not None and stripped.startswith(fence):
+        mf = _FENCE_RE.match(stripped)
+        if fence is None and mf:
+            # 여는 펜스는 **길이까지** 기억한다. 3자로 잘라 저장하면 4-백틱 펜스 안의
+            # ```bash 가 닫는 펜스로 오인돼 펜스가 조기 종료되고, 그 뒤 코드블록 안의
+            # `# 주석`이 헤딩으로 강등된다 — "원문 그대로"의 직접 위반이자 sha에도
+            # 잡히지 않는 변조다 (ATK-010, 재현 확인).
+            fence = mf.group(1)
+        elif (
+            fence is not None
+            and mf
+            and mf.group(1)[0] == fence[0]
+            and len(mf.group(1)) >= len(fence)
+            and not stripped[len(mf.group(1)) :].strip()
+        ):
             fence = None
         elif fence is None:
+            if _SETEXT_RE.match(stripped) and out and out[-1].strip():
+                raise ClassificationError(
+                    f"{source}: setext 헤딩(= 밑줄)은 강등할 수 없다 — ATX(#)로 바꿔라.\n"
+                    "  (그대로 두면 h1이 강등되지 않은 채 블록 헤더와 형제가 된다)"
+                )
             m = re.match(r"^(#{1,6})(\s)", line)
             if m:
-                depth = min(len(m.group(1)) + levels, 6)
+                depth = len(m.group(1)) + levels
+                if depth > 6:
+                    # min()으로 6에 클램프하면 h4·h5·h6가 한 단계로 뭉개진다.
+                    # 조용히 계층을 잃느니 소리 내어 멈춘다.
+                    raise ClassificationError(
+                        f"{source}: h{len(m.group(1))} 헤딩은 {levels}단계 강등 시 h6를"
+                        " 넘는다 — 룰의 헤딩 깊이를 줄여라."
+                    )
                 emitted = "#" * depth + line[len(m.group(1)) :]
         out.append(emitted)
     return "\n".join(out)
@@ -225,6 +319,16 @@ def _demote_headings(body: str, levels: int = 2) -> str:
 
 def build_block(plugin_root: Path) -> tuple[str, str]:
     """생성 블록과 그 sha256을 만든다."""
+    # 분류표 검증의 **세 번째 방향**. 미분류(신규)와 유령(삭제)은 잡으면서 교집합을
+    # 안 잡으면, 재분류 PR에서 한쪽 삭제를 빠뜨렸을 때 같은 룰이 본문으로도 실리고
+    # "이식 못 함" 표에도 실린다 — 소비자가 읽는 규범이 자기모순이 된다 (ATK-006).
+    dupes = sorted(set(PORTABLE) & set(NOT_PORTABLE))
+    if dupes:
+        raise ClassificationError(
+            "PORTABLE과 NOT_PORTABLE 양쪽에 등재된 룰: "
+            + ", ".join(dupes)
+            + "\n  → 한쪽에서 지워라. 두면 생성물이 같은 룰을 싣고 동시에 '못 싣는다'고 광고한다."
+        )
     rules = _rule_files(plugin_root)
     portable, unknown, ghosts = _classify(rules)
     if unknown:
@@ -243,11 +347,44 @@ def build_block(plugin_root: Path) -> tuple[str, str]:
         )
 
     rules_v = _rules_version(plugin_root)
+    if not _VERSION_RE.fullmatch(rules_v):
+        # 이 값은 마커 줄에 그대로 들어간다. `>` 하나만 섞여도 begin 마커가 깨져
+        # "end만 있는 파일"이 되고, 그 상태는 재생성으로도 복구되지 않는다 (ATK-007).
+        raise ClassificationError(
+            f"rules/VERSION 형식 불량: {rules_v!r}\n"
+            "  → 마커 줄에 직접 들어가는 값이다. [0-9A-Za-z._+-] 32자 이내로 고쳐라."
+        )
 
-    # sha 입력: 룰 버전 + (파일명, 내용) 정렬 결합. 이식 대상만 해싱한다 —
-    # 이식 안 되는 룰이 바뀌었다고 소비자 AGENTS.md를 흔들 이유가 없다.
+    portable_rows = "\n".join(
+        f"| `rules/{p.stem}` | {PORTABLE[p.stem]} |" for p in portable
+    )
+    not_portable_rows = "\n".join(
+        f"| `rules/{k}` | {v} |" for k, v in sorted(NOT_PORTABLE.items())
+    )
+    header = BLOCK_HEADER.format(
+        portable_rows=portable_rows, not_portable_rows=not_portable_rows
+    )
+    # 룰 본문뿐 아니라 **생성기 자신의 헤더**도 검사한다. 실제로 헤더에 마커를 리터럴로
+    # 적었다가 생성물이 자기 자신을 손상시켰다(2026-08-23). 룰만 검사하는 가드는 절반이다.
+    for name, tpl in (("BLOCK_HEADER", header), ("PREAMBLE", PREAMBLE)):
+        if "cck:begin" in tpl or "cck:end" in tpl:
+            raise ClassificationError(
+                f"{name}에 cck 마커 문자열이 있다 — 생성물의 마커가 둘이 되어 이후 모든 "
+                "실행이 손상으로 거부된다. 템플릿에서 마커를 리터럴로 쓰지 마라."
+            )
+
+    # sha 입력: 룰 버전 + **생성기 템플릿** + (파일명, 내용) 정렬 결합.
+    #   템플릿을 빼면 sha는 블록의 지문이 아니라 "룰만의 지문"이 된다. 그러면 kit이
+    #   헤더 문구만 고친 버전을 릴리스했을 때 sha는 일치하고 전문 비교만 어긋나서,
+    #   게이트가 아무도 손대지 않은 파일을 "본문 변조"로 지목한다 (ATK-008).
+    #   이식 안 되는 룰의 **본문**은 여전히 제외한다 — 소비자 AGENTS.md를 흔들 이유가
+    #   없다. (그 사유 문자열은 헤더에 렌더되므로 header를 통해 자연히 포함된다.)
     h = hashlib.sha256()
     h.update(f"rules-v{rules_v}\n".encode())
+    h.update(header.encode())
+    h.update(b"\0")
+    h.update(PREAMBLE.encode())
+    h.update(b"\0")
     bodies = []
     for p in portable:
         body = p.read_text(encoding="utf-8").rstrip()
@@ -267,22 +404,10 @@ def build_block(plugin_root: Path) -> tuple[str, str]:
         bodies.append((p.stem, body))
     sha = h.hexdigest()
 
-    not_portable_rows = "\n".join(
-        f"| `rules/{k}` | {v} |" for k, v in sorted(NOT_PORTABLE.items())
-    )
-    header = BLOCK_HEADER.format(not_portable_rows=not_portable_rows)
-    # 룰 본문뿐 아니라 **생성기 자신의 헤더**도 검사한다. 실제로 헤더에 마커를 리터럴로
-    # 적었다가 생성물이 자기 자신을 손상시켰다(2026-08-23). 룰만 검사하는 가드는 절반이다.
-    for name, tpl in (("BLOCK_HEADER", header), ("PREAMBLE", PREAMBLE)):
-        if "cck:begin" in tpl or "cck:end" in tpl:
-            raise ClassificationError(
-                f"{name}에 cck 마커 문자열이 있다 — 생성물의 마커가 둘이 되어 이후 모든 "
-                "실행이 손상으로 거부된다. 템플릿에서 마커를 리터럴로 쓰지 마라."
-            )
     parts = [header]
     for stem, body in bodies:
         parts.append(f"\n---\n\n<!-- source: rules/{stem}.md (원문 그대로) -->\n")
-        parts.append(_demote_headings(body))
+        parts.append(_demote_headings(body, source=f"rules/{stem}.md"))
         parts.append("\n")
 
     inner = "".join(parts).rstrip() + "\n"
@@ -311,50 +436,71 @@ def _existing_marker(text: str) -> tuple[str | None, int, int]:
     되며, 재생성해도 낫지 않는다 — 자동 복구가 불가능한 상태를 조용히 만드는 셈이다.
     """
     begins = list(BEGIN_RE.finditer(text))
-    ends = text.count(END_MARK)
-    if not begins and ends == 0:
-        return None, -1, -1
-    if len(begins) != 1 or ends != 1:
+    ends = list(END_RE.finditer(text))
+    suspects = SUSPECT_RE.findall(text)
+    malformed = len(suspects) - len(begins) - len(ends)
+    if malformed > 0:
         raise MarkerError(
-            f"cck 마커가 손상됐다 (begin {len(begins)}개, end {ends}개). "
+            f"형식이 깨진 cck 마커 줄이 {malformed}개 있다 "
+            "(정상형: `<!-- cck:begin rules-v… sha256:<64자리 hex> -->` / `<!-- cck:end -->`).\n"
+            "  손으로 고쳤거나 도구가 중간에 죽은 흔적이다. 그 줄을 지우거나 정상형으로 "
+            "되돌린 뒤 다시 실행하라 — 생성기는 추측해서 고치지 않는다.\n"
+            "  (문서에 마커를 *설명*하려면 줄 전체가 아니라 문장 안에 인라인으로 인용하라.)"
+        )
+    if not begins and not ends:
+        return None, -1, -1
+    if len(begins) != 1 or len(ends) != 1:
+        raise MarkerError(
+            f"cck 마커가 손상됐다 (begin {len(begins)}개, end {len(ends)}개). "
             "블록을 손으로 정리한 뒤 다시 실행하라 — 생성기는 추측해서 고치지 않는다."
         )
-    m = begins[0]
-    end = text.find(END_MARK, m.end())
-    if end == -1:
+    b, e = begins[0], ends[0]
+    if e.start() < b.end():
         raise MarkerError("cck:end가 cck:begin보다 앞에 있다 — 블록을 손으로 정리하라.")
-    return m.group(1), m.start(), end + len(END_MARK)
+    return b.group(1), b.start(), e.end()
 
 
-def _symlink_escapes(path: Path, root: Path) -> Path | None:
-    """대상이 심링크인데 실제 경로가 root 밖을 가리키면 그 경로를 돌려준다.
+def _resolve_target(path: Path, root: Path) -> tuple[Path | None, Path | None]:
+    """대상 경로를 **한 번만** 해석해 (실경로, 탈출경로)를 돌려준다.
 
     심링크 **보존** 자체는 kit의 관례다(F-008 — os.replace가 링크를 파괴하지 않도록
     realpath에 쓴다). 모노레포에서 AGENTS.md를 공용 파일로 링크하는 건 정상 사용이다.
     다만 공유 CI 워크스페이스나 신뢰 못 할 체크아웃에 `AGENTS.md -> ~/.ssh/…` 같은
     링크가 심겨 있으면, 그 관례가 **트리 밖 임의 파일 쓰기**로 바뀐다.
     그래서 "보존하되 트리 밖은 거부"로 가른다.
+
+    **해석은 한 번뿐이다.** 예전에는 검사(`_symlink_escapes`)와 쓰기(`_atomic_write`)가
+    각자 `realpath`를 불렀다. 그 사이에 파일 읽기·조립이 끼므로, 검사 직후 링크를
+    바꿔치기하면 검사받지 않은 경로에 쓰게 된다 (ATK-002 TOCTOU). 검사한 객체와
+    사용하는 객체가 다르면 그 검사는 장식이다.
     """
-    if not path.is_symlink():
-        return None
     real = Path(os.path.realpath(path))
-    try:
-        real.relative_to(root.resolve())
-    except ValueError:
-        return real
-    return None
+    if path.is_symlink():
+        try:
+            real.relative_to(root.resolve())
+        except ValueError:
+            return None, real
+    return real, None
 
 
-def _atomic_write(path: Path, text: str) -> None:
-    """tmp + os.replace 원자 교체 (심링크는 realpath로 보존 — F-008).
+def _atomic_write(real: Path, text: str) -> None:
+    """tmp + os.replace 원자 교체. `real`은 **이미 해석된** 경로여야 한다(F-008).
 
     `write_text`는 truncate 후 write다. 중간에 죽으면 대상이 **잘린 채** 남는다.
     이 파일은 소비자가 직접 쓴 규약이 함께 사는 `AGENTS.md`이므로, 부분 쓰기는
     "마커 블록 밖은 불가침"이라는 이 도구의 핵심 계약을 정면으로 깬다.
     checklist.py의 `_write`와 같은 패턴을 쓴다 (kit 내 관례 통일).
     """
-    real = Path(os.path.realpath(path))
     real.parent.mkdir(parents=True, exist_ok=True)
+    # 기존 파일의 모드를 보존한다. 무조건 0644로 덮으면 0600으로 관리하던 소비자의
+    # AGENTS.md가 world-readable이 되고, 0664로 공동 편집하던 팀은 쓰기 권한을 잃는다
+    # — "마커 밖 불가침"은 내용만이 아니라 메타데이터에도 적용된다 (ATK-005).
+    try:
+        mode = os.stat(real).st_mode & 0o7777
+    except OSError:
+        cur = os.umask(0)
+        os.umask(cur)
+        mode = 0o666 & ~cur
     # mkstemp: 이름이 예측 불가하고 O_EXCL로 원자 생성된다(0600).
     #   이전에는 `<name>.tmp.<pid>` 고정 이름이었다 — O_EXCL이 "남의 파일에 쓰는 것"은
     #   막지만, 이름을 선점당하면 포착되지 않은 FileExistsError로 죽었다(가용성 저하).
@@ -364,8 +510,19 @@ def _atomic_write(path: Path, text: str) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(text)
-        os.chmod(tmp, 0o644)
+            # tmp+replace는 **프로세스 사망**에는 원자적이지만 호스트 크래시에는
+            # 아니다. rename만 반영되고 데이터가 안 반영되면 소비자가 손으로 쓴
+            # 마커 밖 콘텐츠까지 통째로 날아간다 (ATK-014).
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(tmp, mode)
         os.replace(tmp, real)
+        with contextlib.suppress(OSError):
+            dfd = os.open(str(real.parent), os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
     finally:
         with contextlib.suppress(OSError):
             tmp.unlink()
@@ -381,8 +538,15 @@ def _default_target() -> Path:
             timeout=10,
         )
         return Path(out.stdout.strip())
-    except (subprocess.SubprocessError, OSError):
-        return Path.cwd()
+    except (subprocess.SubprocessError, OSError) as err:
+        cwd = Path.cwd()
+        # 조용히 CWD로 폴백하면 하위 디렉터리에서 실행한 사용자가 거기에 AGENTS.md를
+        # 얻고, 다음 실행(git 정상)은 레포 루트에 또 만든다 — 서로 다른 두 개가 생긴다.
+        print(
+            f"[export-harness] ! git 최상위를 찾지 못했다 ({err}) — CWD를 대상으로 삼는다: {cwd}",
+            file=sys.stderr,
+        )
+        return cwd
 
 
 def _read_target(target: Path) -> tuple[str | None, int]:
@@ -396,13 +560,25 @@ def _read_target(target: Path) -> tuple[str | None, int]:
         return None, 1
 
 
-def cmd_check(target: Path, block: str, sha: str) -> int:
+def cmd_check(target_root: Path, target: Path, block: str, sha: str) -> int:
     """드리프트 검사. 기록하지 않는다.
 
     **블록 전문을 대조한다.** 마커의 sha는 파일이 스스로 신고한 값이라, 그것만 믿으면
     마커 줄을 그대로 둔 채 블록 안쪽을 지우거나 변조해도 초록이 된다 — 이 도구가
     막겠다고 선언한 상황(하네스마다 규범이 다름)이 그대로 게이트를 통과한다.
     """
+    # cmd_write와 **같은** 검사를 같은 순서로 한다. 예전에는 쓰기 경로에만 있었는데,
+    # 그러면 `AGENTS.md -> ~/.aws/credentials` 가 심긴 체크아웃에서 CI가 --check를
+    # 도는 것만으로 트리 밖 파일을 읽는다 (존재 여부·디코딩 오류 오프셋이 오라클로
+    # 새어나간다). 방어 논리를 한쪽에만 두면 그 논리는 절반만 참이다 (ATK-004).
+    _, escaped = _resolve_target(target, target_root)
+    if escaped is not None:
+        print(
+            f"[export-harness] ✗ {target} 는 대상 트리 밖을 가리키는 심링크다 → {escaped}\n"
+            "  읽기를 거부한다.",
+            file=sys.stderr,
+        )
+        return 1
     if not target.exists():
         print(f"[export-harness] ✗ {target} 없음 — 아직 내보내지 않았다.", file=sys.stderr)
         return 1
@@ -428,8 +604,8 @@ def cmd_check(target: Path, block: str, sha: str) -> int:
         return 1
     if text[s:e] != block.rstrip("\n"):
         print(
-            f"[export-harness] ✗ 블록 본문 변조 — {target} 의 cck 블록이 생성 결과와 다르다.\n"
-            "    (마커의 sha는 일치하지만 내용이 손대졌다)\n"
+            f"[export-harness] ✗ 블록 본문 불일치 — {target} 의 cck 블록이 생성 결과와 다르다.\n"
+            "    (마커의 sha는 일치한다 — 손으로 고쳤거나, kit 버전이 다르다)\n"
             "  → ./scripts/export-harness.sh 로 재생성하라.",
             file=sys.stderr,
         )
@@ -454,9 +630,15 @@ def _compose(text: str | None, block: str) -> str:
 
 def cmd_write(target_root: Path, target: Path, block: str, sha: str) -> int:
     """블록을 기록한다. 마커 블록 밖의 사용자 콘텐츠는 불가침."""
+    if not target_root.is_dir():
+        # --target 오타 하나로 없는 디렉터리 트리를 통째로 만들지 않는다.
+        print(
+            f"[export-harness] ✗ 대상 루트가 없다: {target_root}", file=sys.stderr
+        )
+        return 1
     # **읽기 전에** 심링크 탈출을 검사한다. 뒤에 두면 트리 밖 파일을 먼저 읽어
     # 메모리에 올리고, "변경 없음" 조기반환이 존재/내용 오라클로 새어나간다.
-    escaped = _symlink_escapes(target, target_root)
+    real, escaped = _resolve_target(target, target_root)
     if escaped is not None:
         print(
             f"[export-harness] ✗ {target} 는 대상 트리 밖을 가리키는 심링크다 → {escaped}\n"
@@ -480,7 +662,10 @@ def cmd_write(target_root: Path, target: Path, block: str, sha: str) -> int:
         print(f"[export-harness] ✓ 변경 없음 ({target})")
         return 0
 
-    _atomic_write(target, new_text)
+    if real is None:  # pragma: no cover — escaped is None이면 real은 항상 있다
+        print(f"[export-harness] ✗ {target} 경로를 해석하지 못했다.", file=sys.stderr)
+        return 1
+    _atomic_write(real, new_text)
     print(f"[export-harness] ✓ 기록 ({target}) sha256:{sha[:12]}…")
     return 0
 
@@ -498,14 +683,27 @@ def main(argv: list[str]) -> int:
     )
     ap.add_argument("--plugin-root", help="plugins/common 경로 (기본: 자동 탐색)")
     ap.add_argument("--target", help="대상 프로젝트 루트 (기본: git 최상위 또는 CWD)")
-    ap.add_argument(
+    # 상호배타를 argparse에 **강제**시킨다. 예전에는 `--stdout` 분기가 `--check`보다
+    # 앞에 있어서 `--check --stdout` 조합이 검사를 통째로 건너뛰고 무조건 exit 0을
+    # 냈다 — 게이트(verify-done §11, CI)가 exit 0만 보므로 플래그 하나로 완료 게이트가
+    # 무력화된다. "false-green 금지"를 설계 원칙에 적어둔 파일이 CLI 조합으로 스스로
+    # 위반하고 있었다 (ATK-003).
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check", action="store_true", help="드리프트만 검사, 기록하지 않음"
     )
-    ap.add_argument("--stdout", action="store_true", help="블록만 출력, 기록하지 않음")
+    mode.add_argument("--stdout", action="store_true", help="블록만 출력, 기록하지 않음")
     args = ap.parse_args(argv)
 
     root = _plugin_root(args.plugin_root)
     if root is None:
+        if args.plugin_root:
+            # 방금 지정한 사용자에게 "지정하라"고 답하지 않는다 (ATK-016).
+            print(
+                f"[export-harness] ✗ --plugin-root {args.plugin_root} 에 rules/ 가 없다.",
+                file=sys.stderr,
+            )
+            return 1
         print(
             "[export-harness] SKIPPED — 규범 소스를 찾지 못했다 (plugins/common/rules).\n"
             "  --plugin-root 로 지정하거나 CLAUDE_PLUGIN_ROOT 를 설정하라.",
@@ -518,6 +716,12 @@ def main(argv: list[str]) -> int:
     except ClassificationError as err:
         print(f"[export-harness] ✗ {err}", file=sys.stderr)
         return 1
+    except (OSError, UnicodeDecodeError) as err:
+        # 룰 파일이 깨진 인코딩이거나 읽을 수 없으면 예전에는 raw traceback이 그대로
+        # 새어나갔다. 게이트는 stderr를 잘라 보여주므로 진짜 원인 줄이 사라지고,
+        # 문서화된 0/1/2 계약도 우연에 맡겨진다 (ATK-009).
+        print(f"[export-harness] ✗ 규범 소스를 읽지 못했다: {err}", file=sys.stderr)
+        return 1
 
     if args.stdout:
         sys.stdout.write(block)
@@ -526,8 +730,12 @@ def main(argv: list[str]) -> int:
     target_root = Path(args.target) if args.target else _default_target()
     target = target_root / "AGENTS.md"
     if args.check:
-        return cmd_check(target, block, sha)
-    return cmd_write(target_root, target, block, sha)
+        return cmd_check(target_root, target, block, sha)
+    try:
+        return cmd_write(target_root, target, block, sha)
+    except OSError as err:
+        print(f"[export-harness] ✗ {target} 기록 실패: {err}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -58,13 +58,25 @@ def test_plugin_root_explicit_wins(tmp_path):
     assert _mod._plugin_root(str(root)) == root.resolve()
 
 
-def test_missing_source_is_skipped_not_green(tmp_path):
-    """소스를 못 찾으면 exit 2(SKIPPED) — 절대 0으로 위장하지 않는다."""
+def test_missing_source_is_skipped_not_green(tmp_path, monkeypatch):
+    """자동 탐색이 소스를 못 찾으면 exit 2(SKIPPED) — 절대 0으로 위장하지 않는다."""
+    monkeypatch.setattr(_mod, "_plugin_root", lambda explicit: None)
+    rc = _mod.main(["--target", str(tmp_path)])
+    assert rc == 2
+    assert not (tmp_path / "AGENTS.md").exists(), "실패 경로가 빈 파일을 남기면 안 된다"
+
+
+def test_explicit_bad_plugin_root_is_error_not_skipped(tmp_path):
+    """`--plugin-root`를 지정했는데 틀렸으면 exit 1이다.
+
+    2(SKIPPED)로 내면 CI가 "kit 미설치"로 오분류하고, 메시지도 방금 지정한 사용자에게
+    "지정하라"고 답하게 된다 (ATK-016).
+    """
     empty = tmp_path / "nowhere"
     empty.mkdir()
     rc = _mod.main(["--plugin-root", str(empty), "--target", str(tmp_path)])
-    assert rc == 2
-    assert not (tmp_path / "AGENTS.md").exists(), "실패 경로가 빈 파일을 남기면 안 된다"
+    assert rc == 1
+    assert not (tmp_path / "AGENTS.md").exists()
 
 
 # ── 분류 누락은 실패 ──────────────────────────────────────────────
@@ -222,7 +234,10 @@ def test_truncated_block_refuses_instead_of_appending(tmp_path):
     이후 --check가 앞의 깨진 마커를 읽어 재생성으로도 못 고치는 red가 된다."""
     root = _minimal(tmp_path)
     target = tmp_path / "proj"
-    _write_broken(target, "# mine\n\n<!-- cck:begin rules-v9.9.9 sha256:dead -->\n잘림\n")
+    _write_broken(
+        target,
+        "# mine\n\n<!-- cck:begin rules-v9.9.9 sha256:" + "a" * 64 + " -->\n잘림\n",
+    )
     before = (target / "AGENTS.md").read_text(encoding="utf-8")
 
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
@@ -407,3 +422,156 @@ def test_symlink_escape_is_checked_before_reading(tmp_path):
         _mod.Path.read_text = orig
     assert rc == 1
     assert not any("AGENTS.md" in r for r in reads), f"거부 전에 읽었다: {reads}"
+
+
+# ── 2026-08-24 적대적 리뷰 회귀 (ATK-001 … ATK-017) ──────────────────────────
+
+
+def test_prose_mentioning_markers_is_not_treated_as_a_block(tmp_path):
+    """마커를 *설명하는* 산문을 진짜 블록으로 오인하지 않는다 (ATK-001).
+
+    이 도구의 대상 파일은 하필 "에이전트에게 CCK를 설명하는 문서"다. 앵커 없는 관대한
+    패턴은 두 인용 사이의 사용자 문장을 침묵 속에 삭제하고 exit 0을 냈다 — 그리고 그
+    뒤로 --check는 green을 돌려줘 흔적도 남지 않았다.
+    """
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    user = (
+        "# 우리 팀 규약\n\n"
+        "## CCK 블록에 대해\n\n"
+        "`<!-- cck:begin -->` 마커로 시작하는 구간은 자동 생성이다.\n\n"
+        "**절대 손으로 고치지 마라.** 고치면 다음 재생성에서 날아간다.\n"
+        "갱신은 `/harness-export`로만 한다. QA 승인 없이 배포 금지.\n\n"
+        "`<!-- cck:end -->` 마커까지가 그 구간이다.\n"
+    )
+    (target / "AGENTS.md").write_text(user, encoding="utf-8")
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    after = (target / "AGENTS.md").read_text(encoding="utf-8")
+    for line in user.rstrip().split("\n"):
+        assert line in after, f"사용자 문장이 삭제됐다: {line!r}"
+    assert after.startswith(user.rstrip()), "산문 사이에 블록이 끼어들었다"
+
+
+def test_malformed_marker_line_refuses(tmp_path):
+    """형식이 깨진 **진짜** 마커 줄은 '마커 없음'이 아니라 손상이다.
+
+    엄격화의 반대편 구멍: 그냥 무시하면 새 블록이 덧붙고 낡은 규범 본문이 고아로 남는다.
+    """
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    _write_broken(target, "# mine\n\n<!-- cck:begin rules-v9.9.9 sha256:dead -->\n낡음\n")
+    before = (target / "AGENTS.md").read_text(encoding="utf-8")
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
+    assert (target / "AGENTS.md").read_text(encoding="utf-8") == before
+
+
+def test_check_and_stdout_are_mutually_exclusive(tmp_path):
+    """`--check --stdout`가 검사를 건너뛰고 exit 0을 내면 완료 게이트가 무력화된다 (ATK-003)."""
+    import pytest
+
+    root = _minimal(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        _mod.main(["--plugin-root", str(root), "--target", str(tmp_path), "--check", "--stdout"])
+    assert exc.value.code != 0
+
+
+def test_rule_in_both_tables_is_rejected(tmp_path, monkeypatch):
+    """PORTABLE ∩ NOT_PORTABLE — 생성물이 같은 룰을 싣고 동시에 '못 싣는다'고 광고한다 (ATK-006)."""
+    root = _minimal(tmp_path)
+    monkeypatch.setitem(_mod.NOT_PORTABLE, "ssot", "중복 등재 (테스트)")
+    assert _mod.main(["--plugin-root", str(root), "--target", str(tmp_path)]) == 1
+
+
+def test_existing_file_mode_is_preserved(tmp_path):
+    """마커 밖 불가침은 **메타데이터에도** 적용된다 (ATK-005).
+
+    0600으로 관리하던 AGENTS.md가 재생성 후 world-readable이 되면 안 된다.
+    """
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    p = target / "AGENTS.md"
+    p.write_text("# mine\n", encoding="utf-8")
+    p.chmod(0o600)
+
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    assert oct(p.stat().st_mode & 0o777) == "0o600"
+
+
+def test_check_refuses_symlink_escaping_target_tree(tmp_path, capsys):
+    """--check도 쓰기와 **같은** 심링크 검사를 한다 (ATK-004)."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    outside = tmp_path / "outside.md"
+    outside.write_text("secret\n", encoding="utf-8")
+    (target / "AGENTS.md").symlink_to(outside)
+
+    rc = _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"])
+    assert rc == 1
+    # exit 1만 보면 "마커 없음"과 구분되지 않는다 — 트리 밖 파일을 **읽고** 1을 냈을
+    # 수도 있다. 거부 사유가 심링크임을 확인해야 이 회귀를 잡는다.
+    err = capsys.readouterr().err
+    assert "심링크" in err and str(outside) in err
+
+
+def test_nested_four_backtick_fence_is_not_mutated(tmp_path):
+    """4-백틱 펜스 안의 `# 주석`이 헤딩으로 강등되면 '원문 그대로'의 직접 위반이다 (ATK-010)."""
+    root = _fake_plugin_root(
+        tmp_path,
+        {"ssot": "# SSOT\n\n````markdown\n```bash\n# 이 주석은 코드다\n```\n````\n"},
+    )
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    out = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "# 이 주석은 코드다" in out
+    assert "### 이 주석은 코드다" not in out
+
+
+def test_bad_rules_version_is_rejected(tmp_path):
+    """VERSION은 마커 줄에 직접 들어간다 — `>` 하나로 영구 손상이 된다 (ATK-007)."""
+    root = _minimal(tmp_path)
+    (root / "rules" / "VERSION").write_text("1.0 --> junk\n", encoding="utf-8")
+    assert _mod.main(["--plugin-root", str(root), "--target", str(tmp_path)]) == 1
+    assert not (tmp_path / "AGENTS.md").exists()
+
+
+def test_heading_too_deep_fails_loudly(tmp_path):
+    """h5 이상은 2단계 강등 시 h6를 넘는다 — 조용히 뭉개지 않고 멈춘다 (ATK-015)."""
+    root = _fake_plugin_root(tmp_path, {"ssot": "# SSOT\n\n##### 다섯 단계\n\n본문\n"})
+    assert _mod.main(["--plugin-root", str(root), "--target", str(tmp_path)]) == 1
+
+
+def test_sha_covers_generator_template_not_only_rules(tmp_path, monkeypatch):
+    """sha는 블록 **전체**의 지문이어야 한다 (ATK-008).
+
+    템플릿이 빠지면 kit이 헤더 문구만 고친 릴리스에서 sha는 일치하고 전문 비교만
+    어긋나, 게이트가 아무도 손대지 않은 파일을 '변조'로 지목한다.
+    """
+    root = _minimal(tmp_path)
+    _, sha_before = _mod.build_block(root)
+    monkeypatch.setattr(
+        _mod, "BLOCK_HEADER", _mod.BLOCK_HEADER.replace("하네스 중립 규범", "하네스 중립 규범 (개정)")
+    )
+    _, sha_after = _mod.build_block(root)
+    assert sha_before != sha_after
+
+
+def test_portable_reasons_are_rendered(tmp_path):
+    """PORTABLE의 사유가 어디에도 안 나가면 리뷰 압력이 0인 죽은 데이터다 (ATK-012)."""
+    root = _minimal(tmp_path)
+    block, _ = _mod.build_block(root)
+    assert "### 이식된 룰" in block
+    assert _mod.PORTABLE["ssot"] in block
+
+
+def test_missing_target_root_is_not_created(tmp_path):
+    """--target 오타 하나로 없는 디렉터리 트리를 만들지 않는다 (ATK-017)."""
+    root = _minimal(tmp_path)
+    ghost = tmp_path / "typo" / "deep"
+    assert _mod.main(["--plugin-root", str(root), "--target", str(ghost)]) == 1
+    assert not ghost.exists()
