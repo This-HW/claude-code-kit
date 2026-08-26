@@ -17,7 +17,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 30.68
+      "duration_s": 22.32
     },
     {
       "agent": "fix-bugs",
@@ -36,7 +36,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 31.75
+      "duration_s": 26.61
     },
     {
       "agent": "fix-bugs",
@@ -55,7 +55,31 @@
         }
       ],
       "judge": null,
-      "duration_s": 36.29
+      "duration_s": 35.77
+    },
+    {
+      "agent": "explore-codebase",
+      "scenario": "inventory-function-inventory",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['add_widget']"
+        },
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['remove_widget']"
+        },
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['get_stock_level']"
+        }
+      ],
+      "judge": null,
+      "duration_s": 45.4
     },
     {
       "agent": "fix-bugs",
@@ -74,7 +98,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 38.91
+      "duration_s": 33.29
     },
     {
       "agent": "generate-boilerplate",
@@ -98,7 +122,26 @@
         }
       ],
       "judge": null,
-      "duration_s": 16.6
+      "duration_s": 30.78
+    },
+    {
+      "agent": "implement-api",
+      "scenario": "add-item-handler",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        }
+      ],
+      "judge": null,
+      "duration_s": 27.59
     },
     {
       "agent": "implement-code",
@@ -117,7 +160,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 23.78
+      "duration_s": 31.99
     },
     {
       "agent": "implement-code",
@@ -136,7 +179,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 24.42
+      "duration_s": 22.75
     },
     {
       "agent": "implement-code",
@@ -155,7 +198,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 23.12
+      "duration_s": 24.09
     },
     {
       "agent": "optimize-logic",
@@ -179,7 +222,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 19.65
+      "duration_s": 21.22
     },
     {
       "agent": "review-code",
@@ -203,79 +246,36 @@
         }
       ],
       "judge": null,
-      "duration_s": 60.61
+      "duration_s": 80.25
     },
     {
-      "agent": "review-code",
-      "scenario": "sql-injection",
+      "agent": "plan-implementation",
+      "scenario": "remove-all-widgets-plan",
       "status": "pass",
       "checks": [
         {
           "type": "output_contains_any",
           "ok": true,
-          "detail": "output_contains_any ['sql injection', 'sql-injection', 'sqli', 'injection', '인젝션', 'parameteriz', '파라미터화', 'prepared statement', '바인드 변수', 'placeholder']"
+          "detail": "output_contains_any ['remove_all_widgets']"
         },
         {
           "type": "output_contains_any",
           "ok": true,
-          "detail": "output_contains_any ['find_user', 'db.py']"
+          "detail": "output_contains_any ['_stock']"
         },
         {
-          "type": "output_not_contains",
+          "type": "output_contains_any",
           "ok": true,
-          "detail": "output_not_contains"
+          "detail": "output_contains_any ['테스트', 'test']"
+        },
+        {
+          "type": "delegation_signal",
+          "ok": true,
+          "detail": "delegation_signal"
         }
       ],
       "judge": null,
-      "duration_s": 100.48
-    },
-    {
-      "agent": "security-scan",
-      "scenario": "shared-tmp-and-hardcoded-token",
-      "status": "pass",
-      "checks": [
-        {
-          "type": "output_contains_any",
-          "ok": true,
-          "detail": "output_contains_any ['예측 가능', 'predictable', 'world-writable', '공유 디렉토리', '심링크', 'symlink', 'mkstemp', 'mkdtemp', '경쟁', 'race']"
-        },
-        {
-          "type": "output_contains_any",
-          "ok": true,
-          "detail": "output_contains_any ['하드코딩', 'hardcod', '시크릿', 'secret', 'credential', '자격증명', '환경 변수', '환경변수', 'environment variable', '비밀 관리', 'secret manager']"
-        },
-        {
-          "type": "output_not_contains",
-          "ok": true,
-          "detail": "output_not_contains"
-        }
-      ],
-      "judge": null,
-      "duration_s": 60.34
-    },
-    {
-      "agent": "review-code",
-      "scenario": "race-condition",
-      "status": "pass",
-      "checks": [
-        {
-          "type": "output_contains_any",
-          "ok": true,
-          "detail": "output_contains_any ['race condition', 'race-condition', 'toctou', 'check-then-act', 'check then act', '경쟁 상태', '경쟁조건', '원자적', 'atomic', '동시성', 'concurrent', '동시 실행']"
-        },
-        {
-          "type": "output_contains_any",
-          "ok": true,
-          "detail": "output_contains_any ['write_if_absent', 'cache.py']"
-        },
-        {
-          "type": "output_not_contains",
-          "ok": true,
-          "detail": "output_not_contains"
-        }
-      ],
-      "judge": null,
-      "duration_s": 135.62
+      "duration_s": 120.84
     },
     {
       "agent": "review-code",
@@ -299,7 +299,31 @@
         }
       ],
       "judge": null,
-      "duration_s": 153.68
+      "duration_s": 128.32
+    },
+    {
+      "agent": "review-code",
+      "scenario": "race-condition",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['race condition', 'race-condition', 'toctou', 'check-then-act', 'check then act', '경쟁 상태', '경쟁조건', '원자적', 'atomic', '동시성', 'concurrent', '동시 실행']"
+        },
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['write_if_absent', 'cache.py']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
+        }
+      ],
+      "judge": null,
+      "duration_s": 151.96
     },
     {
       "agent": "sync-docs",
@@ -318,7 +342,113 @@
         }
       ],
       "judge": null,
-      "duration_s": 46.89
+      "duration_s": 37.25
+    },
+    {
+      "agent": "verify-code",
+      "scenario": "multiply-bug-detected",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['multiply']"
+        },
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['fail', '실패', 'failed']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        }
+      ],
+      "judge": null,
+      "duration_s": 26.11
+    },
+    {
+      "agent": "write-api-tests",
+      "scenario": "divide-handler",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "pytest_green",
+          "ok": true,
+          "detail": "pytest_green"
+        },
+        {
+          "type": "file_unchanged",
+          "ok": true,
+          "detail": "file_unchanged"
+        },
+        {
+          "type": "delegation_signal",
+          "ok": true,
+          "detail": "delegation_signal"
+        }
+      ],
+      "judge": null,
+      "duration_s": 27.76
+    },
+    {
+      "agent": "review-code",
+      "scenario": "sql-injection",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['sql injection', 'sql-injection', 'sqli', 'injection', '인젝션', 'parameteriz', '파라미터화', 'prepared statement', '바인드 변수', 'placeholder']"
+        },
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['find_user', 'db.py']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
+        }
+      ],
+      "judge": null,
+      "duration_s": 111.73
+    },
+    {
+      "agent": "security-scan",
+      "scenario": "shared-tmp-and-hardcoded-token",
+      "status": "pass",
+      "checks": [
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['예측 가능', 'predictable', 'world-writable', '공유 디렉토리', '심링크', 'symlink', 'mkstemp', 'mkdtemp', '경쟁', 'race']"
+        },
+        {
+          "type": "output_contains_any",
+          "ok": true,
+          "detail": "output_contains_any ['하드코딩', 'hardcod', '시크릿', 'secret', 'credential', '자격증명', '환경 변수', '환경변수', 'environment variable', '비밀 관리', 'secret manager']"
+        },
+        {
+          "type": "output_not_contains",
+          "ok": true,
+          "detail": "output_not_contains"
+        }
+      ],
+      "judge": null,
+      "duration_s": 76.73
     },
     {
       "agent": "write-tests",
@@ -337,7 +467,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 42.74
+      "duration_s": 24.93
     }
   ],
   "summary": {
@@ -347,7 +477,19 @@
       "total": 4,
       "pass_rate": 1.0
     },
+    "explore-codebase": {
+      "pass": 1,
+      "fail": 0,
+      "total": 1,
+      "pass_rate": 1.0
+    },
     "generate-boilerplate": {
+      "pass": 1,
+      "fail": 0,
+      "total": 1,
+      "pass_rate": 1.0
+    },
+    "implement-api": {
       "pass": 1,
       "fail": 0,
       "total": 1,
@@ -371,13 +513,31 @@
       "total": 4,
       "pass_rate": 1.0
     },
-    "security-scan": {
+    "plan-implementation": {
       "pass": 1,
       "fail": 0,
       "total": 1,
       "pass_rate": 1.0
     },
     "sync-docs": {
+      "pass": 1,
+      "fail": 0,
+      "total": 1,
+      "pass_rate": 1.0
+    },
+    "verify-code": {
+      "pass": 1,
+      "fail": 0,
+      "total": 1,
+      "pass_rate": 1.0
+    },
+    "write-api-tests": {
+      "pass": 1,
+      "fail": 0,
+      "total": 1,
+      "pass_rate": 1.0
+    },
+    "security-scan": {
       "pass": 1,
       "fail": 0,
       "total": 1,

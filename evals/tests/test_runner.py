@@ -236,6 +236,27 @@ def test_check_assertion_file_contains_missing_file(tmp_path):
     assert "파일 없음" in detail
 
 
+def test_check_assertion_file_contains_multiline_anchor(tmp_path):
+    """F-003 회귀 테스트 — `^` 앵커가 파일 첫 줄이 아닌 줄에서도 매치해야 한다.
+
+    수정 전에는 re.search에 MULTILINE이 전달되지 않아 `^`가 문자열 전체의
+    시작(=파일 첫 바이트)에만 매치했다. frontmatter처럼 구분선 뒤에 오는 필드
+    (`---\nname: foo\n...`)를 앵커링하는 흔한 패턴이 항상 false-fail이었다
+    (실측: generate-boilerplate/agent-md-skeleton 1차 시도, ledger F-003).
+    """
+    (tmp_path / "agent.md").write_text("---\nname: format-code\ndescription: x\n---\n")
+    ok, _ = runner.check_assertion(
+        {
+            "type": "file_contains",
+            "file": "agent.md",
+            "pattern": r"^name:\s*format-code",
+        },
+        "",
+        tmp_path,
+    )
+    assert ok is True
+
+
 def test_check_assertion_pytest_green_pass(tmp_path):
     (tmp_path / "test_ok.py").write_text("def test_trivial():\n    assert 1 == 1\n")
     ok, _ = runner.check_assertion({"type": "pytest_green", "path": "."}, "", tmp_path)
@@ -685,7 +706,10 @@ MUST_PASS = [
     ("shutil.which", 'from shutil import which\nW = which("git")\n'),
     ("open", 'D = open("data.txt")\n'),
     ("json", 'import json\nD = json.loads("{}")\n'),
-    ("클래스 메서드 본문", 'class C:\n    def m(self):\n        import os\n        os.system("x")\n'),
+    (
+        "클래스 메서드 본문",
+        'class C:\n    def m(self):\n        import os\n        os.system("x")\n',
+    ),
     ("정상 데코레이터", "import functools\n@functools.cache\ndef f(): pass\n"),
 ]
 
