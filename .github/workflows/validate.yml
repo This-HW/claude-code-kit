@@ -151,6 +151,12 @@ jobs:
         # 다른 하네스(Codex·OpenCode)가 옛 규범을 읽는다.
         run: ./scripts/export-harness.sh --check
 
+      - name: Verify multi-harness target manifests (W-019)
+        # 로컬 verify-done.sh §14와 **같은 명령**. S1 단계는 어떤 타겟도 아직
+        # --write 되지 않아 항상 통과한다 — S2/S3가 매니페스트를 기록하기 시작하면
+        # 그 시점부터 이 검사가 엄격해진다.
+        run: python3 scripts/build-targets.py --check
+
       - name: Shell lint (shellcheck)
         # 이 레포의 완료 게이트와 설치 스크립트는 셸이다 — 파이썬만 린트하고 셸을
         # 방치하면 정작 "완료"를 판정하는 코드가 무검사다. 대상 목록·심각도 임계값은

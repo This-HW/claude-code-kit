@@ -1,0 +1,134 @@
+{
+  "version": "1.2.0",
+  "_comment": "다중 하네스 타겟 매니페스트 생성 정책의 단일 소스. 이 파일 밖(스크립트·문서)에 필드 매핑이나 문구를 중복 기재하지 말 것.",
+  "source": {
+    "pluginRoot": "plugins/common",
+    "manifest": "plugins/common/.claude-plugin/plugin.json",
+    "_meta": {
+      "authority": "name·version·description·author·license·homepage·repository·keywords 의 SSOT는 이 매니페스트다. 어떤 타겟 생성물도 이 값을 재정의하지 않는다.",
+      "componentDirs": [
+        "skills",
+        "agents",
+        "rules",
+        "hooks"
+      ],
+      "detection": "컴포넌트 디렉토리는 실측(존재 여부)으로 판정한다. 목록을 손으로 유지하지 않는다."
+    }
+  },
+  "targets": [
+    {
+      "id": "codex",
+      "enabled": true,
+      "manifestPath": "plugins/common/.codex-plugin/plugin.json",
+      "requiredFields": [
+        "name",
+        "version",
+        "description"
+      ],
+      "componentFields": {
+        "skills": "./skills/"
+      },
+      "omit": {
+        "hooks": "S4에서 codex CLI로 실측 확정: exec form(command+args)은 로드되지 않는다. args가 조용히 무시되고 command만 리터럴 문자열로 실행된다(python3 단독 실행 → no-op, touch 단독 실행 → 인자없음 에러로 hook Failed). 공식 단일 문자열 command(예: \"touch <path>\")는 정상 동작 확인됨(positive control) [confirmed: codex-cli 0.147.0 실측, 2026-08-26]. → kit는 exec form이므로 이 배치에서 hooks 필드를 계속 넣지 않는다. 문자열 형식 변환본은 별도 배치.",
+        "agents": "Codex 매니페스트에 전용 필드 없음 — 플랫폼 사실",
+        "rules": "Codex 매니페스트에 전용 필드 없음. 규범은 AGENTS.md 경로(/harness-export)로 계속 전달"
+      },
+      "marketplace": {
+        "path": ".agents/plugins/marketplace.json",
+        "legacyAlsoRead": ".claude-plugin/marketplace.json",
+        "_meta": "legacy 경로는 기존 파일이며 변경하지 않는다 [confirmed: developers.openai.com/codex/plugins/build]"
+      },
+      "interface": {
+        "displayName": "Claude Code Kit",
+        "shortDescription": "Planning gates, adversarial review, and definition-of-done discipline for coding agents",
+        "category": "Coding",
+        "capabilities": [
+          "Interactive",
+          "Read",
+          "Write"
+        ]
+      },
+      "verifyWith": [
+        "codex plugin marketplace add <repo>",
+        "codex plugin list"
+      ],
+      "passthroughFields": [
+        "author",
+        "homepage",
+        "repository",
+        "license",
+        "keywords"
+      ],
+      "_passthroughReason": "SSOT에 있는데 생성물에서 빠지면 공개 디렉토리 게재 시 저작자·라이선스가 없는 패키지가 된다. 레퍼런스 구현(superpowers)도 전부 담는다. requiredFields만 정의하고 통과 필드를 정의하지 않은 것은 기획 누락이었다 [S2 관찰 승인, 2026-08-26]"
+    },
+    {
+      "id": "antigravity",
+      "enabled": true,
+      "manifestPath": "plugins/common/plugin.json",
+      "requiredFields": [
+        "name"
+      ],
+      "optionalFields": [
+        "description",
+        "$schema"
+      ],
+      "schemaUrl": "https://antigravity.google/schemas/v1/plugin.json",
+      "recognizedDirs": [
+        "skills",
+        "rules"
+      ],
+      "_recognizedDirsNote": "S4에서 agy CLI로 실측 확정: agy plugin validate는 agents/ 를 재귀하지 않는다 — 최상위 진입 항목(파일·디렉토리 불문, 내용 미검증)을 그대로 개수로 센다. 통제된 스크래치 플러그인으로 3단계 판별 테스트(빈 카테고리 디렉토리만 있을 때 agents:1로 집계됨)로 확정. kit의 agents/ 는 backend/dev/meta/planning 4개 카테고리 아래 33개 파일이 중첩되어 있어, agy는 카테고리 디렉토리 4개를 '에이전트 4개'로 오등록하고 실제 33개는 하나도 인식하지 못한다. 공식 문서·plugin.json 스키마($schema URL 자체가 404) 어디에도 중첩 레이아웃 지원 설정이 없다 [confirmed: agy 1.1.20 실측, antigravity.google/docs/cli/plugins·/docs/plugins 재확인, 2026-08-26]. → agents는 Antigravity 비지원으로 확정. kit의 agents/ 구조를 이 배치를 위해 바꾸지 않는다(범위 밖, rules/agents 원문 변경 금지).",
+      "omit": {
+        "_skillsCountNote": "동일 실측에서 skills도 21로 오집계됨(실제 19) — 원인은 agy와 동일한 '최상위 진입 항목을 내용 검증 없이 개수로 센다' 방식이며, skills/ 아래 실재하는 README.md(문서 파일) 1개 + references/(SKILL.md 없는 지원 디렉토리) 1개가 19개 진짜 스킬과 나란히 잡힌다(19+1+1=21, 실측으로 정확히 확인). agents/ 와 달리 skills/ 자체는 agy가 기대하는 대로 '한 단계 평면' 레이아웃이라 재귀 문제는 아니다 — 실제 19개 스킬은 정상 인식·설치된다(S3 install/list로 확인). 즉 이 카운트 오차는 agy 집계 방식의 한계(SKILL.md 존재 여부·파일 유형을 검증하지 않음, 공식 문서의 'Each skill must have a SKILL.md' 서술과도 불일치)이지 kit 구조의 결함이 아니다 — skills는 계속 지원 대상으로 유지한다.",
+        "hooks.json": "실측 판정 전까지 만들지 않는다(Codex와 동일 사유 + 루트 hooks.json 기대 경로가 kit의 hooks/hooks.json 과 다름). S4는 Codex 훅만 실측했다 — Antigravity 훅 형식은 별도 검증 필요(미해결로 유지).",
+        "mcp_config.json": "kit는 MCP 서버를 번들하지 않는다 (rules/mcp-usage.md)"
+      },
+      "marketplace": null,
+      "_marketplaceReason": "[unresolved] 공식 공개 레지스트리·심사 절차가 공식 문서에 없다. 없는 것을 있는 것처럼 만들지 않는다. 로컬 설치 절차만 문서화한다.",
+      "verifyWith": [
+        "agy plugin validate plugins/common",
+        "agy plugin install <repo>",
+        "agy plugin list",
+        "agy plugin uninstall claude-code-kit"
+      ],
+      "passthroughFields": [
+        "description"
+      ],
+      "_enabledNote": "S3에서 승격 완료 (2026-08-26). Antigravity 필수 필드는 name 하나이므로 description만 통과시킨다"
+    },
+    {
+      "id": "cursor",
+      "enabled": false,
+      "_disabledReason": "Cursor Marketplace는 큐레이션 파트너 한정 — 오픈 제출 불가 [researched: n=2]. 후속 배치."
+    },
+    {
+      "id": "opencode",
+      "enabled": false,
+      "_disabledReason": "플러그인 단위가 매니페스트가 아니라 실행 가능한 JS/TS 모듈 — 구조적으로 이질적 [unresolved: 원문 미대조]. 후속 배치."
+    },
+    {
+      "id": "copilot",
+      "enabled": false,
+      "_disabledReason": "매니페스트 기반 공식 배포 단위 존재 여부 자체가 [unresolved]. AGENTS.md 는 이미 지원됨."
+    }
+  ],
+  "gate": {
+    "requireRegeneratedManifestsClean": true,
+    "requireVersionParityAcrossTargets": true,
+    "requireClaudeCodeUnaffected": true,
+    "_meta": {
+      "requireRegeneratedManifestsClean": "재생성 후 git diff 가 비어야 한다. 손으로 고친 생성물을 침묵 통과시키지 않는다 — AGENTS.md 드리프트 게이트(§11)와 동일 철학",
+      "requireVersionParityAcrossTargets": "세 매니페스트의 version 이 SSOT와 모두 일치",
+      "requireClaudeCodeUnaffected": "소비자 우선이 상위 원칙. 어떤 타겟도 Claude Code 로딩을 깨뜨리면 그 타겟을 포기한다",
+      "requireGeneratedManifestPresent": "enabled:true 인데 매니페스트 파일이 없으면 드리프트로 취급해 exit 1. '미생성=skip'은 생성물 삭제를 침묵 통과시키는 구멍이며, W-018이 지금 고치고 있는 것과 정확히 같은 클래스의 결함이다 [D1 판정, 2026-08-26]"
+    },
+    "requireGeneratedManifestPresent": true
+  },
+  "_provisional": [
+    "targets[0].interface"
+  ],
+  "_unresolved": {
+    "codexReviewCriteria": "submission portal 심사 기준·SLA 원문 미확인",
+    "antigravityRegistry": "공식 공개 레지스트리 존재 여부"
+  }
+}

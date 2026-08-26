@@ -6,6 +6,83 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+> Draft — S1-S4 of W-019 (multi-harness packaging). Version number, tag, and final
+> wording are assigned at release, once this track merges with the concurrent W-018
+> registry-test-failure fix.
+
+### Added — Native Codex and Antigravity plugin packages
+
+kit's `plugins/common/` now ships **native plugin manifests** for Codex
+(`.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`) and Antigravity
+(`plugin.json`), generated from the existing Claude Code manifest via a new
+deterministic generator (`scripts/build-targets.py`, policy in `packaging/targets.json`
+— see `packaging/README.md`). `scripts/verify-done.sh` §14 gates drift: an
+`enabled:true` target's manifest must exist and match the SSOT, or the gate fails
+(missing manifest counts as drift, not a pass).
+
+Both targets were verified against their real CLIs, not just documentation:
+
+- **Codex** (`codex-cli` 0.147.0): `codex plugin marketplace add` → `codex plugin
+  list` shows `claude-code-kit`, install/remove round-trips cleanly. The generated
+  manifest carries `author`/`homepage`/`repository`/`license`/`keywords` alongside
+  `name`/`version`/`description` (pass-through from the SSOT — an early manifest
+  draft omitted these, which would have shipped an unattributed, unlicensed package
+  to a public directory).
+- **Antigravity** (`agy` 1.1.20): `agy plugin validate plugins/common` now passes
+  (previously failed with "missing plugin.json"); `agy plugin install` → `list` →
+  `uninstall` round-trips cleanly, existing plugins untouched.
+- **Claude Code impact**: confirmed **no effect** on the existing Claude Code
+  installation. Verified by installing a renamed scratch copy of `plugins/common`
+  (including the new files) under a throwaway local marketplace and diffing
+  `claude plugin details` component inventory against the real installation —
+  identical skill/agent/hook/MCP/LSP counts and names.
+
+### Added — `packaging/README.md`, README "Other Harnesses" section, harness-export note
+
+Documents the generator's usage (`--check`/`--write --only <id>`), install
+procedures for Codex and Antigravity, and the relationship between this packaging
+and the existing `/harness-export` → `AGENTS.md` path (rules still travel only via
+`AGENTS.md` on both platforms — neither has a dedicated manifest field for them,
+except Antigravity which recognizes `rules/` directly).
+
+### Fixed — Spec draft claimed Antigravity supported `agents/` as a first-class
+target; direct testing shows it does not
+
+An earlier design draft (`docs/specs/2026-08-26-multi-harness-packaging.md` §5.5)
+stated Antigravity was "the only target with first-class `rules`/`agents` support."
+Controlled testing against the real `agy` CLI shows `agy plugin validate` does not
+recurse into `agents/` subdirectories — it counts top-level entries only, so kit's
+33 agents (nested under 4 category folders) register as "4 agents" found, with none
+of the real definitions recognized. No config exists to opt into recursion. `agents/`
+is not shipped to either Codex or Antigravity target as a result; the spec table and
+this changelog draft are corrected accordingly rather than shipping a component that
+doesn't actually work and advertising it as supported.
+
+A related, lower-severity finding: `agy plugin validate` also reports `skills: 21`
+against kit's real 19 — it counts `skills/README.md` and `skills/references/`
+(neither has a `SKILL.md`) alongside the 19 real skills. This is an `agy` counting
+limitation (it doesn't check for `SKILL.md`, despite its own docs saying every skill
+needs one), not a kit defect — the 19 real skills install and load correctly.
+
+### Not included this batch (documented, not silently dropped)
+
+- **Hooks** — Codex's hook runtime does not load the exec-array form
+  (`command`+`args`) this kit's `hooks/hooks.json` uses; confirmed by direct testing
+  (a hook using this form either silently no-ops or fails outright, depending on the
+  command). Not shipped to Codex; a string-form conversion is future work, not done
+  here. Antigravity's hook format was not tested this batch.
+- **Public registry listing** — publishing to OpenAI's plugin submission portal
+  (Codex/ChatGPT shared directory) requires human review and is out of scope here.
+  Antigravity's official public registry status is `[unresolved]` — Google's docs
+  describe only local/workspace installation, so that's the only path documented.
+- **Cursor / OpenCode / Copilot** targets remain disabled in `packaging/targets.json`
+  (Cursor's marketplace is curated-partner-only; OpenCode's plugin unit is executable
+  JS/TS, not a manifest; Copilot has no confirmed manifest-based distribution unit).
+
+---
+
 ## [2.14.2] — 2026-08-24
 
 ### Fixed — `harness-export` 스킬 문서가 2.14.1의 바뀐 동작을 설명하지 않았다
