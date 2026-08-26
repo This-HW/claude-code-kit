@@ -278,3 +278,93 @@ def test_policy_top_level_not_dict_fails_cleanly():
         (root / "evals" / "policy.json").write_text("[]", encoding="utf-8")
         rc = cec.main(["--root", str(root)])
         assert rc == 1
+
+
+# ── baseline.file 경로 봉쇄 (W-019 교차 리뷰 3번째 인스턴스 — sanddab 실측) ──
+#
+# sanddab이 daggertooth의 evals/policy.json에서 baseline.file을 절대경로로
+# 바꿔 check_eval_coverage.py를 돌려 exit 0("모든 시나리오 디렉토리가 기준선에
+# 존재", "tier1 전 에이전트 최소 시나리오 보유")을 재현했다 — 레포 밖 파일을
+# 기준선으로 신뢰하는 경로 탈출 + 거짓 green이 겹친 형태다. 같은 클래스가
+# scripts/build-targets.py(W-019, 쓰기 경로)에서도 나왔던 결함이다 —
+# `_resolve_in_repo()` 관례를 그대로 이식해 막는다.
+
+
+def _plant_valid_baseline_outside(tmp_path: Path) -> Path:
+    """레포 밖에 스키마상 완전히 유효한 baseline JSON을 심는다 — '파일이 없어서
+    실패'가 아니라 '유효한 파일인데 위치가 틀려서 거부되는지'를 검증하기 위함."""
+    outside = tmp_path / "outside" / "evil-baseline.json"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_text(
+        json.dumps({"results": [{"agent": "fix-bugs", "scenario": "a"}]}),
+        encoding="utf-8",
+    )
+    return outside
+
+
+def test_baseline_file_absolute_path_escape_blocked(tmp_path):
+    outside = _plant_valid_baseline_outside(tmp_path)
+    policy = _base_policy()
+    policy["baseline"]["file"] = str(outside)  # 절대경로
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a")],
+        baseline_pairs=None,  # evals/baseline/ 안에는 아무것도 안 둔다
+        policy=policy,
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_baseline_file_relative_traversal_escape_blocked(tmp_path):
+    outside = _plant_valid_baseline_outside(tmp_path)
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a")],
+        baseline_pairs=None,
+        policy=_base_policy(),
+    )
+    # evals/baseline/ 디렉토리 자체는 실물 레포처럼 존재해야 한다 — 없으면 OS가
+    # '..' 순회 자체를 못 하고(중간 경로 부재) is_file()이 그냥 False가 되어,
+    # "탈출이 막혀서"가 아니라 "애초에 순회가 안 돼서" 통과하는 가짜 테스트가 된다
+    # (이 파일 초안에서 실제로 걸렸던 실수 — 봉쇄 없이도 오탐 green이 났었다).
+    baseline_dir = root / "evals" / "baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+    import os
+
+    rel = Path(os.path.relpath(outside, start=baseline_dir))
+    policy = _base_policy()
+    policy["baseline"]["file"] = str(rel)
+    (root / "evals" / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_baseline_file_symlink_escape_blocked(tmp_path):
+    outside = _plant_valid_baseline_outside(tmp_path)
+    policy = _base_policy()
+    policy["baseline"]["file"] = "linked.json"
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a")],
+        baseline_pairs=None,
+        policy=policy,
+    )
+    baseline_dir = root / "evals" / "baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+    (baseline_dir / "linked.json").symlink_to(outside)
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_baseline_file_within_baseline_dir_still_works(tmp_path):
+    """봉쇄가 정상적인 상대경로까지 막지 않는지 확인 — 과도한 봉쇄로 인한
+    false-red 방지."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a")],
+        baseline_pairs=[("fix-bugs", "a")],
+        policy=_base_policy(),
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 0

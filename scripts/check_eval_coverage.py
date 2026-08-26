@@ -105,6 +105,31 @@ def load_policy(root: Path) -> dict:
     return json.loads((root / "evals" / "policy.json").read_text(encoding="utf-8"))
 
 
+def _resolve_in_repo(
+    container_root: Path, rel_path: str
+) -> tuple[Path | None, str | None]:
+    """`rel_path`(정책 파일의 문자열)를 `container_root` 안으로만 한정해 해석한다.
+
+    `container_root / rel_path`는 `rel_path`가 절대경로면 `container_root`를 버리고
+    `rel_path` 그대로가 된다(pathlib의 문서화된 동작). `..`나 심링크로도 트리 밖으로
+    나갈 수 있다 — 셋 다 `resolve()` 한 번으로 정규화한 뒤 `container_root` 하위인지
+    대조하면 전부 같은 검사로 잡힌다.
+
+    `scripts/build-targets.py::_resolve_in_repo`와 **동일한 관례**다(W-019 교차
+    리뷰 후속, sanddab 실측 — daggertooth의 `baseline.file`도 정확히 같은 클래스로
+    경로 탈출됐다: 절대경로를 주면 레포 밖 파일을 기준선으로 신뢰해 green을 냈다).
+    이 결함이 반복되는 이유가 관례 부재였으므로, 새로 발명하지 않고 그대로 이식했다.
+    호출자는 이 결과(Path)를 그대로 재사용해야 한다 — 다시 조합하면 검증한 값과
+    실제로 읽는 값이 달라질 수 있다(TOCTOU).
+    """
+    real = (container_root / rel_path).resolve()
+    try:
+        real.relative_to(container_root.resolve())
+    except ValueError:
+        return None, f"허용된 디렉토리 밖을 가리킨다 → {real}"
+    return real, None
+
+
 def current_scenarios(root: Path) -> set[tuple[str, str]]:
     run_mod = _load_run_module(root)
     dirs = run_mod.discover_scenario_dirs(root / "evals" / "scenarios")
@@ -121,7 +146,11 @@ def baseline_scenarios(
     if not fname:
         errors.append("evals/policy.json: baseline.file 없음")
         return set(), errors
-    p = root / "evals" / "baseline" / fname
+    baseline_dir = root / "evals" / "baseline"
+    p, escape_error = _resolve_in_repo(baseline_dir, fname)
+    if p is None:
+        errors.append(f"baseline.file 경로 탈출 차단 — {fname}: {escape_error}")
+        return set(), errors
     if not p.is_file():
         errors.append(f"baseline 파일 없음 — evals/baseline/{fname}")
         return set(), errors
