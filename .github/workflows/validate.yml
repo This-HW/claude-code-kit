@@ -183,6 +183,12 @@ jobs:
         # 동일 스크립트. 여기 인라인 재구현 금지(로직 이중화 = 드리프트).
         run: python3 scripts/check_doc_counts.py
 
+      - name: Eval coverage/baseline gate (W-018)
+        # scripts/check_eval_coverage.py 가 단일 소스 — 로컬 verify-done.sh §13과
+        # 동일 스크립트. 에이전트 호출 없음(비용 0) — evals/policy.json의
+        # gate.runFullSuiteInCI: false 방침대로 CI는 드리프트 대조만 한다.
+        run: python3 scripts/check_eval_coverage.py
+
       - name: Security scan (gitleaks)
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:

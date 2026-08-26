@@ -6,80 +6,117 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [2.15.0] — 2026-08-27
 
-> Draft — S1-S4 of W-019 (multi-harness packaging). Version number, tag, and final
-> wording are assigned at release, once this track merges with the concurrent W-018
-> registry-test-failure fix.
+두 갈래를 한 릴리스로 묶는다. 공통점은 **"주장을 기계로 강제한다"** 는 것이다 —
+eval 커버리지 주장(W-018)과 패키지 정합성 주장(W-019) 둘 다 이번에 게이트를 얻었다.
 
-### Added — Native Codex and Antigravity plugin packages
+### Added — Agent evals 커버리지·기준선 게이트 (W-018)
 
-kit's `plugins/common/` now ships **native plugin manifests** for Codex
-(`.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`) and Antigravity
-(`plugin.json`), generated from the existing Claude Code manifest via a new
-deterministic generator (`scripts/build-targets.py`, policy in `packaging/targets.json`
-— see `packaging/README.md`). `scripts/verify-done.sh` §14 gates drift: an
-`enabled:true` target's manifest must exist and match the SSOT, or the gate fails
-(missing manifest counts as drift, not a pass).
+Eval 커버리지가 33개 에이전트 중 4개뿐이었다. `/self-improve` 의 이중 게이트가 사실상
+사용자 승인 단일 게이트로 퇴화하는 원인이었다. 게다가 시나리오 12건과 기준선 11건이
+어긋나 있었는데도(2.14.0에서 `security-scan` 시나리오가 기준선 없이 추가됐다) 그 드리프트를
+잡는 기계 검사가 없었다.
 
-Both targets were verified against their real CLIs, not just documentation:
+- `evals/policy.json` 신설 — 티어·임계값·기준선 포인터의 **단일 소스**.
+  기준선은 명시적 포인터만 쓴다("가장 최신 파일 자동 선택" 금지 — 조용히 틀린 기준선을 쓰게 된다)
+- `scripts/check_eval_coverage.py` 신설 — 시나리오⇄기준선 **양방향** 드리프트 검사 +
+  티어1 최소 커버리지 검사. `verify-done.sh` 신설 §13과 CI가 **같은 스크립트**를 호출한다
+- 티어1 커버리지 **4/33 → 13/13**. 티어 선정 기준은 위험도다 —
+  파일을 수정하는 8종(`isolation: worktree` 보유) + 검증 3종 + 진입점 2종
+- 시나리오 12건 → **21건**. 기준선 재생성(21/21 pass), 기존 시나리오 회귀 0
+- `gate.tier1CoverageEnforceFail` 승격 — 티어1 커버리지 미달이 경고가 아니라 게이트 fail.
+  승격 전후를 **같은 결손 상태에서 flag만 바꿔** 격리 실증했다
+- `docs/works/feedback/ledger.md` 부트스트랩 — 전부 이번 배치에서 **실측된** 결함 5건.
+  추정은 넣지 않았고, 재현되지 않은 건은 "미검증"으로 명시했다
 
-- **Codex** (`codex-cli` 0.147.0): `codex plugin marketplace add` → `codex plugin
-  list` shows `claude-code-kit`, install/remove round-trips cleanly. The generated
-  manifest carries `author`/`homepage`/`repository`/`license`/`keywords` alongside
-  `name`/`version`/`description` (pass-through from the SSOT — an early manifest
-  draft omitted these, which would have shipped an unattributed, unlicensed package
-  to a public directory).
-- **Antigravity** (`agy` 1.1.20): `agy plugin validate plugins/common` now passes
-  (previously failed with "missing plugin.json"); `agy plugin install` → `list` →
-  `uninstall` round-trips cleanly, existing plugins untouched.
-- **Claude Code impact**: confirmed **no effect** on the existing Claude Code
-  installation. Verified by installing a renamed scratch copy of `plugins/common`
-  (including the new files) under a throwaway local marketplace and diffing
-  `claude plugin details` component inventory against the real installation —
-  identical skill/agent/hook/MCP/LSP counts and names.
+### Fixed — `file_contains` 어서션이 `re.MULTILINE` 을 적용하지 않았다
 
-### Added — `packaging/README.md`, README "Other Harnesses" section, harness-export note
+`^` 앵커가 파일 첫 줄에만 매치해 **실제 false-fail** 을 냈다(우리 도구가 조용히 오작동하고
+있었다). 수정 전 red를 확인하는 회귀 테스트를 먼저 추가한 뒤 고쳤다.
 
-Documents the generator's usage (`--check`/`--write --only <id>`), install
-procedures for Codex and Antigravity, and the relationship between this packaging
-and the existing `/harness-export` → `AGENTS.md` path (rules still travel only via
-`AGENTS.md` on both platforms — neither has a dedicated manifest field for them,
-except Antigravity which recognizes `rules/` directly).
+### Investigated — DELEGATION_SIGNAL 출력 계약이 런타임에 지켜지지 않는다
 
-### Fixed — Spec draft claimed Antigravity supported `agents/` as a first-class
-target; direct testing shows it does not
+커버리지를 넓힌 **첫 성과가 결함 발견**이었다. 관측 8종 중 **6종(75%)** 이 필수 출력 마커를
+간헐적으로 생략한다: `implement-code` 6/6 · `plan-implementation` 2/2 는 안정,
+`write-tests` 1/2 · `sync-docs` 2/3 · `optimize-logic` 1/4 · `explore-codebase` 1/2 ·
+`verify-code` 1/2 · `implement-api` 1/2 는 불안정.
 
-An earlier design draft (`docs/specs/2026-08-26-multi-harness-packaging.md` §5.5)
-stated Antigravity was "the only target with first-class `rules`/`agents` support."
-Controlled testing against the real `agy` CLI shows `agy plugin validate` does not
-recurse into `agents/` subdirectories — it counts top-level entries only, so kit's
-33 agents (nested under 4 category folders) register as "4 agents" found, with none
-of the real definitions recognized. No config exists to opt into recursion. `agents/`
-is not shipped to either Codex or Antigravity target as a result; the spec table and
-this changelog draft are corrected accordingly rather than shipping a component that
-doesn't actually work and advertising it as supported.
+`implement-api` 가 모델·effort와 무관하게 실패해 "좋은 모델이면 안정"이라는 가설을 반증했다.
+**계약이 정의 파일에 적혀 있는지는 `verify-done §12` 가 33/33 검사해 왔으나, 런타임에 실제
+방출되는지는 아무도 잰 적이 없었다.**
 
-A related, lower-severity finding: `agy plugin validate` also reports `skills: 21`
-against kit's real 19 — it counts `skills/README.md` and `skills/references/`
-(neither has a `SKILL.md`) alongside the 19 real skills. This is an `agy` counting
-limitation (it doesn't check for `SKILL.md`, despite its own docs saying every skill
-needs one), not a kit defect — the 19 real skills install and load correctly.
+이번 배치에서는 **운영 규칙만** 확정했다 — 불안정한 어서션을 결정적 게이트에서 분리하고
+(삭제가 아니다: 사유·재부착 조건을 `expect.json._removedAssertions` 에 남겼고, 안정 통과하는
+건은 유지했다), 신규 시나리오는 사전 관측 없이 이 어서션을 넣지 않는다. 근본 원인은
+에이전트 정의 몫이고 아키텍처 결정이라 `docs/specs/2026-08-27-delegation-signal-contract-review.md`
+(W-021)로 분리했다.
 
-### Not included this batch (documented, not silently dropped)
+### Decided — `docs/pipeline-reinforcement-plan-v2.md` Track 2 폐기
 
-- **Hooks** — Codex's hook runtime does not load the exec-array form
-  (`command`+`args`) this kit's `hooks/hooks.json` uses; confirmed by direct testing
-  (a hook using this form either silently no-ops or fails outright, depending on the
-  command). Not shipped to Codex; a string-form conversion is future work, not done
-  here. Antigravity's hook format was not tested this batch.
-- **Public registry listing** — publishing to OpenAI's plugin submission portal
-  (Codex/ChatGPT shared directory) requires human review and is out of scope here.
-  Antigravity's official public registry status is `[unresolved]` — Google's docs
-  describe only local/workspace installation, so that's the only path documented.
-- **Cursor / OpenCode / Copilot** targets remain disabled in `packaging/targets.json`
-  (Cursor's marketplace is curated-partner-only; OpenCode's plugin unit is executable
-  JS/TS, not a manifest; Copilot has no confirmed manifest-based distribution unit).
+"Delegation Signal JSON화"를 2026-05부터 보류하고 있었다. 보류 해제 조건("실제 파싱 실패
+사례")이 한 번도 성립하지 않았고, 반복 관측된 문제(마커 **완전 누락**)는 JSON화로 고쳐지지
+않는 다른 종류의 결함이다 — 같은 유형이 W-014에서 이미 프롬프트 레벨로 해결된 전례가 있다.
+
+### Added — Codex · Antigravity 네이티브 플러그인 패키지 (W-019)
+
+`plugins/common/` 이 이제 **세 플랫폼의 네이티브 매니페스트**를 함께 싣는다. Codex는
+`.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`, Antigravity는 루트
+`plugin.json`. 전부 기존 Claude Code 매니페스트(SSOT)에서 **생성**되며 손으로 쓰지 않는다
+(`scripts/build-targets.py`, 정책은 `packaging/targets.json`).
+
+`verify-done.sh` **§14** 가 드리프트를 막는다 — `enabled:true` 타겟의 매니페스트는 존재해야
+하고 SSOT와 일치해야 한다. **파일이 없는 것도 드리프트로 센다**(생성물 삭제가 조용히 통과하던
+구멍을 설계 단계에서 막았다).
+
+문서가 아니라 **실물 CLI로 검증**했다:
+
+- **Codex** (`codex-cli` 0.147.0): `marketplace add` → `list` 에 `claude-code-kit` 표시 →
+  `remove` 왕복 정상, `~/.codex/config.toml` 원복 확인. 생성 매니페스트는 `name`/`version`/
+  `description` 에 더해 `author`/`homepage`/`repository`/`license`/`keywords` 를 SSOT에서
+  통과시킨다 — 초안은 이것들을 빠뜨려 **저작자도 라이선스도 없는 패키지**를 공개 디렉토리에
+  올릴 뻔했다
+- **Antigravity** (`agy` 1.1.20): `agy plugin validate plugins/common` 이 green으로 전환
+  (이전엔 `missing plugin.json` 으로 fail), install→list→uninstall 왕복 정상, 기존 플러그인 불변
+- **Claude Code 무영향 확증**: 실사용 설치본을 건드리지 않고 `plugins/common` 의 스크래치
+  복사본을 다른 이름으로 임시 설치해 `claude plugin details` 컴포넌트 인벤토리를 대조 —
+  스킬·에이전트·훅·MCP·LSP 수와 이름이 완전히 동일
+
+### Fixed — 스펙 초안이 Antigravity의 `agents/` 지원을 잘못 주장했다
+
+설계 초안(`docs/specs/2026-08-26-multi-harness-packaging.md` §5.5)은 Antigravity를
+"`rules`·`agents` 까지 1급 지원하는 유일한 타겟"이라고 적었다. 실물 `agy` CLI 대조 결과
+**`agy plugin validate` 는 `agents/` 를 재귀하지 않는다** — 최상위 항목만 세므로 4개 카테고리
+아래 중첩된 kit의 33개 에이전트는 **하나도 인식되지 않고** "agents: 4"로 잡힌다. 재귀를 켜는
+설정은 공식 문서·스키마 어디에도 없다(`$schema` URL 자체가 404).
+
+`agents/` 는 두 타겟 어디에도 싣지 않고, 스펙 표와 README를 사실대로 고쳤다. **깨진 컴포넌트를
+실은 채 "지원한다"고 광고하지 않는다.** 배포 문서가 배포 동작과 다른 것은 2.14.2에서 이미
+고친 유형의 결함이다.
+
+낮은 심각도 부수 발견: `agy plugin validate` 는 kit의 스킬을 19가 아니라 **21로 오집계**한다
+(`SKILL.md` 가 없는 `skills/README.md` 와 `skills/references/` 를 함께 센다). agy 자체의 집계
+한계이며 kit 구조 결함이 아니다 — 19개 스킬은 정상 설치·동작한다.
+
+### Added — 문서
+
+`packaging/README.md`(생성기 사용법), README의 "Other Harnesses" 절(3플랫폼 설치 절차와
+**실리는 것/안 실리는 것**), `harness-export` 스킬의 `AGENTS.md` 경로와의 관계 설명,
+`docs/codex-submission-checklist.md`(공개 게시는 계정 자격이 필요해 사람이 밟는 절차).
+
+### 이번 배치에 넣지 않은 것 (조용히 빠뜨린 게 아니라 명시적 배제)
+
+- **훅** — Codex 훅 런타임은 kit이 쓰는 **exec form(`command`+`args`)을 로드하지 않는다.**
+  3단계 실측으로 확정했다: `python3`+args는 무해한 no-op, `touch`+args는 **명시적 Failed**
+  (인자 없는 `touch` 에러 = args 미전달의 결정적 증거), 공식 단일 문자열은 성공(positive
+  control). 문자열 형식 변환은 별도 배치다. Antigravity 훅 형식은 이번에 실측하지 않았다
+- **공개 레지스트리 등재** — OpenAI submission portal 제출은 계정 자격이 필요하다.
+  Antigravity의 공식 공개 레지스트리 유무는 `[unresolved]` — 구글 공식 문서는 로컬/워크스페이스
+  설치만 기술하므로 그 경로만 문서화했다. **없는 것을 있는 것처럼 쓰지 않는다**
+- **Cursor / OpenCode / Copilot** — `packaging/targets.json` 에서 비활성. Cursor 마켓플레이스는
+  큐레이션 파트너 한정, OpenCode의 플러그인 단위는 매니페스트가 아니라 실행 가능한 JS/TS,
+  Copilot은 매니페스트 기반 배포 단위 존재 여부 자체가 `[unresolved]`
+- **eval 티어2 20종**, **`/eval-forge` 어서션 미지원 개선(F-001)** — ledger에 추적 중, 후속 배치
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "assertions": [
+    {
+      "type": "pytest_green",
+      "path": "."
+    },
+    {
+      "type": "file_unchanged",
+      "file": "test_stub_api.py"
+    }
+  ],
+  "_removedAssertions": {
+    "delegation_signal": "F-002(관측 1/2 준수, S3) 근거로 게이트에서 분리 — implement-api 에이전트의 DELEGATION_SIGNAL 계약 미준수는 실재하는 결함이며, 어서션 삭제가 아니라 결정적 게이트에서의 분리다(스펙 §5.4). sonnet+medium effort임에도(implement-code와 동일 프로필) 불준수 관측 — '모델/effort가 높으면 안정적'이라는 가설이 이 케이스로 약화됨, ledger F-002 갱신 참고. 에이전트 정의(plugins/common/agents/backend/implement-api.md) 수정으로 준수율이 개선되면 이 어서션을 되돌리는 것이 그 수정의 수용 기준이다. 2026-08-27, decision-log D-3 원칙 적용."
+  },
+  "judge": {
+    "enabled": false,
+    "rubric": "implement-api가 add-item-handler 상황을 정확히 처리하는가?",
+    "threshold": 7
+  }
+}

@@ -333,8 +333,21 @@ _DANGER_MODULES = _ANY_CALL_DANGER | _ATTR_CALL_DANGER
 # 이름만으로 위험한 호출 (from-import 되어 모듈 접두어가 사라진 경우)
 _DANGER_NAMES = frozenset(
     {
-        "system", "popen", "execv", "execve", "execl", "execlp", "spawnv", "spawnl",
-        "remove", "unlink", "rmdir", "removedirs", "rmtree", "kill", "urlopen",
+        "system",
+        "popen",
+        "execv",
+        "execve",
+        "execl",
+        "execlp",
+        "spawnv",
+        "spawnl",
+        "remove",
+        "unlink",
+        "rmdir",
+        "removedirs",
+        "rmtree",
+        "kill",
+        "urlopen",
     }
 )
 # 빌트인: 임의 실행·동적 해석 통로만. `open`/`input`/`compile`은 **넣지 않는다** —
@@ -370,9 +383,9 @@ def _collect_aliases(tree: ast.AST) -> tuple[dict, dict, list]:
     `import os as x` / `from os import system` / `f = os.system` / `from os import *`
     — 전부 모듈 접두어를 지우거나 바꿔서 단순 부분문자열 검사를 무력화하는 경로다.
     """
-    alias_mod: dict[str, str] = {}   # 별칭 → 원본 모듈
+    alias_mod: dict[str, str] = {}  # 별칭 → 원본 모듈
     alias_name: dict[str, str] = {}  # 별칭 → "module.name"
-    star_imports: list[str] = []     # `from X import *` 의 X
+    star_imports: list[str] = []  # `from X import *` 의 X
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
@@ -406,7 +419,9 @@ def _executed_at_import(tree: ast.Module) -> list[ast.AST]:
             # 본문은 실행되지 않지만 데코레이터와 기본 인자 값은 실행된다.
             out.extend(node.decorator_list)
             out.extend(d for d in node.args.defaults if d is not None)
-            out.extend(d for d in getattr(node.args, "kw_defaults", []) if d is not None)
+            out.extend(
+                d for d in getattr(node.args, "kw_defaults", []) if d is not None
+            )
             continue
         if isinstance(node, ast.ClassDef):
             # 클래스 **본문은 import 시 실행된다**.
@@ -425,9 +440,9 @@ def _module_scope_danger(src: str) -> list[str]:
     except (SyntaxError, ValueError):
         # 파싱 불가 = 검사 불가. 통과로 삼지 않는다 (NUL 바이트는 ValueError를 던진다 —
         # 이걸 안 잡으면 --validate 전체가 트레이스백으로 죽는다).
-        return [
-            ln.strip()[:60] for ln in src.splitlines() if _DANGER_RE.match(ln)
-        ] or ["구문 오류로 AST 검사 불가"]
+        return [ln.strip()[:60] for ln in src.splitlines() if _DANGER_RE.match(ln)] or [
+            "구문 오류로 AST 검사 불가"
+        ]
 
     alias_mod, alias_name, star_imports = _collect_aliases(tree)
     hits: list[str] = []
@@ -443,7 +458,9 @@ def _module_scope_danger(src: str) -> list[str]:
             # import 시 평가·적용된다. Call만 보면 이 경로가 통째로 샌다.
             if not isinstance(sub, (ast.Call, ast.Attribute, ast.Name)):
                 continue
-            if isinstance(sub, (ast.Attribute, ast.Name)) and not _is_decorator(sub, node):
+            if isinstance(sub, (ast.Attribute, ast.Name)) and not _is_decorator(
+                sub, node
+            ):
                 continue
             root, last = _danger_ref(sub)
             if root is None:
@@ -640,7 +657,11 @@ def check_assertion(
         if not f.is_file():
             return False, f"file_contains — 파일 없음 {assertion['file']}"
         content = f.read_text(encoding="utf-8")
-        ok = re.search(assertion["pattern"], content) is not None
+        # MULTILINE 기본 적용 (F-003): 이게 없으면 '^'/'$'가 파일 전체의
+        # 시작/끝에만 매치해, frontmatter처럼 구분선 뒤에 오는 필드를 앵커링하는
+        # 흔한 패턴이 실제로 false-fail을 냈다(2026-08-26 실측). 인라인 `(?m)`
+        # 워크어라운드가 이미 있던 시나리오는 중복 지정이라도 무해하다.
+        ok = re.search(assertion["pattern"], content, re.MULTILINE) is not None
         return ok, "file_contains" + ("" if ok else " — 패턴 없음")
     if t == "file_unchanged":
         # 채점 게이밍 방지(ATK-006): 에이전트가 테스트 파일을 고쳐 green을 만드는
@@ -1027,9 +1048,7 @@ def main(argv: list[str] | None = None) -> int:
         # --agent/--scenario는 --validate에도 적용된다. 예전에는 조용히 무시돼서,
         # "내 시나리오 하나만 검증"이 불가능했다 — 무관한 기존 시나리오의 결함이
         # 신규 생성 도구(eval-forge)의 판정을 오염시키는 원인이었다.
-        errors = validate_all(
-            agent_filter=args.agent, scenario_filter=args.scenario
-        )
+        errors = validate_all(agent_filter=args.agent, scenario_filter=args.scenario)
         if errors:
             for e in errors:
                 print(f"  [FAIL] {e}")

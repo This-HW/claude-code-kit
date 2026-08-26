@@ -1,0 +1,20 @@
+{
+  "assertions": [
+    {
+      "type": "pytest_green",
+      "path": "."
+    },
+    {
+      "type": "file_unchanged",
+      "file": "endpoints.py"
+    },
+    {
+      "type": "delegation_signal"
+    }
+  ],
+  "judge": {
+    "enabled": false,
+    "rubric": "write-api-tests가 divide-handler 상황을 정확히 처리하는가?",
+    "threshold": 7
+  }
+}

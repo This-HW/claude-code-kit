@@ -418,6 +418,22 @@ else
   red "evals/run.py 없음 (fail-closed — W-B 산출물 누락)"
 fi
 
+hdr "13. Eval 커버리지·기준선 게이트 (W-018 / S1)"
+# 시나리오 디렉토리 ⇄ 기준선 (agent,scenario) 집합의 양방향 대조 + tier1 최소
+# 커버리지. 로직 단일 소스는 scripts/check_eval_coverage.py — CI(validate.yml)가
+# 동일 스크립트를 호출한다(F-023 관례). 에이전트 호출 0건(비용 없음), 매 커밋 가능.
+if [ -f scripts/check_eval_coverage.py ]; then
+  if python3 scripts/check_eval_coverage.py >"$TMPD/eval_coverage" 2>&1; then
+    green "eval 커버리지 정합 (baseline ⇄ scenarios)"
+    sed 's/^/    /' "$TMPD/eval_coverage"
+  else
+    red "eval 커버리지 드리프트 — 상세는 check_eval_coverage.py 출력"
+    sed 's/^/    /' "$TMPD/eval_coverage"
+  fi
+else
+  red "scripts/check_eval_coverage.py 없음 (W-018 S1 산출물 누락)"
+fi
+
 hdr "12. 에이전트 출력 계약 위치 (W-017)"
 # CLAUDE.md는 "모든 에이전트는 구조화된 delegation signal로 **끝난다**"고 규정한다.
 # 그런데 3종에서 계약이 문서 중간에 있었고(뒤로 186~496줄), 뒤따르는 참고 자료가
