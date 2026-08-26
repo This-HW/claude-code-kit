@@ -58,6 +58,65 @@ Options:
 
 ---
 
+## Other Harnesses (Codex · Antigravity)
+
+kit's plugin root (`plugins/common/`) also ships **native plugin manifests** for
+Codex and Antigravity, generated from the same source of truth as the Claude Code
+manifest (`packaging/targets.json` + `scripts/build-targets.py` — see
+[`packaging/README.md`](packaging/README.md)). What actually ships per platform
+differs by platform capability, verified against the real CLIs (not assumed):
+
+| Component | Codex | Antigravity |
+| --- | --- | --- |
+| Skills (19) | ✅ `"skills": "./skills/"` | ✅ recognized (`agy plugin validate` currently reports 21 — it also counts `skills/README.md` and `skills/references/`, which have no `SKILL.md`; the real 19 install and run correctly) |
+| Rules (13) | ⚠ no dedicated field → carried via `AGENTS.md` (see [`/harness-export`](plugins/common/skills/harness-export/SKILL.md)) | ✅ recognized |
+| Agents (33) | ⚠ no dedicated field | ❌ **not supported** — `agy plugin validate` does not recurse into `agents/`'s category subdirectories (`backend`/`dev`/`meta`/`planning`); it miscounts the 4 category folders as agent entries and finds none of the real 33. No config exists to opt into recursion (confirmed against official docs and the plugin schema) |
+| Hooks | ❌ not shipped — Codex's hook runtime does not load the exec-array form (`command`+`args`) this kit uses; confirmed by direct testing, not just reading docs | ❌ not shipped this batch — format unverified |
+| MCP servers | ❌ not bundled (kit doesn't ship MCP servers) | ❌ not bundled |
+
+### Codex
+
+```bash
+# Add this repo (or your installed copy) as a plugin marketplace
+codex plugin marketplace add /path/to/claude-code-kit
+
+# Install
+codex plugin add claude-code-kit@claude-code-kit-marketplace
+
+# Verify
+codex plugin list   # shows claude-code-kit@claude-code-kit-marketplace
+
+# Remove
+codex plugin remove claude-code-kit@claude-code-kit-marketplace
+codex plugin marketplace remove claude-code-kit-marketplace
+```
+
+Codex also reads the repo's existing `.claude-plugin/marketplace.json` as a legacy
+path, alongside the generated `.agents/plugins/marketplace.json`. Public listing in
+the shared ChatGPT/Codex plugin directory requires OpenAI's submission review —
+not done; install via a local/Git marketplace as above works today.
+
+### Antigravity
+
+```bash
+# Validate first (checks the manifest and component dirs)
+agy plugin validate /path/to/claude-code-kit/plugins/common
+
+# Install
+agy plugin install /path/to/claude-code-kit/plugins/common
+
+# Verify
+agy plugin list   # shows claude-code-kit
+
+# Remove
+agy plugin uninstall claude-code-kit
+```
+
+**No official public registry is confirmed for Antigravity** — Google's docs
+describe only local/workspace installation, so that's the only supported path here.
+
+---
+
 ## Architecture & Concepts
 
 claude-code-kit이 무엇을 어떻게 융합하는지 — 한눈에 보는 설계 원리.
