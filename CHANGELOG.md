@@ -118,6 +118,14 @@ Eval 커버리지가 33개 에이전트 중 4개뿐이었다. `/self-improve` �
   Copilot은 매니페스트 기반 배포 단위 존재 여부 자체가 `[unresolved]`
 - **eval 티어2 20종**, **`/eval-forge` 어서션 미지원 개선(F-001)** — ledger에 추적 중, 후속 배치
 
+### Fixed — `check_eval_coverage.py` policy.json 스키마 누락 시 거짓 green (W-018/W-019 교차 리뷰)
+
+`tiers`/`gate`/`coverage` 섹션이 통째로 없거나 `tiers.tier1`이 빈 배열이면
+"검사 대상 0개"를 "전부 통과"로 오인해 exit 0을 냈다(W-019 교차 리뷰에서
+sanddab이 실측). 필수 섹션 부재를 명확한 실패(`PolicyError`)로 바꾸고, 정책
+최상위가 dict가 아닌 경우의 raw traceback도 같은 방식으로 정리했다. 회귀 테스트
+5건 추가(수정 전 red 확인).
+
 ---
 
 ## [2.14.2] — 2026-08-24
