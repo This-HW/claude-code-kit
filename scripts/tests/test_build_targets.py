@@ -1,9 +1,14 @@
-"""Unit tests for scripts/build-targets.py (W-019 / S1).
+"""Unit tests for scripts/build-targets.py (W-019 / S1-S2).
 
 이 테스트는 **실제 레포의 packaging/targets.json이나 plugins/common을 건드리지 않는다**
 — `--repo-root`/`--policy`로 전부 임시 픽스처 레포를 가리킨다 (scripts/tests/test_eval_forge.py의
-`_fake_repo` 관례를 따름). "타겟 매니페스트 생성 금지"(S1 금지사항)를 실제 레포 트리
-안에서는 절대 어기지 않기 위함이다.
+`_fake_repo` 관례를 따름). "타겟 매니페스트 생성 금지"(S1 금지사항, S2는 codex만 허용)를
+실제 레포 트리 안에서는 절대 어기지 않기 위함이다.
+
+S2에서 스코프 규칙이 바뀌었다(D1 판정, targets.json v1.1.0): `enabled:true`는 이제
+"지금 생성 대상"만 의미하고, `gate.requireGeneratedManifestPresent`가 켜지면 enabled인데
+미생성인 매니페스트는 드리프트(exit 1)다. 이 픽스처 정책도 그 게이트를 켜서 실제 정책과
+같은 조건으로 검사한다.
 """
 
 from __future__ import annotations
@@ -59,6 +64,7 @@ POLICY = {
             "requiredFields": ["name"],
         },
     ],
+    "gate": {"requireGeneratedManifestPresent": True},
 }
 
 
@@ -154,6 +160,8 @@ def test_disabled_target_skipped_by_write_and_default_check(tmp_path, capsys):
     assert not (root / "plugins" / "common" / "beta-plugin.json").exists()
 
     # 기본 --check(전체 enabled)도 beta를 건드리지 않는다 — 애초에 대상이 아니다.
+    # (alpha는 enabled라서 미생성 상태로 두면 §7 케이스와 겹치므로 여기서는 먼저 채운다.)
+    assert _run(root, "--write", "--only", "alpha") == 0
     rc_check = _run(root, "--check")
     assert rc_check == 0
 
@@ -189,7 +197,8 @@ def test_check_never_writes(tmp_path):
     before = sorted(p.relative_to(root) for p in root.rglob("*") if p.is_file())
     assert not manifest.exists()
 
-    assert _run(root, "--check", "--only", "alpha") == 0
+    # enabled인데 미생성 → 이제 드리프트(exit 1)지만, 그래도 아무것도 쓰지 않는다.
+    assert _run(root, "--check", "--only", "alpha") == 1
     assert not manifest.exists()
     after = sorted(p.relative_to(root) for p in root.rglob("*") if p.is_file())
     assert before == after
@@ -201,18 +210,41 @@ def test_check_never_writes(tmp_path):
     assert manifest.stat().st_mtime_ns == mtime_before
 
 
-# ── 추가: 기본 --write(no --only)는 항상 no-op ────────────────────────────────
+# ── 6. 기본 --write(no --only)는 enabled 전체를 쓴다 (S2, D1 승인분 반영) ──────
 
 
-def test_bare_write_without_only_is_noop(tmp_path):
+def test_bare_write_writes_all_enabled_targets(tmp_path):
     root = _fake_repo(tmp_path)
     rc = _run(root, "--write")
     assert rc == 0
-    created = [
-        p
-        for p in root.rglob("*")
-        if p.is_file()
-        and "packaging" not in p.parts
-        and ".claude-plugin" not in p.parts
-    ]
-    assert created == []
+    alpha_manifest = root / "plugins" / "common" / ".alpha-plugin" / "plugin.json"
+    beta_manifest = root / "plugins" / "common" / "beta-plugin.json"
+    assert alpha_manifest.exists()  # enabled:true → 기록됨
+    assert not beta_manifest.exists()  # enabled:false → 여전히 건너뜀
+
+
+# ── 7. 미생성 = 드리프트 (S2, D1 기각분 반영) ─────────────────────────────────
+
+
+def test_default_check_fails_when_enabled_target_missing(tmp_path, capsys):
+    root = _fake_repo(tmp_path)
+    rc = _run(root, "--check")
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "미생성" in out and "드리프트" in out
+
+
+# ── 8. 삭제 실증 — 생성 후 지우면 드리프트 (STAGE2 완료조건 5와 같은 축) ───────
+
+
+def test_check_detects_deletion_as_drift(tmp_path):
+    root = _fake_repo(tmp_path)
+    assert _run(root, "--write", "--only", "alpha") == 0
+    manifest = root / "plugins" / "common" / ".alpha-plugin" / "plugin.json"
+    assert _run(root, "--check", "--only", "alpha") == 0
+
+    manifest.unlink()
+    assert _run(root, "--check", "--only", "alpha") == 1
+
+    assert _run(root, "--write", "--only", "alpha") == 0
+    assert _run(root, "--check", "--only", "alpha") == 0

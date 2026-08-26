@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""build-targets.py — 다중 하네스 타겟 매니페스트 생성기 (W-019 / S1).
+"""build-targets.py — 다중 하네스 타겟 매니페스트 생성기 (W-019 / S1-S2).
 
 왜 필요한가
 -----------
@@ -19,17 +19,20 @@ plugin.json`)을 갖는다. 이 값(name·version·description 등)을 손으로
 1. **결정론적.** 같은 입력(SSOT + targets.json + 컴포넌트 디렉토리 실측)은 항상 같은
    바이트를 만든다 (키 정렬 + 고정 인코딩) — `--check`가 diff 대신 바이트 비교로
    드리프트를 잡을 수 있으려면 이게 전제다.
-2. **`--write`는 기본으로 아무것도 안 쓴다.** `--only <id>`로 명시한 타겟만 쓴다.
-   이번 Stage(S1)는 "생성기만 만들고 실제 타겟 매니페스트는 쓰지 않는다"가 완료 조건이다
-   (STAGE1_LLM.md) — 대상을 명시해야만 쓰는 구조라야, 무심코 `--write`를 돌려도 실제
-   타겟 파일이 생기지 않는다. 정책 파일의 `enabled:true`는 "로드맵에 있다"는 뜻이지
-   "지금 쓴다"는 뜻이 아니다.
-3. **`--check`는 항상 안전(읽기 전용)하고, 아직 생성되지 않은 타겟에 관대하다.**
-   매니페스트 파일이 아직 없으면 "미생성"으로만 보고하고 실패시키지 않는다 — 그래야
-   S1처럼 타겟을 아직 하나도 쓰지 않은 상태에서도 이 검사가 게이트에 걸려 있을 수 있고,
-   S2/S3가 매니페스트를 실제로 쓰기 시작하는 순간부터 자동으로 엄격해진다(파일이
-   생기면 그 다음부터는 내용이 정확히 일치해야 한다). "존재하지 않는 파일과의 차이"는
-   드리프트가 아니라 "아직 그 단계가 아님"이다.
+2. **`enabled`는 "지금 생성 대상" 하나만 의미한다.** S1에서는 `enabled`가 "로드맵에
+   있다"와 "지금 만든다"를 겸하게 두었다가, `--write`가 매니페스트를 실제로 쓰면
+   그 순간부터 `--check`가 "미생성=drift"로 막혀야 하는데 코드가 그걸 절차 제약(사람이
+   "이번엔 쓰지 마라"를 지키는 것)으로만 표현하고 있었다 — S2에서 정책이 고쳐졌다
+   (targets.json v1.1.0, `gate.requireGeneratedManifestPresent`). 이제 `enabled:true`는
+   "이 실행에서 만들어야 하고, 없으면 드리프트"를 뜻한다. 아직 만들 준비가 안 된 타겟은
+   정책에서 `enabled:false`로 두고 준비되면 승격한다(`_enabledPromotion` 참고) — 코드가
+   아니라 정책 파일이 단계를 표현한다.
+3. **`--check`는 항상 안전(읽기 전용)하지만, `enabled`인데 미생성이면 드리프트다.**
+   "매니페스트가 없다"를 "아직 이 단계가 아님"으로 관대히 봐주면, 생성물을 실수로(또는
+   악의로) 지워도 게이트가 green이 된다 — 이 레포가 게이트를 만드는 이유 자체를
+   무효화하는 침묵 구멍이다(W-018과 같은 실패 유형, 2026-08-26 판정). "존재하지 않는
+   파일"은 이제 "드리프트"와 동의어다. 아직 만들 준비가 안 된 타겟은 `enabled:false`로
+   두어라 — 그러면 애초에 검사 대상에서 빠진다(원칙 2).
 4. **SSOT 부재는 명확한 실패다.** 컴포넌트 디렉토리 부재("skills 없음")는 정상적인
    조건 분기이지만, SSOT 매니페스트 자체가 없으면 계산할 것이 없으므로 즉시, 명확한
    메시지로 실패한다(raw traceback 금지) — 이 도구가 잘못 배치됐다는 신호다.
@@ -40,12 +43,12 @@ plugin.json`)을 갖는다. 이 값(name·version·description 등)을 손으로
 사용:
   python3 scripts/build-targets.py --check              # 전체 enabled 타겟 드리프트 검사
   python3 scripts/build-targets.py --check --only codex # 하나만
-  python3 scripts/build-targets.py --write --only codex # 하나만 실제로 기록
-  python3 scripts/build-targets.py --write               # 기본: 아무 타겟도 쓰지 않음(§2)
+  python3 scripts/build-targets.py --write               # 전체 enabled 타겟 기록
+  python3 scripts/build-targets.py --write --only codex # 하나만 기록
 
 exit code:
-  0 = 성공 (또는 --check 드리프트 없음 — 미생성 타겟은 드리프트로 세지 않는다)
-  1 = --check 드리프트 / SSOT 부재 / 알 수 없는 --only id / 정책 파싱 실패
+  0 = 성공 (또는 --check 드리프트 없음)
+  1 = --check 드리프트(미생성 포함) / SSOT 부재 / 알 수 없는 --only id / 정책 파싱 실패
 """
 
 from __future__ import annotations
@@ -203,9 +206,9 @@ def artifacts_for(
 def _selected_targets(policy: dict, only: str | None) -> tuple[list[dict], list[str]]:
     """정책의 타겟 목록에서 이번 실행이 다룰 타겟들. (선택됨, 경고 메시지들)을 반환.
 
-    `only`가 없으면 enabled:true 전체(‑‑check의 기본 스캔 범위). `only`가 있으면
-    그 하나만 — 존재하지 않으면 PolicyError(명확한 실패), enabled:false면 빈 목록+경고
-    (조용한 성공이 아니라 "왜 아무것도 안 됐는지"를 보여준다).
+    `only`가 없으면 enabled:true 전체 — `--check`·`--write` 둘 다 이 범위를 쓴다(대칭).
+    `only`가 있으면 그 하나만 — 존재하지 않으면 PolicyError(명확한 실패), enabled:false면
+    빈 목록+경고(조용한 성공이 아니라 "왜 아무것도 안 됐는지"를 보여준다).
     """
     all_targets = policy.get("targets", [])
     if only is None:
@@ -224,8 +227,11 @@ def _selected_targets(policy: dict, only: str | None) -> tuple[list[dict], list[
 
 
 def cmd_check(repo_root: Path, policy: dict, only: str | None) -> int:
-    """드리프트 검사. **항상 읽기 전용.** 미생성 타겟은 실패로 세지 않는다(모듈 docstring 원칙 3)."""
+    """드리프트 검사. **항상 읽기 전용.** enabled인데 미생성이면 드리프트다(모듈 docstring 원칙 3)."""
     ssot = load_ssot(repo_root, policy)
+    require_present = bool(
+        policy.get("gate", {}).get("requireGeneratedManifestPresent")
+    )
     targets, warnings = _selected_targets(policy, only)
     for w in warnings:
         print(f"[build-targets] i {w}")
@@ -235,9 +241,14 @@ def cmd_check(repo_root: Path, policy: dict, only: str | None) -> int:
         for art in artifacts_for(repo_root, policy, ssot, target):
             p = repo_root / art.rel_path
             if not p.exists():
-                print(
-                    f"[build-targets] · {art.rel_path} — 미생성 (아직 이 단계가 아님, skip)"
-                )
+                if require_present:
+                    print(
+                        f"[build-targets] ✗ 미생성 — {art.rel_path} (enabled:true인데 생성물이 없다 → 드리프트)\n"
+                        f"  → --write --only {art.target_id} 로 생성하라."
+                    )
+                    fail = True
+                else:
+                    print(f"[build-targets] · {art.rel_path} — 미생성 (skip)")
                 continue
             checked += 1
             try:
@@ -254,31 +265,28 @@ def cmd_check(repo_root: Path, policy: dict, only: str | None) -> int:
     if fail:
         return 1
     if checked == 0:
-        print(
-            "[build-targets] ✓ 검사할 생성물 없음 (아직 어떤 타겟도 --write 되지 않음)"
-        )
+        print("[build-targets] ✓ 검사 대상 없음 (enabled 타겟 없음)")
     else:
         print(f"[build-targets] ✓ 생성물 {checked}개 모두 SSOT와 일치")
     return 0
 
 
 def cmd_write(repo_root: Path, policy: dict, only: str | None) -> int:
-    """생성물 기록. `only`가 없으면 **아무것도 쓰지 않는다**(모듈 docstring 원칙 2)."""
+    """생성물 기록. enabled 전체(또는 `--only`로 좁힌 하나)를 쓴다(모듈 docstring 원칙 2)."""
     ssot = load_ssot(repo_root, policy)
-    if only is None:
-        print(
-            "[build-targets] i --only <id> 없이는 아무것도 쓰지 않는다 (기본이 안전한 no-op)."
-        )
-        return 0
     targets, warnings = _selected_targets(policy, only)
     for w in warnings:
         print(f"[build-targets] i {w}")
+    written = 0
     for target in targets:
         for art in artifacts_for(repo_root, policy, ssot, target):
             p = repo_root / art.rel_path
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(art.text, encoding="utf-8")
             print(f"[build-targets] ✓ 기록: {art.rel_path}")
+            written += 1
+    if written == 0:
+        print("[build-targets] i 기록 대상 없음 (enabled 타겟이 없거나 모두 제외됨)")
     return 0
 
 
@@ -293,7 +301,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument(
         "--only",
         default=None,
-        help="이 id 하나만 처리 (기본: --check는 전체 enabled, --write는 전체 no-op)",
+        help="이 id 하나만 처리 (기본: enabled 전체 — --check·--write 동일)",
     )
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument(
