@@ -6,6 +6,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added — Agent evals 커버리지·기준선 게이트 (W-018)
+
+Eval 커버리지가 33개 에이전트 중 4개뿐이었다(`/self-improve`의 이중 게이트가
+사실상 사용자 승인 단일 게이트로 퇴화하는 원인). 시나리오 12건과 기준선 11건이
+어긋나 있었는데도(2.14.0에서 `security-scan` 시나리오가 기준선 없이 추가) 그
+드리프트를 잡는 기계 검사가 없었다.
+
+- `evals/policy.json` 신설 — 티어·임계값·기준선 포인터의 단일 소스
+- `scripts/check_eval_coverage.py` 신설 — 시나리오⇄기준선 양방향 드리프트 검사 +
+  티어1 최소 커버리지 검사. `scripts/verify-done.sh` 신설 §13과 CI가 동일 스크립트 호출
+- 티어1 에이전트 커버리지 **4/33 → 13/13** (`write-tests`, `write-api-tests`,
+  `implement-api`, `generate-boilerplate`, `sync-docs`, `optimize-logic`,
+  `review-code`, `security-scan`, `verify-code`, `explore-codebase`,
+  `plan-implementation`, `implement-code`, `fix-bugs` 전부 최소 1건)
+- `gate.tier1CoverageEnforceFail` 승격 — 티어1 커버리지 미달이 이제 경고가 아니라
+  게이트 fail (승격 전 경고로만 두었던 유예 기간 종료)
+- `evals/baseline/2026-08-26.json` 재생성(21/21 pass) — 기존 시나리오 회귀 없음
+- `docs/works/feedback/ledger.md` 부트스트랩 — 이번 배치에서 실측된 결함 기록
+  (F-001~F-005)
+- `file_contains` 어서션이 `re.MULTILINE`을 적용하지 않아 `^` 앵커가 파일 첫 줄에만
+  매치하던 버그 수정 (실측 false-fail 발생 확인 후 수정)
+
+### Investigated — DELEGATION_SIGNAL 출력계약 미준수
+
+관측 8종 중 6종에서 에이전트가 필수 출력 마커를 간헐적으로 생략함을 실측(모델/effort
+크기와 무관 — `implement-api`가 반례). 근본 원인은 에이전트 정의 몫이라 별도 스펙
+W-021로 분리했다. 이번 배치에서는 불안정한 어서션을 게이트에서 분리하고 운영 규칙만
+확정했다(`evals/policy.json._unresolved.delegationSignalCompliance`).
+
+### Decided — `docs/pipeline-reinforcement-plan-v2.md` Track 2 폐기
+
+"Delegation Signal JSON화"를 2026-05부터 보류하고 있었다. 보류 해제 조건("실제
+파싱 실패 사례")이 한 번도 성립한 적이 없고, 실제로 반복 관측된 문제(마커 완전
+누락)는 JSON화로 해결되지 않는 다른 종류의 결함이라 판단해 폐기했다(근거는 문서
+본문 참고).
+
+---
+
 ## [2.14.2] — 2026-08-24
 
 ### Fixed — `harness-export` 스킬 문서가 2.14.1의 바뀐 동작을 설명하지 않았다

@@ -75,9 +75,9 @@
       "runFullSuiteInCI": "false — eval 실행은 실제 에이전트 호출이라 비용이 붙는다. CI는 --validate + 커버리지 대조(둘 다 에이전트 호출 0)만",
       "judgeEnabledByDefault": "false — judge는 유일한 비결정 경로. 결정적 게이트에 비결정 점수를 섞으면 게이트가 노이즈가 된다",
       "maxAuthzViolations": "권한 위반·금지 행위는 임계값이 아니라 0. 결정적 게이트로 취급",
-      "tier1CoverageEnforceFail": "S4에서 true로 승격. 그때 티어1 커버리지 미달이 경고가 아니라 fail이 된다. TODO 주석이 아니라 플래그로 둔 이유: 승격을 기억에 의존하지 않기 위해서다 [D1 승인, 2026-08-26]"
+      "tier1CoverageEnforceFail": "[PROMOTED 2026-08-27 / S4] S1에서 도입, S2/S3로 티어1 13/13 커버리지가 완성된 뒤 S4에서 true로 승격했다. 이제 티어1 커버리지 미달은 경고가 아니라 fail이다. TODO 주석이 아니라 플래그로 둔 이유: 승격을 기억에 의존하지 않기 위해서다 [D1 승인, 2026-08-26]. 승격이 실제로 fail 경로를 타는지는 시나리오 디렉토리 임시 이동으로 실증했다(STAGE4_COMPLETE.md)"
     },
-    "tier1CoverageEnforceFail": false
+    "tier1CoverageEnforceFail": true
   },
   "cost": {
     "measuredSuiteSeconds": 208,
@@ -91,12 +91,11 @@
   },
   "_provisional": [
     "baseline.file",
-    "cost.expectationAfterBatch",
-    "gate.tier1CoverageEnforceFail"
+    "cost.expectationAfterBatch"
   ],
   "_unresolved": {
     "judgeActivation": "judge 활성화 시 필요한 '고정 평가셋 + 임계값' 설계 미정. 별도 배치로 위임",
     "tier2Design": "대화형 에이전트(clarify-requirements 등)의 시나리오화 방법 미정",
-    "delegationSignalCompliance": "에이전트별 DELEGATION_SIGNAL 계약 준수율이 다르다 — implement-code 6/6 vs optimize-logic 1/4·sync-docs 2/3·write-tests 1/2 (2026-08-27 관측). 후자 3종은 어서션을 게이트에서 분리하고 결함으로 추적한다(D-3). 근본 수정은 에이전트 정의 몫이며, evals가 설치 캐시를 실행하므로 이번 배치에서 검증 불가 — 후속 배치."
+    "delegationSignalCompliance": "[해소 — 운영규칙 확정, 2026-08-27 / S4] 에이전트별 DELEGATION_SIGNAL 계약 준수율 실측(관측 8종, 표본 수는 종별 상이): implement-code 6/6, plan-implementation 2/2 — 안정. write-tests 1/2, sync-docs 2/3, optimize-logic 1/4, verify-code 1/2, implement-api 1/2, explore-codebase 1/2 — 불안정(8종 중 6종, 75%). implement-api는 개별 검증 1회 통과 후 풀스위트 재실행에서 재현돼, 'S2 시점 모델/effort가 높으면 안정적' 가설을 반증했다 — 모델·effort로 준수율을 예측할 수 없다. **운영 규칙(확정)**: 신규 시나리오에 delegation_signal을 기본 포함하지 않는다. 포함하려면 사전 1회 이상 관측이 필수다(explore-codebase는 이 규칙을 S3에서 선제 적용해 애초에 미포함). 존치된 2건(implement-code·plan-implementation)은 안정 통과하므로 유지한다. 체크 타입 자체는 삭제하지 않는다. 근본 수정(에이전트 정의)은 W-018 범위 밖 — 별도 스펙 W-021(torpedo/docs/specs/2026-08-27-delegation-signal-contract-review.md)로 분리됨."
   }
 }
