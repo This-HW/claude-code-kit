@@ -470,7 +470,7 @@ else
   red "export-harness 산출물 누락 (scripts/export-harness.sh 또는 hooks/export_harness.py) — W-017"
 fi
 
-hdr "13. 다중 하네스 타겟 매니페스트 드리프트 (W-019)"
+hdr "14. 다중 하네스 타겟 매니페스트 드리프트 (W-019)"
 # packaging/targets.json + plugins/common/.claude-plugin/plugin.json(SSOT)에서 계산되는
 # Codex·Antigravity 타겟 매니페스트가 SSOT와 어긋나지 않는지 검사한다. S1 단계에서는
 # 아직 어떤 타겟도 --write 되지 않았으므로(생성물 0개) 이 검사는 관대하게 통과한다 —

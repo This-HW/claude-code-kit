@@ -48,7 +48,7 @@ Run `--write --only <id>` (and commit the result) whenever:
 - A component directory (`skills/`, `agents/`, `rules/`) is added or removed, which
   changes what `componentFields` resolve to.
 
-`scripts/verify-done.sh` §13 (and the equivalent CI step) run `--check` on every
+`scripts/verify-done.sh` §14 (and the equivalent CI step) run `--check` on every
 push — a stale generated manifest fails the gate, the same way a stale `AGENTS.md`
 does.
 

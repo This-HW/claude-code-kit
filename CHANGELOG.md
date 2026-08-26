@@ -18,7 +18,7 @@ kit's `plugins/common/` now ships **native plugin manifests** for Codex
 (`.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`) and Antigravity
 (`plugin.json`), generated from the existing Claude Code manifest via a new
 deterministic generator (`scripts/build-targets.py`, policy in `packaging/targets.json`
-— see `packaging/README.md`). `scripts/verify-done.sh` §13 gates drift: an
+— see `packaging/README.md`). `scripts/verify-done.sh` §14 gates drift: an
 `enabled:true` target's manifest must exist and match the SSOT, or the gate fails
 (missing manifest counts as drift, not a pass).
 
