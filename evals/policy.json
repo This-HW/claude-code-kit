@@ -1,0 +1,102 @@
+{
+  "version": "1.2.0",
+  "_comment": "eval 대상·임계값의 단일 소스. 산문(스크립트·문서)에 티어 목록이나 숫자를 중복 기재하지 말 것 — F-023(pytest.ini)에서 겪은 드리프트와 같은 실패다.",
+  "baseline": {
+    "file": "2026-08-26.json",
+    "_meta": {
+      "dir": "evals/baseline/",
+      "regenerateWith": "scripts/run-evals.sh --baseline (실제 CLI 플래그명 — regenerateWith에 --write-baseline로 적혀 있던 건 오기, 실행은 --baseline)",
+      "policy": "명시적 포인터만 사용한다. '가장 최신 파일 자동 선택' 금지 — 조용히 틀린 기준선을 쓰게 된다.",
+      "archival": "과거 기준선 파일은 삭제하지 않는다. 추이가 회귀 탐지의 근거다. 2026-07-06.json은 evals/baseline/에 그대로 보존됨.",
+      "approvedBy": null,
+      "source": "[confirmed] S2에서 재생성 — 16/16 pass (기존 12건 status 전부 유지 + 신규 4건), evals/reports/20260826T162405139900Z.json",
+      "regenerationCadence": "시나리오를 추가한 Stage는 그 Stage 안에서 기준선을 재생성하고 포인터를 갱신한다. '기준선에 없는 시나리오'는 곧 '회귀 판정이 불가능한 시나리오'이므로, 미등재 상태로 커밋되면 게이트의 의미가 사라진다 [D2 판정, 2026-08-26]",
+      "s2Note": "이 baseline.file 갱신은 daggertooth 로컬 evals/policy.json에만 반영했다 — 원본 policy.evals.json(torpedo)의 baseline.file은 아직 2026-07-06.json이다. 다음 Stage가 원본을 다시 cp하면 이 포인터가 되돌아간다 — 원본 동기화는 기획 세션 몫으로 남김(STAGE2_COMPLETE.md 참고)."
+    }
+  },
+  "tiers": {
+    "_comment": "선정 기준은 위험도. 파일을 수정하는 에이전트(isolation: worktree)가 최우선.",
+    "tier1": [
+      "implement-code",
+      "fix-bugs",
+      "write-tests",
+      "write-api-tests",
+      "implement-api",
+      "generate-boilerplate",
+      "sync-docs",
+      "optimize-logic",
+      "review-code",
+      "security-scan",
+      "verify-code",
+      "explore-codebase",
+      "plan-implementation"
+    ],
+    "_tier1Rationale": {
+      "fileMutating": [
+        "implement-code",
+        "fix-bugs",
+        "write-tests",
+        "write-api-tests",
+        "implement-api",
+        "generate-boilerplate",
+        "sync-docs",
+        "optimize-logic"
+      ],
+      "gatekeeping": [
+        "review-code",
+        "security-scan",
+        "verify-code"
+      ],
+      "entryPoint": [
+        "explore-codebase",
+        "plan-implementation"
+      ]
+    },
+    "_tier2Deferred": "나머지 20종. clarify-requirements 계열 대화형 에이전트는 AskUserQuestion 의존이라 시나리오화 설계가 달라 별도 배치."
+  },
+  "coverage": {
+    "tier1MinScenariosPerAgent": 1,
+    "_meta": {
+      "boundaryInclusive": true,
+      "basis": "evals/scenarios/<agent>/<scenario>/ 디렉토리 존재 기준",
+      "enforcement": "scripts/verify-done.sh 신설 §. 티어1 중 시나리오 0건인 에이전트가 있으면 fail",
+      "source": "[confirmed] 사용자 결정 2026-08-26 — '핵심 티어 우선(12~15)'"
+    }
+  },
+  "gate": {
+    "requireBaselineCoversAllScenarios": true,
+    "requireScenariosCoverBaseline": true,
+    "runFullSuiteInCI": false,
+    "judgeEnabledByDefault": false,
+    "maxAuthzViolations": 0,
+    "_meta": {
+      "requireBaselineCoversAllScenarios": "시나리오 ⊄ 기준선 → exit 1. 2.14.0에서 security-scan이 기준선 없이 추가된 드리프트를 잡는다",
+      "requireScenariosCoverBaseline": "기준선에만 있고 시나리오가 사라짐 → exit 1. 시나리오 삭제를 침묵 통과시키지 않는다 (§9 test-ratchet과 동일 철학)",
+      "runFullSuiteInCI": "false — eval 실행은 실제 에이전트 호출이라 비용이 붙는다. CI는 --validate + 커버리지 대조(둘 다 에이전트 호출 0)만",
+      "judgeEnabledByDefault": "false — judge는 유일한 비결정 경로. 결정적 게이트에 비결정 점수를 섞으면 게이트가 노이즈가 된다",
+      "maxAuthzViolations": "권한 위반·금지 행위는 임계값이 아니라 0. 결정적 게이트로 취급",
+      "tier1CoverageEnforceFail": "S4에서 true로 승격. 그때 티어1 커버리지 미달이 경고가 아니라 fail이 된다. TODO 주석이 아니라 플래그로 둔 이유: 승격을 기억에 의존하지 않기 위해서다 [D1 승인, 2026-08-26]"
+    },
+    "tier1CoverageEnforceFail": false
+  },
+  "cost": {
+    "measuredSuiteSeconds": 208,
+    "measuredAt": "2026-08-26",
+    "measuredScenarios": 12,
+    "_meta": {
+      "dominant": "review-code(opus) 4건이 wall-clock의 약 60% (93~150s/건)",
+      "expectationAfterBatch": "[researched: 실측 208s + 신규 9건 × 30~45s 추정, n=1] 9~11분",
+      "policy": "10분 초과 시 사실을 기준선 파일에 기록만 한다. 스위트 분할은 이번 범위가 아니다"
+    }
+  },
+  "_provisional": [
+    "baseline.file",
+    "cost.expectationAfterBatch",
+    "gate.tier1CoverageEnforceFail"
+  ],
+  "_unresolved": {
+    "judgeActivation": "judge 활성화 시 필요한 '고정 평가셋 + 임계값' 설계 미정. 별도 배치로 위임",
+    "tier2Design": "대화형 에이전트(clarify-requirements 등)의 시나리오화 방법 미정",
+    "delegationSignalCompliance": "에이전트별 DELEGATION_SIGNAL 계약 준수율이 다르다 — implement-code 6/6 vs optimize-logic 1/4·sync-docs 2/3·write-tests 1/2 (2026-08-27 관측). 후자 3종은 어서션을 게이트에서 분리하고 결함으로 추적한다(D-3). 근본 수정은 에이전트 정의 몫이며, evals가 설치 캐시를 실행하므로 이번 배치에서 검증 불가 — 후속 배치."
+  }
+}
