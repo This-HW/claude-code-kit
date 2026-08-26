@@ -52,6 +52,14 @@ sanddab이 실측). 필수 섹션 부재를 명확한 실패(`PolicyError`)로 �
 최상위가 dict가 아닌 경우의 raw traceback도 같은 방식으로 정리했다. 회귀 테스트
 5건 추가(수정 전 red 확인).
 
+### Fixed — `check_eval_coverage.py`의 `baseline.file` 경로 탈출 (W-019 교차 리뷰 3차 후속)
+
+`baseline.file`이 절대경로·`..` 상대경로·심링크를 가리키면 레포 밖 파일을
+기준선으로 신뢰해 exit 0을 냈다 — `scripts/build-targets.py`(W-019)에서 나온 것과
+같은 결함 클래스가 게이트 자신에도 있었다(sanddab 실측). `build-targets.py`의
+`_resolve_in_repo()` 관례를 그대로 이식해 `evals/baseline/` 밖으로 못 나가게
+봉쇄했다. 회귀 테스트 3건 추가(절대경로/상대경로 탈출/심링크, 수정 전 red 확인).
+
 ---
 
 ## [2.14.2] — 2026-08-24
