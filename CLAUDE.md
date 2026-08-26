@@ -46,6 +46,9 @@ plugins/
 - `skills/` — skill `.md` files
 - `hooks/` — Python hook scripts (common only)
 - `rules/` — governance rules (common only)
+- `.codex-plugin/plugin.json`, `plugin.json` — **생성물**. Codex·Antigravity 타겟 매니페스트로,
+  `.claude-plugin/plugin.json` 을 SSOT 삼아 `scripts/build-targets.py` 가 만든다. 손으로 고치지 말 것
+  (`verify-done.sh` §14가 드리프트를 exit 1로 잡는다). 정책은 레포 루트 `packaging/targets.json`
 
 ## Key Skills
 
@@ -131,6 +134,17 @@ REASON: [reason]
 CONTEXT: [handoff context]
 ---END_SIGNAL---
 ```
+
+> **⚠ 이 계약은 런타임에 잘 지켜지지 않는다 (2026-08-27 실측).** 커버리지를 13종으로 넓히자
+> **관측 8종 중 6종(75%)** 이 이 마커를 간헐적으로 생략한다는 것이 드러났다
+> (`implement-code` 6/6 · `plan-implementation` 2/2 는 안정, 나머지는 1/2~2/3).
+> `implement-api` 는 모델·effort가 낮지 않은데도 실패해 "좋은 모델이면 안정"이라는 가설을 반증했다.
+>
+> `verify-done.sh` §12는 이 계약이 **정의 파일에 적혀 있는지**를 33/33 검사해 왔지만,
+> **런타임에 실제 방출되는지는 아무도 잰 적이 없었다.** 오케스트레이션이 이미 스킬 주도 플랫
+> 위임으로 바뀐 만큼 이 신호가 사문화됐을 가능성도 있다 — 계약을 고칠 것인지 폐기할 것인지는
+> `docs/specs/2026-08-27-delegation-signal-contract-review.md` (W-021)에서 판별한다.
+> **그때까지 이 절을 "동작하는 계약"으로 읽지 말 것.**
 
 ## Development Conventions
 
@@ -339,6 +353,10 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 - Add a matching `## [x.y.z]` entry to `CHANGELOG.md` (verify-done.sh §6 fails if
   the plugin.json version and the CHANGELOG top entry diverge)
 - Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
+- **버전을 올렸으면 타겟 매니페스트를 재생성한다**: `python3 scripts/build-targets.py --write`.
+  `.claude-plugin/plugin.json` 만 올리고 이것을 빠뜨리면 Codex·Antigravity 패키지에 **옛 버전이
+  실린 채** 나간다. v2.15.0 릴리스에서 실제로 밟았고 `verify-done.sh` §14가 잡았다 —
+  게이트가 없었다면 그대로 배포됐을 실수다
 - Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
 - 그 룰에 **해설본 미러**가 있으면(아래 참조) 해설본도 함께 손보고 `scripts/sync-rule-mirror.sh --regenerate`
 - Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`,
