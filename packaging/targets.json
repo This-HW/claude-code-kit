@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "_comment": "다중 하네스 타겟 매니페스트 생성 정책의 단일 소스. 이 파일 밖(스크립트·문서)에 필드 매핑이나 문구를 중복 기재하지 말 것.",
   "source": {
     "pluginRoot": "plugins/common",
@@ -51,11 +51,19 @@
       "verifyWith": [
         "codex plugin marketplace add <repo>",
         "codex plugin list"
-      ]
+      ],
+      "passthroughFields": [
+        "author",
+        "homepage",
+        "repository",
+        "license",
+        "keywords"
+      ],
+      "_passthroughReason": "SSOT에 있는데 생성물에서 빠지면 공개 디렉토리 게재 시 저작자·라이선스가 없는 패키지가 된다. 레퍼런스 구현(superpowers)도 전부 담는다. requiredFields만 정의하고 통과 필드를 정의하지 않은 것은 기획 누락이었다 [S2 관찰 승인, 2026-08-26]"
     },
     {
       "id": "antigravity",
-      "enabled": false,
+      "enabled": true,
       "manifestPath": "plugins/common/plugin.json",
       "requiredFields": [
         "name"
@@ -82,7 +90,10 @@
         "agy plugin list",
         "agy plugin uninstall claude-code-kit"
       ],
-      "_enabledPromotion": "S3에서 true로 승격한다. `enabled`는 '로드맵 대상'이 아니라 '지금 생성 대상' 하나만 의미한다 — 두 뜻을 겸하게 둔 것이 기획 오류였다 [D1 판정, 2026-08-26]"
+      "passthroughFields": [
+        "description"
+      ],
+      "_enabledNote": "S3에서 승격 완료 (2026-08-26). Antigravity 필수 필드는 name 하나이므로 description만 통과시킨다"
     },
     {
       "id": "cursor",

@@ -1,14 +1,19 @@
-"""Unit tests for scripts/build-targets.py (W-019 / S1-S2).
+"""Unit tests for scripts/build-targets.py (W-019 / S1-S3).
 
 이 테스트는 **실제 레포의 packaging/targets.json이나 plugins/common을 건드리지 않는다**
 — `--repo-root`/`--policy`로 전부 임시 픽스처 레포를 가리킨다 (scripts/tests/test_eval_forge.py의
-`_fake_repo` 관례를 따름). "타겟 매니페스트 생성 금지"(S1 금지사항, S2는 codex만 허용)를
-실제 레포 트리 안에서는 절대 어기지 않기 위함이다.
+`_fake_repo` 관례를 따름). "타겟 매니페스트 생성 금지"(S1 금지사항, S2는 codex만·S3는 codex+
+antigravity만 허용)를 실제 레포 트리 안에서는 절대 어기지 않기 위함이다.
 
 S2에서 스코프 규칙이 바뀌었다(D1 판정, targets.json v1.1.0): `enabled:true`는 이제
 "지금 생성 대상"만 의미하고, `gate.requireGeneratedManifestPresent`가 켜지면 enabled인데
 미생성인 매니페스트는 드리프트(exit 1)다. 이 픽스처 정책도 그 게이트를 켜서 실제 정책과
 같은 조건으로 검사한다.
+
+S3에서 `passthroughFields`가 추가됐다(SSOT에 있으면 싣고 없으면 조용히 생략 — S2 관찰
+승인분, targets.json v1.2.0). 픽스처의 "alpha"는 이를 검증하고, "gamma"는 marketplace가
+없는 타겟(Antigravity 모양)의 삭제·드리프트 실증을 alpha와 별도로 검증한다 — STAGE3가
+"삭제·훼손 실증을 두 타겟 모두에 대해" 요구하기 때문이다.
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ SSOT = {
     "name": "fixture-kit",
     "version": "1.0.0",
     "description": "fixture plugin for build-targets tests",
+    "author": {"name": "Fixture Org"},
 }
 
 POLICY = {
@@ -55,6 +61,7 @@ POLICY = {
             "componentFields": {"skills": "./skills/"},
             "interface": {"displayName": "Alpha Target"},
             "marketplace": {"path": ".agents/plugins/marketplace.json"},
+            "passthroughFields": ["author", "license"],
         },
         {
             "id": "beta",
@@ -62,6 +69,16 @@ POLICY = {
             "_disabledReason": "fixture: intentionally disabled",
             "manifestPath": "plugins/common/beta-plugin.json",
             "requiredFields": ["name"],
+        },
+        {
+            # Antigravity 모양: marketplace 없음, 필수 필드 최소.
+            "id": "gamma",
+            "enabled": True,
+            "manifestPath": "plugins/common/gamma-plugin.json",
+            "requiredFields": ["name"],
+            "optionalFields": ["description"],
+            "schemaUrl": "https://example.com/schemas/gamma.json",
+            "marketplace": None,
         },
     ],
     "gate": {"requireGeneratedManifestPresent": True},
@@ -122,6 +139,32 @@ def test_write_omits_component_field_when_dir_absent(tmp_path):
     assert "skills" not in data
 
 
+def test_passthrough_field_included_when_present_and_omitted_when_absent(tmp_path):
+    root = _fake_repo(tmp_path)
+    rc = _run(root, "--write", "--only", "alpha")
+    assert rc == 0
+    manifest = root / "plugins" / "common" / ".alpha-plugin" / "plugin.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert data["author"] == {"name": "Fixture Org"}  # SSOT에 있음 → 실림
+    assert "license" not in data  # SSOT에 없음 → 조용히 생략
+
+
+def test_second_target_without_marketplace_generates_manifest_only(tmp_path):
+    root = _fake_repo(tmp_path)
+    rc = _run(root, "--write", "--only", "gamma")
+    assert rc == 0
+    manifest = root / "plugins" / "common" / "gamma-plugin.json"
+    assert manifest.exists()
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    assert data == {
+        "$schema": "https://example.com/schemas/gamma.json",
+        "name": "fixture-kit",
+        "description": "fixture plugin for build-targets tests",
+    }
+    # gamma의 marketplace는 null이므로 alpha용 마켓플레이스 파일이 생기면 안 된다.
+    assert not (root / ".agents" / "plugins" / "marketplace.json").exists()
+
+
 # ── 2. --check 드리프트 감지 ──────────────────────────────────────────────────
 
 
@@ -160,8 +203,9 @@ def test_disabled_target_skipped_by_write_and_default_check(tmp_path, capsys):
     assert not (root / "plugins" / "common" / "beta-plugin.json").exists()
 
     # 기본 --check(전체 enabled)도 beta를 건드리지 않는다 — 애초에 대상이 아니다.
-    # (alpha는 enabled라서 미생성 상태로 두면 §7 케이스와 겹치므로 여기서는 먼저 채운다.)
+    # (alpha·gamma는 enabled라서 미생성 상태로 두면 §7 케이스와 겹치므로 여기서는 먼저 채운다.)
     assert _run(root, "--write", "--only", "alpha") == 0
+    assert _run(root, "--write", "--only", "gamma") == 0
     rc_check = _run(root, "--check")
     assert rc_check == 0
 
@@ -218,8 +262,10 @@ def test_bare_write_writes_all_enabled_targets(tmp_path):
     rc = _run(root, "--write")
     assert rc == 0
     alpha_manifest = root / "plugins" / "common" / ".alpha-plugin" / "plugin.json"
+    gamma_manifest = root / "plugins" / "common" / "gamma-plugin.json"
     beta_manifest = root / "plugins" / "common" / "beta-plugin.json"
     assert alpha_manifest.exists()  # enabled:true → 기록됨
+    assert gamma_manifest.exists()  # enabled:true → 기록됨
     assert not beta_manifest.exists()  # enabled:false → 여전히 건너뜀
 
 
@@ -248,3 +294,31 @@ def test_check_detects_deletion_as_drift(tmp_path):
 
     assert _run(root, "--write", "--only", "alpha") == 0
     assert _run(root, "--check", "--only", "alpha") == 0
+
+
+# ── 9. 삭제·훼손 실증 — 두 번째(marketplace 없는) 타겟에도 동일 (STAGE3 완료조건 4) ──
+
+
+def test_check_detects_drift_and_deletion_for_second_target(tmp_path):
+    root = _fake_repo(tmp_path)
+    assert _run(root, "--write", "--only", "gamma") == 0
+    manifest = root / "plugins" / "common" / "gamma-plugin.json"
+    original = manifest.read_text(encoding="utf-8")
+    assert _run(root, "--check", "--only", "gamma") == 0
+
+    # 훼손 → drift
+    manifest.write_text(original.replace("fixture-kit", "tampered"), encoding="utf-8")
+    assert _run(root, "--check", "--only", "gamma") == 1
+
+    # 재생성 → clean
+    assert _run(root, "--write", "--only", "gamma") == 0
+    assert _run(root, "--check", "--only", "gamma") == 0
+
+    # 삭제 → drift
+    manifest.unlink()
+    assert _run(root, "--check", "--only", "gamma") == 1
+
+    # 재생성 → clean, 원본과 byte-identical
+    assert _run(root, "--write", "--only", "gamma") == 0
+    assert _run(root, "--check", "--only", "gamma") == 0
+    assert manifest.read_text(encoding="utf-8") == original

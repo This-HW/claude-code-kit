@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""build-targets.py — 다중 하네스 타겟 매니페스트 생성기 (W-019 / S1-S2).
+"""build-targets.py — 다중 하네스 타겟 매니페스트 생성기 (W-019 / S1-S3).
 
 왜 필요한가
 -----------
@@ -120,9 +120,16 @@ def _find_target(policy: dict, target_id: str) -> dict | None:
 def build_manifest(ssot: dict, target: dict, present_dirs: set[str]) -> dict:
     """타겟 하나의 플러그인 매니페스트 내용을 계산한다. 필드 매핑은 전부 target(정책)이 정한다.
 
-    필드 하드코딩 없음: SSOT에서 뽑을 필드 이름(`requiredFields`/`optionalFields`),
-    컴포넌트 필드 매핑(`componentFields`), 인터페이스 문구(`interface`),
+    필드 하드코딩 없음: SSOT에서 뽑을 필드 이름(`requiredFields`/`optionalFields`/
+    `passthroughFields`), 컴포넌트 필드 매핑(`componentFields`), 인터페이스 문구(`interface`),
     스키마 URL(`schemaUrl`)은 전부 `packaging/targets.json`에서 온다.
+
+    `optionalFields`와 `passthroughFields`는 동작이 같다(SSOT에 있으면 싣고, 없으면 조용히
+    생략) — 이름을 분리한 것은 정책 문서의 의도를 구분해 남기기 위해서다:
+    `optionalFields`는 이 타겟의 스키마가 원래 아는 필드(`$schema` 등), `passthroughFields`는
+    "SSOT에 있는데 이 타겟 매니페스트가 놓치면 안 되는" 값(author·license 등, S2 관찰 승인 —
+    저작자·라이선스 없는 패키지가 공개 디렉토리에 올라가는 사고를 막는다) — 정책을 읽는
+    사람에게 "왜 이 필드가 있는가"를 남긴다. 코드 경로는 하나로 합쳐 로직 이중화를 피한다.
     """
     out: dict = {}
     if target.get("schemaUrl"):
@@ -133,7 +140,10 @@ def build_manifest(ssot: dict, target: dict, present_dirs: set[str]) -> dict:
                 f"타겟 '{target['id']}': SSOT 매니페스트에 필수 필드 '{field}' 없음"
             )
         out[field] = ssot[field]
-    for field in target.get("optionalFields", []):
+    for field in [
+        *target.get("optionalFields", []),
+        *target.get("passthroughFields", []),
+    ]:
         if field in ssot:
             out[field] = ssot[field]
     for field, rel in target.get("componentFields", {}).items():
