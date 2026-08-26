@@ -472,10 +472,11 @@ fi
 
 hdr "14. 다중 하네스 타겟 매니페스트 드리프트 (W-019)"
 # packaging/targets.json + plugins/common/.claude-plugin/plugin.json(SSOT)에서 계산되는
-# Codex·Antigravity 타겟 매니페스트가 SSOT와 어긋나지 않는지 검사한다. S1 단계에서는
-# 아직 어떤 타겟도 --write 되지 않았으므로(생성물 0개) 이 검사는 관대하게 통과한다 —
-# S2/S3가 실제 매니페스트를 기록하기 시작하면 그 시점부터 자동으로 엄격해진다
-# (build-targets.py의 --check는 미생성 타겟을 드리프트로 세지 않는다. 상세는 그 파일 원칙 3).
+# Codex·Antigravity 타겟 매니페스트가 SSOT와 어긋나지 않는지 검사한다. enabled:true인
+# 타겟은 매니페스트가 실제로 존재하고 SSOT와 바이트 단위로 일치해야 한다 — 미생성도
+# 드리프트로 취급해 fail이다(D1 판정, targets.json gate.requireGeneratedManifestPresent,
+# build-targets.py 원칙 3). S1 단계처럼 enabled 타겟이 아예 없을 때만 검사 대상 0건으로
+# 관대히 통과한다.
 if [ -f packaging/targets.json ] && [ -f scripts/build-targets.py ]; then
   python3 scripts/build-targets.py --check >"$TMPD/targets" 2>&1
   BT_RC=$?

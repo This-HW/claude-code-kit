@@ -39,6 +39,15 @@ plugin.json`)을 갖는다. 이 값(name·version·description 등)을 손으로
 5. **stdlib only, Python 3.9 floor.** 이 스크립트는 repo-local이라 소비자 환경에서
    돌 필요는 없지만, 이 레포의 게이트(verify-done.sh §4 python39-compat 관례)와 CI가
    3.9로 로드 가능성을 검사한다 — 그 관례를 따른다.
+6. **경로는 레포 루트 밖으로 못 나간다 — `--check`·`--write` 둘 다.** `manifestPath`·
+   `marketplace.path`는 `packaging/targets.json`(정책 파일)에서 온 문자열이다.
+   `repo_root / rel_path`는 `rel_path`가 절대경로면 `repo_root`를 통째로 버리는
+   pathlib의 함정이 있고, `..`나 심링크로도 트리 밖으로 나갈 수 있다 — 셋 다 실제로
+   재현됐다(2026-08-27 적대적 리뷰). `_resolve_in_repo()`가 **한 번만** resolve해서
+   그 결과를 검증·기록 양쪽에 그대로 쓴다(`hooks/export_harness.py`의 `_resolve_target`
+   교훈 — 검사와 쓰기가 각자 resolve하면 그 사이가 TOCTOU 창이 된다). 봉쇄를
+   `--write`에만 걸면 `--check`가 구멍으로 남는다(2.14.1에서 실제로 났던 실수) — 그래서
+   둘 다에 같은 헬퍼를 쓴다.
 
 사용:
   python3 scripts/build-targets.py --check              # 전체 enabled 타겟 드리프트 검사
@@ -155,7 +164,12 @@ def build_manifest(ssot: dict, target: dict, present_dirs: set[str]) -> dict:
 
 
 def build_marketplace(ssot: dict, target: dict, plugin_root_rel: str) -> dict | None:
-    """타겟의 마켓플레이스 카탈로그(있는 경우만). codex 전용, antigravity는 None."""
+    """타겟의 마켓플레이스 카탈로그(있는 경우만). codex 전용, antigravity는 None.
+
+    `target["marketplace"]`의 `legacyAlsoRead`/`_meta` 키는 여기서 읽지 않는다 —
+    생성물 필드가 아니라 "Codex가 legacy 경로도 읽는다"는 사실을 정책 문서에
+    남겨두는 순수 주석용 필드다(적대적 리뷰 2026-08-27 확인 — 결함 아님).
+    """
     mk = target.get("marketplace")
     if not mk:
         return None
@@ -182,15 +196,41 @@ def _dumps(d: dict) -> str:
     return json.dumps(d, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-class Artifact:
-    """타겟 하나가 만드는 파일 하나(매니페스트 또는 마켓플레이스)와 그 계산된 내용."""
+def _resolve_in_repo(repo_root: Path, rel_path: str) -> tuple[Path | None, str | None]:
+    """`rel_path`(정책 파일의 문자열)를 `repo_root` 안으로만 한정해 해석한다.
 
-    def __init__(self, target_id: str, kind: str, rel_path: str, content: dict):
+    `repo_root / rel_path`는 `rel_path`가 절대경로면 `repo_root`를 버리고
+    `rel_path` 그대로가 된다(pathlib의 문서화된 동작). `..`나 심링크로도 트리 밖으로
+    나갈 수 있다 — 셋 다 `resolve()` 한 번으로 정규화한 뒤 `repo_root` 하위인지
+    대조하면 전부 같은 검사로 잡힌다. **호출자는 이 결과(Path)를 그대로 재사용해야
+    한다** — 다시 `repo_root / rel_path`를 계산하면 검증한 값과 실제로 쓰는 값이
+    달라질 수 있다(모듈 docstring 원칙 6).
+    """
+    real = (repo_root / rel_path).resolve()
+    try:
+        real.relative_to(repo_root.resolve())
+    except ValueError:
+        return None, f"레포 루트 밖을 가리킨다 → {real}"
+    return real, None
+
+
+class Artifact:
+    """타겟 하나가 만드는 파일 하나(매니페스트 또는 마켓플레이스)와 그 계산된 내용.
+
+    `resolved_path`는 생성 시점에 **한 번만** 계산된다 — `--check`/`--write` 양쪽이
+    이 값을 그대로 쓴다(원칙 6). 레포 루트 밖으로 나가면 `resolved_path`가 `None`이고
+    `escape_error`에 사유가 담긴다.
+    """
+
+    def __init__(
+        self, target_id: str, kind: str, rel_path: str, content: dict, repo_root: Path
+    ):
         self.target_id = target_id
         self.kind = kind  # "manifest" | "marketplace"
         self.rel_path = rel_path
         self.content = content
         self.text = _dumps(content)
+        self.resolved_path, self.escape_error = _resolve_in_repo(repo_root, rel_path)
 
 
 def artifacts_for(
@@ -203,12 +243,19 @@ def artifacts_for(
             "manifest",
             target["manifestPath"],
             build_manifest(ssot, target, present),
+            repo_root,
         )
     ]
     mk = build_marketplace(ssot, target, policy["source"]["pluginRoot"])
     if mk is not None:
         out.append(
-            Artifact(target["id"], "marketplace", target["marketplace"]["path"], mk)
+            Artifact(
+                target["id"],
+                "marketplace",
+                target["marketplace"]["path"],
+                mk,
+                repo_root,
+            )
         )
     return out
 
@@ -249,7 +296,13 @@ def cmd_check(repo_root: Path, policy: dict, only: str | None) -> int:
     checked = 0
     for target in targets:
         for art in artifacts_for(repo_root, policy, ssot, target):
-            p = repo_root / art.rel_path
+            if art.resolved_path is None:
+                print(
+                    f"[build-targets] ✗ 경로 탈출 차단 — {art.rel_path}: {art.escape_error}"
+                )
+                fail = True
+                continue
+            p = art.resolved_path
             if not p.exists():
                 if require_present:
                     print(
@@ -282,19 +335,41 @@ def cmd_check(repo_root: Path, policy: dict, only: str | None) -> int:
 
 
 def cmd_write(repo_root: Path, policy: dict, only: str | None) -> int:
-    """생성물 기록. enabled 전체(또는 `--only`로 좁힌 하나)를 쓴다(모듈 docstring 원칙 2)."""
+    """생성물 기록. enabled 전체(또는 `--only`로 좁힌 하나)를 쓴다(모듈 docstring 원칙 2).
+
+    **부분 실패 시에도 나머지 아티팩트는 계속 시도한다.** 타겟 2개 중 첫 번째가
+    경로 탈출이나 쓰기 실패로 막혀도 두 번째는 시도조차 안 되는 것보다,
+    "무엇이 되고 무엇이 안 됐는지"를 전부 보고하는 편이 디버깅에 낫다. 부분적으로
+    쓰인 상태를 롤백하지는 않는다 — `--check`가 바로 그 부분 상태(일부만 SSOT와
+    일치)를 드리프트로 잡아내므로, 이 명령이 자체적으로 원자성을 보장할 필요가
+    없다(적대적 리뷰 2026-08-27, Medium 판정 반영).
+    """
     ssot = load_ssot(repo_root, policy)
     targets, warnings = _selected_targets(policy, only)
     for w in warnings:
         print(f"[build-targets] i {w}")
     written = 0
+    failed = 0
     for target in targets:
         for art in artifacts_for(repo_root, policy, ssot, target):
-            p = repo_root / art.rel_path
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(art.text, encoding="utf-8")
+            if art.resolved_path is None:
+                print(
+                    f"[build-targets] ✗ 경로 탈출 차단 — {art.rel_path}: {art.escape_error}"
+                )
+                failed += 1
+                continue
+            p = art.resolved_path
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(art.text, encoding="utf-8")
+            except OSError as err:
+                print(f"[build-targets] ✗ {art.rel_path} 기록 실패: {err}")
+                failed += 1
+                continue
             print(f"[build-targets] ✓ 기록: {art.rel_path}")
             written += 1
+    if failed:
+        return 1
     if written == 0:
         print("[build-targets] i 기록 대상 없음 (enabled 타겟이 없거나 모두 제외됨)")
     return 0
