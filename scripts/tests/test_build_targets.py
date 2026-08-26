@@ -322,3 +322,138 @@ def test_check_detects_drift_and_deletion_for_second_target(tmp_path):
     assert _run(root, "--write", "--only", "gamma") == 0
     assert _run(root, "--check", "--only", "gamma") == 0
     assert manifest.read_text(encoding="utf-8") == original
+
+
+# ── 10. 경로 봉쇄 — 레포 밖 3종 탈출 차단 (적대적 리뷰 2026-08-27, High) ────────
+#
+# 셋 다 `manifestPath`(정책 파일 문자열)가 레포 루트 밖을 가리키게 만든다. 수정 전
+# 코드는 `repo_root / rel_path`를 그대로 썼고, pathlib은 rel_path가 절대경로면
+# repo_root를 버린다 — 세 벡터 전부 실제로 레포 밖에 파일을 썼다(수정 전 재현 완료,
+# STAGE 보고서 참고). `--check`·`--write` 양쪽 다 막혀야 한다(2.14.1은 --check만
+# 빠뜨려 구멍이 났다).
+
+
+def _escape_repo(tmp_path: Path, manifest_path: str) -> Path:
+    """alpha 하나만 있는 최소 레포 — manifestPath만 호출자가 지정."""
+    root = tmp_path / "repo"
+    claude_plugin = root / "plugins" / "common" / ".claude-plugin"
+    claude_plugin.mkdir(parents=True)
+    (claude_plugin / "plugin.json").write_text(json.dumps(SSOT), encoding="utf-8")
+    policy = {
+        "source": {
+            "pluginRoot": "plugins/common",
+            "manifest": "plugins/common/.claude-plugin/plugin.json",
+            "_meta": {"componentDirs": ["skills", "agents", "rules", "hooks"]},
+        },
+        "targets": [
+            {
+                "id": "evil",
+                "enabled": True,
+                "manifestPath": manifest_path,
+                "requiredFields": ["name"],
+            }
+        ],
+        "gate": {"requireGeneratedManifestPresent": True},
+    }
+    policy_path = root / "packaging" / "targets.json"
+    policy_path.parent.mkdir(parents=True)
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+    return root
+
+
+def test_write_and_check_block_absolute_path_escape(tmp_path, capsys):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target_file = outside / "pwned-abs.json"
+    root = _escape_repo(tmp_path, str(target_file))
+
+    rc_write = _run(root, "--write", "--only", "evil")
+    out = capsys.readouterr().out
+    assert rc_write == 1
+    assert "경로 탈출 차단" in out
+    assert not target_file.exists()  # 핵심: 레포 밖에 아무것도 안 쓰였다
+
+    rc_check = _run(root, "--check", "--only", "evil")
+    assert rc_check == 1
+    assert not target_file.exists()
+
+
+def test_write_and_check_block_dotdot_escape(tmp_path, capsys):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target_file = outside / "pwned-dotdot.json"
+    # repo는 tmp_path/repo이므로 "../outside/..."면 repo 밖(tmp_path/outside)을 가리킨다.
+    root = _escape_repo(tmp_path, "../outside/pwned-dotdot.json")
+
+    rc_write = _run(root, "--write", "--only", "evil")
+    out = capsys.readouterr().out
+    assert rc_write == 1
+    assert "경로 탈출 차단" in out
+    assert not target_file.exists()
+
+    rc_check = _run(root, "--check", "--only", "evil")
+    assert rc_check == 1
+    assert not target_file.exists()
+
+
+def test_write_and_check_block_symlink_escape(tmp_path, capsys):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target_file = outside / "pwned-symlink.json"
+    root = _escape_repo(tmp_path, "shared/pwned-symlink.json")
+    # "shared"는 겉보기엔 평범한 상대경로 조각이지만, 실제로는 레포 밖을 가리키는
+    # 심링크다 — 미리 심어둔 상태를 시뮬레이션(예: 악의적 fixture, 혹은 손상된 체크아웃).
+    (root / "shared").symlink_to(outside)
+
+    rc_write = _run(root, "--write", "--only", "evil")
+    out = capsys.readouterr().out
+    assert rc_write == 1
+    assert "경로 탈출 차단" in out
+    assert not target_file.exists()
+
+    rc_check = _run(root, "--check", "--only", "evil")
+    assert rc_check == 1
+    assert not target_file.exists()
+
+
+def test_write_continues_after_one_target_fails_and_reports_both(tmp_path, capsys):
+    """Medium 수정: 첫 아티팩트가 경로 탈출로 막혀도 두 번째(alpha)는 시도되고 기록된다."""
+    root = tmp_path / "repo"
+    claude_plugin = root / "plugins" / "common" / ".claude-plugin"
+    claude_plugin.mkdir(parents=True)
+    (claude_plugin / "plugin.json").write_text(json.dumps(SSOT), encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    policy = {
+        "source": {
+            "pluginRoot": "plugins/common",
+            "manifest": "plugins/common/.claude-plugin/plugin.json",
+            "_meta": {"componentDirs": ["skills", "agents", "rules", "hooks"]},
+        },
+        "targets": [
+            {
+                "id": "evil",
+                "enabled": True,
+                "manifestPath": str(outside / "pwned.json"),
+                "requiredFields": ["name"],
+            },
+            {
+                "id": "alpha",
+                "enabled": True,
+                "manifestPath": "plugins/common/.alpha-plugin/plugin.json",
+                "requiredFields": ["name", "version"],
+            },
+        ],
+        "gate": {"requireGeneratedManifestPresent": True},
+    }
+    policy_path = root / "packaging" / "targets.json"
+    policy_path.parent.mkdir(parents=True)
+    policy_path.write_text(json.dumps(policy), encoding="utf-8")
+
+    rc = _run(root, "--write")  # 기본 --write = enabled 전체
+    out = capsys.readouterr().out
+    assert rc == 1  # 실패가 하나라도 있으면 전체 exit 1
+    assert "경로 탈출 차단" in out
+    alpha_manifest = root / "plugins" / "common" / ".alpha-plugin" / "plugin.json"
+    assert alpha_manifest.exists()  # evil이 막혀도 alpha는 계속 시도돼 기록됐다
+    assert "기록: plugins/common/.alpha-plugin/plugin.json" in out
