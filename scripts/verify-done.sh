@@ -33,6 +33,22 @@ for cand in ".venv/bin/python" "venv/bin/python" "python3"; do
   if "$cand" -c "import pytest" 2>/dev/null; then PYTEST_PY="$cand"; break; fi
 done
 
+# ── 섹션 번호 규약 (2026-08-27 확정) ────────────────────────────────────────────
+# **섹션 번호는 안정 식별자다. 실행 순서를 나타내지 않는다.**
+#
+# 출력 순서가 1..10, 13, 12, 11, 14 로 비단조인 것은 흠이 아니라 의도다. 검사는 비용이
+# 싼 순서로 실행되고, 번호는 그와 무관하게 고정된다. §11(AGENTS.md 드리프트)은
+# 언제 실행되든 영원히 §11이다.
+#
+# 왜 재번호하지 않는가: 이 번호들은 스펙·CHANGELOG·decision-log·스킬 문서에서
+# **참조 식별자로 쓰인다**(2026-08-27 기준 47건 이상). 그중 상당수는 과거 결정을 기록한
+# 불변 문서다 — 재번호하면 "verify-done.sh §11 신설"처럼 이미 확정된 서술이 다른 섹션을
+# 가리키게 된다. 표시 순서를 고치자고 기록의 참조를 깨는 것은 부채를 갚는 게 아니라
+# 옮기는 것이다.
+#
+# 새 섹션은 **다음 빈 번호**를 받는다. 기존 번호를 재사용하거나 재배치하지 말 것.
+# ───────────────────────────────────────────────────────────────────────────────
+
 hdr "1. JSON 유효성"
 JSON_FILES=$(find plugins -name 'plugin.json' -o -name 'hooks.json' 2>/dev/null; echo ".claude-plugin/marketplace.json")
 for f in $JSON_FILES; do
