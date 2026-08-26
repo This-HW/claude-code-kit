@@ -180,8 +180,101 @@ def test_missing_policy_json_fails():
 
 def test_real_repo_baseline_covers_scenarios_direction_holds():
     """실물 레포 대조: 이 스크립트가 진짜 evals/를 읽었을 때도 판정 로직 자체가
-    죽지 않고 동작함을 확인 — 실제 값의 pass/fail 여부는 단언하지 않는다
-    (2026-08-26 기준 security-scan 드리프트가 실재하므로 실물은 fail이 정상,
-    decision-log D2 참고). 여기서는 '크래시 없이 판정 가능'만 검증한다."""
+    죽지 않고 동작함을 확인 — 실제 값의 pass/fail 여부는 단언하지 않는다.
+    (2026-08-27 기준 실물은 21/21·tier1 13/13으로 green이지만, 향후 다시
+    드리프트가 생기면 fail이 정상 — 이 테스트는 '크래시 없이 판정 가능'만
+    검증하고 어느 쪽 결과도 실패로 취급하지 않는다. W-019 교차 리뷰 Low 지적
+    — 특정 시점의 pass/fail 사실을 주석에 박아두면 다음 실패 때 오판을 부른다)."""
     rc = cec.main(["--root", str(REPO_ROOT)])
     assert rc in (0, 1)
+
+
+# ── policy.json 스키마 방어 (W-018/W-019 교차 리뷰 — sanddab 실측 거짓 green) ──
+#
+# sanddab이 daggertooth의 evals/policy.json에서 "tiers" 키를 통째로 지우고
+# check_eval_coverage.py를 돌려 exit 0("tier1 전 에이전트(0종) 최소 시나리오
+# 보유")을 재현했다 — 검사 대상 0개를 "전부 통과"로 오인하는 거짓 green이다.
+# 아래는 그 정확한 재현을 회귀 테스트로 고정한 것.
+
+
+def test_policy_missing_tiers_section_fails():
+    """tiers 섹션이 통째로 없으면 vacuous pass가 아니라 exit 1이어야 한다."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        policy = _base_policy()
+        del policy["tiers"]
+        root = _make_repo(
+            Path(td),
+            scenario_pairs=[("fix-bugs", "a")],
+            baseline_pairs=[("fix-bugs", "a")],
+            policy=policy,
+        )
+        rc = cec.main(["--root", str(root)])
+        assert rc == 1
+
+
+def test_policy_empty_tier1_list_fails():
+    """tiers.tier1이 빈 배열이면(섹션은 있으나 내용 없음) 여전히 exit 1."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        policy = _base_policy()
+        policy["tiers"] = {"tier1": []}
+        root = _make_repo(
+            Path(td),
+            scenario_pairs=[("fix-bugs", "a")],
+            baseline_pairs=[("fix-bugs", "a")],
+            policy=policy,
+        )
+        rc = cec.main(["--root", str(root)])
+        assert rc == 1
+
+
+def test_policy_missing_gate_section_fails():
+    """gate 섹션이 통째로 없으면 조용한 기본값(전부 통과) 대신 exit 1."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        policy = _base_policy()
+        del policy["gate"]
+        root = _make_repo(
+            Path(td),
+            scenario_pairs=[("fix-bugs", "a")],
+            baseline_pairs=[("fix-bugs", "a")],
+            policy=policy,
+        )
+        rc = cec.main(["--root", str(root)])
+        assert rc == 1
+
+
+def test_policy_missing_coverage_section_fails():
+    """coverage 섹션이 통째로 없으면 조용한 기본값 대신 exit 1."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        policy = _base_policy()
+        del policy["coverage"]
+        root = _make_repo(
+            Path(td),
+            scenario_pairs=[("fix-bugs", "a")],
+            baseline_pairs=[("fix-bugs", "a")],
+            policy=policy,
+        )
+        rc = cec.main(["--root", str(root)])
+        assert rc == 1
+
+
+def test_policy_top_level_not_dict_fails_cleanly():
+    """policy.json이 문법상 유효한 JSON이어도 최상위가 dict가 아니면(예: 배열)
+    raw AttributeError 트레이스백 대신 명확한 메시지로 exit 1이어야 한다
+    (W-019 교차 리뷰 Medium — SSOT 로더가 이런 경우 원인불명으로 죽던 문제와
+    같은 클래스)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td) / "repo"
+        (root / "evals").mkdir(parents=True)
+        (root / "evals" / "policy.json").write_text("[]", encoding="utf-8")
+        rc = cec.main(["--root", str(root)])
+        assert rc == 1

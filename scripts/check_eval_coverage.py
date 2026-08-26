@@ -33,6 +33,55 @@ NG = "\033[31m✗\033[0m"
 WARN = "\033[33m!\033[0m"
 
 
+class PolicyError(Exception):
+    """policy.json 스키마 위반 — main이 exit 1과 명확한 메시지로 변환한다.
+
+    scripts/build-targets.py의 PolicyError 관례를 그대로 따른다. 이 레포에서
+    SSOT/정책 로더마다 서로 다른 예외 관례를 쓰는 것 자체가 부채라는 W-019
+    교차 리뷰(Medium) 지적을 반영했다.
+    """
+
+
+def validate_policy_schema(policy: object) -> dict:
+    """필수 섹션이 통째로 없거나 형태가 틀리면 명확히 실패한다.
+
+    "검사할 대상이 0개"를 "통과"로 오인하는 게 이 검사의 존재 이유를 무력화하는
+    거짓 green이다 — sanddab의 W-019 교차 리뷰가 실측으로 잡았다: evals/policy.json
+    에서 'tiers' 키를 지우면 check_eval_coverage.py가 "tier1 전 에이전트(0종) 최소
+    시나리오 보유"로 exit 0을 냈다. D1(gate.tier1CoverageEnforceFail 승격)이 막으려던
+    것과 정확히 같은 클래스의 결함이 검사 대상 선정 단계에서 재발한 것이다.
+
+    구분 원칙: **섹션 자체(tiers/gate/coverage)가 통째로 없으면** 정책 파일이
+    손상됐거나 잘못 편집된 것이므로 즉시 실패한다. 반면 섹션은 있는데 그 **안의
+    개별 키**(예: gate.tier1CoverageEnforceFail)가 없는 것은 단계적 롤아웃 중
+    정상 상태일 수 있어(예: S1~S3에서 이 플래그가 존재하지 않다가 S4에서 추가됐다)
+    안전한 기본값(False = 아직 미승격)을 유지한다 — 이 함수는 그 개별 키까지
+    강제하지 않는다.
+    """
+    if not isinstance(policy, dict):
+        raise PolicyError(
+            f"policy.json 최상위가 object가 아니다 (실제 타입: {type(policy).__name__})"
+        )
+    tiers = policy.get("tiers")
+    if not isinstance(tiers, dict):
+        raise PolicyError("policy.json: 'tiers' 섹션이 없거나 object가 아니다")
+    tier1 = tiers.get("tier1")
+    if not isinstance(tier1, list) or not tier1:
+        raise PolicyError(
+            "policy.json: 'tiers.tier1'이 없거나 빈 배열이다 — "
+            "검사 대상 0개를 전부 통과로 오인하는 거짓 green을 막기 위해 거부한다"
+        )
+    if not all(isinstance(a, str) and a for a in tier1):
+        raise PolicyError(
+            "policy.json: 'tiers.tier1'의 각 원소는 비어있지 않은 문자열이어야 한다"
+        )
+    if not isinstance(policy.get("gate"), dict):
+        raise PolicyError("policy.json: 'gate' 섹션이 없거나 object가 아니다")
+    if not isinstance(policy.get("coverage"), dict):
+        raise PolicyError("policy.json: 'coverage' 섹션이 없거나 object가 아니다")
+    return policy
+
+
 def _load_run_module(root: Path) -> ModuleType:
     """`evals/run.py`를 경로 기반으로 로드한다(패키지 임포트에 기대지 않음 —
     `--root`로 가짜 레포를 가리킬 때도 그 레포의 run.py를 쓰게 하기 위함,
@@ -177,6 +226,12 @@ def main(argv: list[str] | None = None) -> int:
         policy = load_policy(root)
     except json.JSONDecodeError as e:
         print(f"{NG} evals/policy.json 파싱 실패: {e}")
+        return 1
+
+    try:
+        validate_policy_schema(policy)
+    except PolicyError as e:
+        print(f"{NG} {e}")
         return 1
 
     ok = True
