@@ -41,6 +41,18 @@ Claude에게 준 자연어 지시였다. 오케스트레이션도 이미 스킬 
 `docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021),
 `CLAUDE.md`의 "Delegation Signal" 절.
 
+### Added — `/eval-forge` 어서션 타입 확장 (W-022 R2)
+
+`scripts/eval-forge.py`가 `evals/run.py`의 7개 어서션 타입 중 3개를 만들 방법이
+없었다(F-001) — 생성 후 `expect.json`을 손으로 보강해야 했다. `--output-regex
+PATTERN FLAGS`(반복 지정, FLAGS 빈 문자열이면 flags 키 생략)와 `--file-unchanged
+FILE`(반복 지정)을 신설했고, 단일 값만 받던 `--file-contains`를 반복 지정으로
+바꿨다. `delegation_signal`은 계약이 폐기됐으므로(R1) opt-in 플래그조차 만들지
+않았다. 회귀 테스트 6건 추가(수정 전 5건 red 확인). 자기적용 검증: 확장된
+CLI로 신규 시나리오를 생성해 `--validate`를 손 편집 0으로 통과시켰다(증적 후
+롤백 — baseline 미등재로 인한 커버리지 게이트 파손과 R3 tier2 분류 선점을
+피하기 위함). 상세: ledger F-001.
+
 ---
 
 ## [2.15.0] — 2026-08-27

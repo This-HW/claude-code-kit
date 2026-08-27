@@ -74,13 +74,36 @@ DEFAULT_MUST_NOT_SAY = [
 # 차단일 뿐이고, 최종 방어는 커밋 시점의 gitleaks와 사람의 리뷰다. fixture는
 # "결함을 심은 최소 코드"여야 하며, 남의 디렉토리를 통째로 넘기는 사용법이 애초에 틀렸다.
 _FIXTURE_IGNORE = (
-    ".git", ".hg", ".svn", "__pycache__", "node_modules", ".venv", "venv",
-    ".env*", "*.pem", "*.key", "*.p12", "*.pfx", "id_rsa*", "id_ed25519*",
-    "credentials*", ".netrc", ".npmrc", ".pypirc", ".docker*", ".aws", ".ssh",
-    "*.keystore", "*.jks", "secrets*", "*.kdbx",
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    ".env*",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "id_rsa*",
+    "id_ed25519*",
+    "credentials*",
+    ".netrc",
+    ".npmrc",
+    ".pypirc",
+    ".docker*",
+    ".aws",
+    ".ssh",
+    "*.keystore",
+    "*.jks",
+    "secrets*",
+    "*.kdbx",
 )
 
-JUDGE_THRESHOLD = 7  # evals/run.py의 judge 기본 임계와 맞춘다 (어긋나면 판정이 조용히 갈린다)
+JUDGE_THRESHOLD = (
+    7  # evals/run.py의 judge 기본 임계와 맞춘다 (어긋나면 판정이 조용히 갈린다)
+)
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}$")
 # --agent도 같은 규칙으로 막는다. `_agent_exists`의 rglob은 "그 이름의 .md가 어디든
 # 있는가"만 보므로 `../../../README` 같은 값도 True가 되고, 그 값이 그대로 경로
@@ -146,7 +169,9 @@ def build_expect(
     must_mention: list[list[str]],
     must_not_say: list[str],
     pytest_path: str | None,
-    file_contains: tuple[str, str] | None,
+    file_contains: list[tuple[str, str]],
+    file_unchanged: list[str],
+    output_regex: list[tuple[str, str]],
     rubric: str,
 ) -> dict:
     assertions: list[dict] = []
@@ -160,14 +185,23 @@ def build_expect(
         assertions.append({"type": "output_not_contains", "values": must_not_say})
     if pytest_path:
         assertions.append({"type": "pytest_green", "path": pytest_path})
-    if file_contains:
-        assertions.append(
-            {
-                "type": "file_contains",
-                "file": file_contains[0],
-                "pattern": file_contains[1],
-            }
-        )
+    # --file-contains는 --must-mention과 같은 이유로 **반복 지정**을 허용한다(ledger
+    # F-001) — 한 파일에 여러 패턴을 각각 요구하는 시나리오(예: 함수 존재 + 특정
+    # 구현 기법 사용)를 표현하려면 필요하다.
+    for file_, pattern in file_contains:
+        assertions.append({"type": "file_contains", "file": file_, "pattern": pattern})
+    # --file-unchanged도 반복 지정 — 소스 파일은 그대로, 테스트 파일은 그대로 등
+    # 여러 파일을 각각 보존 검증해야 하는 시나리오가 흔하다(fix-bugs 계열).
+    for f in file_unchanged:
+        assertions.append({"type": "file_unchanged", "file": f})
+    # --output-regex: (pattern, flags) 쌍. flags가 빈 문자열이면 run.py의
+    # check_assertion이 flags 키 부재를 빈 순회로 처리하는 것과 동일하므로,
+    # expect.json을 깔끔하게 유지하기 위해 빈 flags는 키 자체를 생략한다.
+    for pattern, flags in output_regex:
+        a = {"type": "output_regex", "pattern": pattern}
+        if flags:
+            a["flags"] = flags
+        assertions.append(a)
     return {
         "assertions": assertions,
         # judge는 opt-in 보조 수단이다(evals README 철학). 기본 비활성.
@@ -237,7 +271,10 @@ def _rollback(dest: Path, parent: Path | None) -> None:
 def _resolve_dest(args, root: Path) -> tuple[Path | None, int]:
     """대상 경로 해석 + **봉쇄 확인**. 아무것도 쓰지 않는다."""
     if not ID_RE.match(args.id):
-        print(f"[eval-forge] ✗ 잘못된 시나리오 ID: {args.id} (kebab-case)", file=sys.stderr)
+        print(
+            f"[eval-forge] ✗ 잘못된 시나리오 ID: {args.id} (kebab-case)",
+            file=sys.stderr,
+        )
         return None, 1
     if not AGENT_RE.match(args.agent):
         print(
@@ -259,7 +296,10 @@ def _resolve_dest(args, root: Path) -> tuple[Path | None, int]:
     try:
         dest.resolve().relative_to(scenarios_root)
     except ValueError:
-        print(f"[eval-forge] ✗ 대상 경로가 evals/scenarios/ 밖이다: {dest}", file=sys.stderr)
+        print(
+            f"[eval-forge] ✗ 대상 경로가 evals/scenarios/ 밖이다: {dest}",
+            file=sys.stderr,
+        )
         return None, 1
     if dest.exists():
         print(f"[eval-forge] ✗ 이미 존재: {dest} (덮어쓰지 않는다)", file=sys.stderr)
@@ -288,7 +328,9 @@ def _resolve_task(args, root: Path) -> tuple[str | None, int]:
     if args.from_ledger:
         entry = _ledger_entry(root, args.from_ledger)
         if entry is None:
-            print(f"[eval-forge] ✗ ledger 항목 없음: {args.from_ledger}", file=sys.stderr)
+            print(
+                f"[eval-forge] ✗ ledger 항목 없음: {args.from_ledger}", file=sys.stderr
+            )
             return None, 1
         task_text += LEDGER_QUOTE.format(quoted=entry)
     return task_text, 0
@@ -308,13 +350,16 @@ def _resolve_expect(args) -> tuple[dict | None, int]:
         must_mention,
         must_not,
         args.pytest_path,
-        tuple(args.file_contains) if args.file_contains else None,
+        [tuple(pair) for pair in args.file_contains],
+        list(args.file_unchanged),
+        [tuple(pair) for pair in args.output_regex],
         args.rubric or f"{args.agent}가 {args.id} 상황을 정확히 처리하는가?",
     )
     if not expect["assertions"]:
         print(
             "[eval-forge] ✗ assertion이 0개 — 채점 불가능한 시나리오는 만들지 않는다.\n"
-            "  --must-mention / --pytest / --file-contains 중 하나 이상 지정하라.",
+            "  --must-mention / --pytest / --file-contains / --file-unchanged / "
+            "--output-regex 중 하나 이상 지정하라.",
             file=sys.stderr,
         )
         return None, 1
@@ -400,7 +445,29 @@ def main(argv: list[str]) -> int:
         dest="pytest_path",
         help="pytest_green assertion의 경로 (fixture 기준)",
     )
-    ap.add_argument("--file-contains", nargs=2, metavar=("FILE", "PATTERN"))
+    ap.add_argument(
+        "--file-contains",
+        nargs=2,
+        metavar=("FILE", "PATTERN"),
+        action="append",
+        default=[],
+        help="반복 지정 가능 — 한 파일에 여러 패턴을 각각 요구할 때(ledger F-001)",
+    )
+    ap.add_argument(
+        "--file-unchanged",
+        action="append",
+        default=[],
+        metavar="FILE",
+        help="fixture 기준 상대경로. 반복 지정 가능 — 여러 파일 보존을 각각 검증",
+    )
+    ap.add_argument(
+        "--output-regex",
+        nargs=2,
+        metavar=("PATTERN", "FLAGS"),
+        action="append",
+        default=[],
+        help="FLAGS는 run.py의 문자별 플래그(예: 'i'). 없으면 빈 문자열 '' 전달",
+    )
     ap.add_argument("--rubric", default="", help="opt-in LLM judge용 rubric")
     ap.add_argument("--from-ledger", help="근거로 인용할 ledger 항목 ID (예: F-030)")
     ap.add_argument(
