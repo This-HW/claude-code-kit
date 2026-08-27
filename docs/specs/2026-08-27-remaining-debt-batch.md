@@ -71,7 +71,14 @@ import 두 줄짜리 별도 파일**. 하네스마다 최적 형태가 다르다
   `docs/conventions/*.md` → `CLAUDE.md` 는 `@` import, `AGENTS.md` 는 생성기가 **두 번째 마커 블록으로 인라인**
   (다른 하네스는 `@` import를 이해하지 못하므로 인라인이 필수)
 - Claude Code 세션은 rules를 **훅으로 이미 받는다** → `CLAUDE.md` 가 `AGENTS.md` 를 import하면 **이중 주입**이다. 금지
-- 크기 상한 근거: Codex `project_doc_max_bytes` 기본 **32 KiB**. `AGENTS.md` 가 이를 넘으면 조용히 잘린다 — 게이트로 강제
+- **크기 상한 (2026-08-27 조사 후 정정)**: Codex `project_doc_max_bytes` 는 **파일당이 아니라
+  병합 총량**이고(글로벌 `~/.codex/AGENTS.md` → git root → cwd 순으로 붙이다 상한에서 멈춘다),
+  **초과분은 경고 없이 사라진다**. 따라서:
+  - **"하위 디렉토리로 분할"은 우회로가 못 된다** — 오버플로를 아래로 밀면 그게 먼저 잘린다
+  - 상한은 소비자의 **글로벌 파일까지 합산**이므로 우리 파일이 32 KiB를 다 쓰면 안 된다
+  - → 게이트 상한은 **24,576 B (32 KiB의 75%)**. 나머지 8 KiB는 소비자 글로벌 몫으로 남긴다
+  - 조용히 잘리므로 **우리 게이트가 유일한 방어선**이다
+  근거: `docs/research/2026-08-27-superpowers-distribution.md` 부록 1
 
 ### 4.3 R9 — 검증할 수 없는 타겟은 싣지 않는다
 
