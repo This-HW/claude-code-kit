@@ -6,43 +6,143 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [2.15.0] — 2026-08-27
+
+두 갈래를 한 릴리스로 묶는다. 공통점은 **"주장을 기계로 강제한다"** 는 것이다 —
+eval 커버리지 주장(W-018)과 패키지 정합성 주장(W-019) 둘 다 이번에 게이트를 얻었다.
+
+출하 전에 두 트랙이 **서로의 코드를 적대적으로 교차 리뷰**했다(각자 자기가 쓰지 않은 코드).
+Critical 0건, 재현된 High 2건이 나왔고 둘 다 태그 전에 고쳤다. 그 리뷰가 "같은 결함 클래스의
+반복"을 지목한 덕분에 **세 번째 인스턴스**를 전수조사로 찾았다 — 아래 세 개의 Fixed 항목이 그것이다.
 
 ### Added — Agent evals 커버리지·기준선 게이트 (W-018)
 
-Eval 커버리지가 33개 에이전트 중 4개뿐이었다(`/self-improve`의 이중 게이트가
-사실상 사용자 승인 단일 게이트로 퇴화하는 원인). 시나리오 12건과 기준선 11건이
-어긋나 있었는데도(2.14.0에서 `security-scan` 시나리오가 기준선 없이 추가) 그
-드리프트를 잡는 기계 검사가 없었다.
+Eval 커버리지가 33개 에이전트 중 4개뿐이었다. `/self-improve` 의 이중 게이트가 사실상
+사용자 승인 단일 게이트로 퇴화하는 원인이었다. 게다가 시나리오 12건과 기준선 11건이
+어긋나 있었는데도(2.14.0에서 `security-scan` 시나리오가 기준선 없이 추가됐다) 그 드리프트를
+잡는 기계 검사가 없었다.
 
-- `evals/policy.json` 신설 — 티어·임계값·기준선 포인터의 단일 소스
-- `scripts/check_eval_coverage.py` 신설 — 시나리오⇄기준선 양방향 드리프트 검사 +
-  티어1 최소 커버리지 검사. `scripts/verify-done.sh` 신설 §13과 CI가 동일 스크립트 호출
-- 티어1 에이전트 커버리지 **4/33 → 13/13** (`write-tests`, `write-api-tests`,
-  `implement-api`, `generate-boilerplate`, `sync-docs`, `optimize-logic`,
-  `review-code`, `security-scan`, `verify-code`, `explore-codebase`,
-  `plan-implementation`, `implement-code`, `fix-bugs` 전부 최소 1건)
-- `gate.tier1CoverageEnforceFail` 승격 — 티어1 커버리지 미달이 이제 경고가 아니라
-  게이트 fail (승격 전 경고로만 두었던 유예 기간 종료)
-- `evals/baseline/2026-08-26.json` 재생성(21/21 pass) — 기존 시나리오 회귀 없음
-- `docs/works/feedback/ledger.md` 부트스트랩 — 이번 배치에서 실측된 결함 기록
-  (F-001~F-005)
-- `file_contains` 어서션이 `re.MULTILINE`을 적용하지 않아 `^` 앵커가 파일 첫 줄에만
-  매치하던 버그 수정 (실측 false-fail 발생 확인 후 수정)
+- `evals/policy.json` 신설 — 티어·임계값·기준선 포인터의 **단일 소스**.
+  기준선은 명시적 포인터만 쓴다("가장 최신 파일 자동 선택" 금지 — 조용히 틀린 기준선을 쓰게 된다)
+- `scripts/check_eval_coverage.py` 신설 — 시나리오⇄기준선 **양방향** 드리프트 검사 +
+  티어1 최소 커버리지 검사. `verify-done.sh` 신설 §13과 CI가 **같은 스크립트**를 호출한다
+- 티어1 커버리지 **4/33 → 13/13**. 티어 선정 기준은 위험도다 —
+  파일을 수정하는 8종(`isolation: worktree` 보유) + 검증 3종 + 진입점 2종
+- 시나리오 12건 → **21건**. 기준선 재생성(21/21 pass), 기존 시나리오 회귀 0
+- `gate.tier1CoverageEnforceFail` 승격 — 티어1 커버리지 미달이 경고가 아니라 게이트 fail.
+  승격 전후를 **같은 결손 상태에서 flag만 바꿔** 격리 실증했다
+- `docs/works/feedback/ledger.md` 부트스트랩 — 전부 이번 배치에서 **실측된** 결함 5건.
+  추정은 넣지 않았고, 재현되지 않은 건은 "미검증"으로 명시했다
 
-### Investigated — DELEGATION_SIGNAL 출력계약 미준수
+### Fixed — `file_contains` 어서션이 `re.MULTILINE` 을 적용하지 않았다
 
-관측 8종 중 6종에서 에이전트가 필수 출력 마커를 간헐적으로 생략함을 실측(모델/effort
-크기와 무관 — `implement-api`가 반례). 근본 원인은 에이전트 정의 몫이라 별도 스펙
-W-021로 분리했다. 이번 배치에서는 불안정한 어서션을 게이트에서 분리하고 운영 규칙만
-확정했다(`evals/policy.json._unresolved.delegationSignalCompliance`).
+`^` 앵커가 파일 첫 줄에만 매치해 **실제 false-fail** 을 냈다(우리 도구가 조용히 오작동하고
+있었다). 수정 전 red를 확인하는 회귀 테스트를 먼저 추가한 뒤 고쳤다.
+
+### Investigated — DELEGATION_SIGNAL 출력 계약이 런타임에 지켜지지 않는다
+
+커버리지를 넓힌 **첫 성과가 결함 발견**이었다. 관측 8종 중 **6종(75%)** 이 필수 출력 마커를
+간헐적으로 생략한다: `implement-code` 6/6 · `plan-implementation` 2/2 는 안정,
+`write-tests` 1/2 · `sync-docs` 2/3 · `optimize-logic` 1/4 · `explore-codebase` 1/2 ·
+`verify-code` 1/2 · `implement-api` 1/2 는 불안정.
+
+`implement-api` 가 모델·effort와 무관하게 실패해 "좋은 모델이면 안정"이라는 가설을 반증했다.
+**계약이 정의 파일에 적혀 있는지는 `verify-done §12` 가 33/33 검사해 왔으나, 런타임에 실제
+방출되는지는 아무도 잰 적이 없었다.**
+
+이번 배치에서는 **운영 규칙만** 확정했다 — 불안정한 어서션을 결정적 게이트에서 분리하고
+(삭제가 아니다: 사유·재부착 조건을 `expect.json._removedAssertions` 에 남겼고, 안정 통과하는
+건은 유지했다), 신규 시나리오는 사전 관측 없이 이 어서션을 넣지 않는다. 근본 원인은
+에이전트 정의 몫이고 아키텍처 결정이라 `docs/specs/2026-08-27-delegation-signal-contract-review.md`
+(W-021)로 분리했다.
 
 ### Decided — `docs/pipeline-reinforcement-plan-v2.md` Track 2 폐기
 
-"Delegation Signal JSON화"를 2026-05부터 보류하고 있었다. 보류 해제 조건("실제
-파싱 실패 사례")이 한 번도 성립한 적이 없고, 실제로 반복 관측된 문제(마커 완전
-누락)는 JSON화로 해결되지 않는 다른 종류의 결함이라 판단해 폐기했다(근거는 문서
-본문 참고).
+"Delegation Signal JSON화"를 2026-05부터 보류하고 있었다. 보류 해제 조건("실제 파싱 실패
+사례")이 한 번도 성립하지 않았고, 반복 관측된 문제(마커 **완전 누락**)는 JSON화로 고쳐지지
+않는 다른 종류의 결함이다 — 같은 유형이 W-014에서 이미 프롬프트 레벨로 해결된 전례가 있다.
+
+### Added — Codex · Antigravity 네이티브 플러그인 패키지 (W-019)
+
+`plugins/common/` 이 이제 **세 플랫폼의 네이티브 매니페스트**를 함께 싣는다. Codex는
+`.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`, Antigravity는 루트
+`plugin.json`. 전부 기존 Claude Code 매니페스트(SSOT)에서 **생성**되며 손으로 쓰지 않는다
+(`scripts/build-targets.py`, 정책은 `packaging/targets.json`).
+
+`verify-done.sh` **§14** 가 드리프트를 막는다 — `enabled:true` 타겟의 매니페스트는 존재해야
+하고 SSOT와 일치해야 한다. **파일이 없는 것도 드리프트로 센다**(생성물 삭제가 조용히 통과하던
+구멍을 설계 단계에서 막았다).
+
+문서가 아니라 **실물 CLI로 검증**했다:
+
+- **Codex** (`codex-cli` 0.147.0): `marketplace add` → `list` 에 `claude-code-kit` 표시 →
+  `remove` 왕복 정상, `~/.codex/config.toml` 원복 확인. 생성 매니페스트는 `name`/`version`/
+  `description` 에 더해 `author`/`homepage`/`repository`/`license`/`keywords` 를 SSOT에서
+  통과시킨다 — 초안은 이것들을 빠뜨려 **저작자도 라이선스도 없는 패키지**를 공개 디렉토리에
+  올릴 뻔했다
+- **Antigravity** (`agy` 1.1.20): `agy plugin validate plugins/common` 이 green으로 전환
+  (이전엔 `missing plugin.json` 으로 fail), install→list→uninstall 왕복 정상, 기존 플러그인 불변
+- **Claude Code 무영향 확증**: 실사용 설치본을 건드리지 않고 `plugins/common` 의 스크래치
+  복사본을 다른 이름으로 임시 설치해 `claude plugin details` 컴포넌트 인벤토리를 대조 —
+  스킬·에이전트·훅·MCP·LSP 수와 이름이 완전히 동일
+
+### Fixed — 스펙 초안이 Antigravity의 `agents/` 지원을 잘못 주장했다
+
+설계 초안(`docs/specs/2026-08-26-multi-harness-packaging.md` §5.5)은 Antigravity를
+"`rules`·`agents` 까지 1급 지원하는 유일한 타겟"이라고 적었다. 실물 `agy` CLI 대조 결과
+**`agy plugin validate` 는 `agents/` 를 재귀하지 않는다** — 최상위 항목만 세므로 4개 카테고리
+아래 중첩된 kit의 33개 에이전트는 **하나도 인식되지 않고** "agents: 4"로 잡힌다. 재귀를 켜는
+설정은 공식 문서·스키마 어디에도 없다(`$schema` URL 자체가 404).
+
+`agents/` 는 두 타겟 어디에도 싣지 않고, 스펙 표와 README를 사실대로 고쳤다. **깨진 컴포넌트를
+실은 채 "지원한다"고 광고하지 않는다.** 배포 문서가 배포 동작과 다른 것은 2.14.2에서 이미
+고친 유형의 결함이다.
+
+낮은 심각도 부수 발견: `agy plugin validate` 는 kit의 스킬을 19가 아니라 **21로 오집계**한다
+(`SKILL.md` 가 없는 `skills/README.md` 와 `skills/references/` 를 함께 센다). agy 자체의 집계
+한계이며 kit 구조 결함이 아니다 — 19개 스킬은 정상 설치·동작한다.
+
+### Added — 문서
+
+`packaging/README.md`(생성기 사용법), README의 "Other Harnesses" 절(3플랫폼 설치 절차와
+**실리는 것/안 실리는 것**), `harness-export` 스킬의 `AGENTS.md` 경로와의 관계 설명,
+`docs/codex-submission-checklist.md`(공개 게시는 계정 자격이 필요해 사람이 밟는 절차).
+
+### 이번 배치에 넣지 않은 것 (조용히 빠뜨린 게 아니라 명시적 배제)
+
+- **훅** — Codex 훅 런타임은 kit이 쓰는 **exec form(`command`+`args`)을 로드하지 않는다.**
+  3단계 실측으로 확정했다: `python3`+args는 무해한 no-op, `touch`+args는 **명시적 Failed**
+  (인자 없는 `touch` 에러 = args 미전달의 결정적 증거), 공식 단일 문자열은 성공(positive
+  control). 문자열 형식 변환은 별도 배치다. Antigravity 훅 형식은 이번에 실측하지 않았다
+- **공개 레지스트리 등재** — OpenAI submission portal 제출은 계정 자격이 필요하다.
+  Antigravity의 공식 공개 레지스트리 유무는 `[unresolved]` — 구글 공식 문서는 로컬/워크스페이스
+  설치만 기술하므로 그 경로만 문서화했다. **없는 것을 있는 것처럼 쓰지 않는다**
+- **Cursor / OpenCode / Copilot** — `packaging/targets.json` 에서 비활성. Cursor 마켓플레이스는
+  큐레이션 파트너 한정, OpenCode의 플러그인 단위는 매니페스트가 아니라 실행 가능한 JS/TS,
+  Copilot은 매니페스트 기반 배포 단위 존재 여부 자체가 `[unresolved]`
+- **eval 티어2 20종**, **`/eval-forge` 어서션 미지원 개선(F-001)** — ledger에 추적 중, 후속 배치
+
+### Fixed — `build-targets.py` 의 경로 탈출 (교차 리뷰 High)
+
+`manifestPath` · `marketplace.path` 에 봉쇄가 없었다. `pathlib` 의 `a / b` 는 **`b` 가 절대경로면
+`a` 를 통째로 버린다** — 절대경로·`..` 탈출·심링크(TOCTOU) 3종 전부 **레포 밖에 파일을 썼고**,
+`--check` 와 `--write` 양쪽에서 재현됐다.
+
+`export_harness.py` 가 2.14.1에서 High를 받은 것과 **같은 결함 클래스**다. 리뷰어가 이를 개별
+버그가 아니라 반복되는 클래스로 지목한 것이 수정 방향을 정했다 — `_resolve_in_repo()` 는
+`_resolve_target()` 과 같은 관례를 쓴다: **한 번만 resolve해서 그 결과를 끝까지 사용**(검사와
+쓰기가 각각 resolve하면 그 틈이 TOCTOU다). 봉쇄 실패 시 `--check`·`--write` **양쪽** exit 1
+(2.14.1에서는 `--check` 만 빠져 구멍이 남았다). 회귀 테스트 4종, 전부 수정 전 red 확인.
+
+부수 수정: `--write` 가 타겟 하나에서 실패하면 나머지를 시도조차 않던 비원자성을 고쳐, 전부
+시도하고 실패를 모아 exit 1 한다. `verify-done.sh` §14 주석이 실제 동작과 반대로 서술돼 있던 것도 정정.
+
+### Added — 설정값 경로 봉쇄를 관례로 확정 (`CLAUDE.md`)
+
+같은 결함이 세 번 반복된 원인은 인스턴스가 아니라 **관례 부재**였다. 규칙 4개를 못박았다 —
+한 번만 resolve해 끝까지 사용 / 봉쇄 실패는 exit 1 / **읽기 경로도 봉쇄**(세 번째 인스턴스는
+읽기 전용인데 거짓 green을 냈다) / **검사 전용 모드에도 동일 봉쇄**. 새 코드는 관례를 새로
+발명하지 말고 기존 헬퍼를 따른다.
 
 ### Fixed — `check_eval_coverage.py` policy.json 스키마 누락 시 거짓 green (W-018/W-019 교차 리뷰)
 

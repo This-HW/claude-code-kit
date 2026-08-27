@@ -33,6 +33,22 @@ for cand in ".venv/bin/python" "venv/bin/python" "python3"; do
   if "$cand" -c "import pytest" 2>/dev/null; then PYTEST_PY="$cand"; break; fi
 done
 
+# ── 섹션 번호 규약 (2026-08-27 확정) ────────────────────────────────────────────
+# **섹션 번호는 안정 식별자다. 실행 순서를 나타내지 않는다.**
+#
+# 출력 순서가 1..10, 13, 12, 11, 14 로 비단조인 것은 흠이 아니라 의도다. 검사는 비용이
+# 싼 순서로 실행되고, 번호는 그와 무관하게 고정된다. §11(AGENTS.md 드리프트)은
+# 언제 실행되든 영원히 §11이다.
+#
+# 왜 재번호하지 않는가: 이 번호들은 스펙·CHANGELOG·decision-log·스킬 문서에서
+# **참조 식별자로 쓰인다**(2026-08-27 기준 47건 이상). 그중 상당수는 과거 결정을 기록한
+# 불변 문서다 — 재번호하면 "verify-done.sh §11 신설"처럼 이미 확정된 서술이 다른 섹션을
+# 가리키게 된다. 표시 순서를 고치자고 기록의 참조를 깨는 것은 부채를 갚는 게 아니라
+# 옮기는 것이다.
+#
+# 새 섹션은 **다음 빈 번호**를 받는다. 기존 번호를 재사용하거나 재배치하지 말 것.
+# ───────────────────────────────────────────────────────────────────────────────
+
 hdr "1. JSON 유효성"
 JSON_FILES=$(find plugins -name 'plugin.json' -o -name 'hooks.json' 2>/dev/null; echo ".claude-plugin/marketplace.json")
 for f in $JSON_FILES; do
@@ -484,6 +500,26 @@ if [ -f scripts/export-harness.sh ] && [ -f plugins/common/hooks/export_harness.
   fi
 else
   red "export-harness 산출물 누락 (scripts/export-harness.sh 또는 hooks/export_harness.py) — W-017"
+fi
+
+hdr "14. 다중 하네스 타겟 매니페스트 드리프트 (W-019)"
+# packaging/targets.json + plugins/common/.claude-plugin/plugin.json(SSOT)에서 계산되는
+# Codex·Antigravity 타겟 매니페스트가 SSOT와 어긋나지 않는지 검사한다. enabled:true인
+# 타겟은 매니페스트가 실제로 존재하고 SSOT와 바이트 단위로 일치해야 한다 — 미생성도
+# 드리프트로 취급해 fail이다(D1 판정, targets.json gate.requireGeneratedManifestPresent,
+# build-targets.py 원칙 3). S1 단계처럼 enabled 타겟이 아예 없을 때만 검사 대상 0건으로
+# 관대히 통과한다.
+if [ -f packaging/targets.json ] && [ -f scripts/build-targets.py ]; then
+  python3 scripts/build-targets.py --check >"$TMPD/targets" 2>&1
+  BT_RC=$?
+  if [ "$BT_RC" -eq 0 ]; then
+    green "타겟 매니페스트: $(tail -1 "$TMPD/targets")"
+  else
+    red "타겟 매니페스트 드리프트 (run: python3 scripts/build-targets.py --check)"
+    sed 's/^/      /' "$TMPD/targets" | head -10
+  fi
+else
+  red "다중 하네스 생성기 산출물 누락 (packaging/targets.json 또는 scripts/build-targets.py) — W-019"
 fi
 
 # ── 결과 ──────────────────────────────────────────────────────────

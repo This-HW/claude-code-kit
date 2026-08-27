@@ -109,6 +109,25 @@ python3 "$EH" --target /path/to/project
 
 거부는 파괴가 아니다 — 생성기는 추측해서 고치지 않고 그 줄을 사람에게 넘긴다.
 
+## 다중 하네스 패키지와의 관계 (W-019)
+
+`plugins/common/`은 이 스킬(`AGENTS.md` 내보내기)과 별개로, Codex·Antigravity용
+**네이티브 플러그인 매니페스트**도 갖고 있다(`.codex-plugin/plugin.json`,
+`plugin.json` — `packaging/`가 SSOT, `scripts/build-targets.py`가 생성기). 둘은
+**대체 관계가 아니라 상보 관계**다:
+
+- 이 스킬(`AGENTS.md`)은 **규범 텍스트**를 어느 하네스에서든 읽을 수 있는 자유형식
+  파일로 실어 나른다 — 플러그인 설치 여부와 무관하게 동작한다.
+- 다중 하네스 패키지(`packaging/`)는 **스킬·컴포넌트**를 그 플랫폼의 네이티브
+  설치 메커니즘으로 실어 나른다 — Codex는 `skills/`만(플랫폼에 `rules` 전용 필드가
+  없어 규범은 여전히 이 스킬 경로로 간다), Antigravity는 `skills/`+`rules/`(단
+  `agents/`는 실측으로 비지원 확정 — `agy plugin validate`가 중첩 카테고리를
+  재귀하지 않는다, W-019 S4).
+
+**Codex에서는 규범이 이 스킬 없이는 전혀 전달되지 않는다** — 플러그인을 설치해도
+`.codex-plugin/plugin.json`에 규범용 필드가 없으므로, `/harness-export`로 만든
+`AGENTS.md`가 유일한 경로다. 설치 절차는 README의 "Other Harnesses" 절 참고.
+
 ## 이식되지 않는 것 (정직한 한계)
 
 훅(`protect-sensitive`·`stop-validator`·`auto-format`), 서브에이전트 정의 33종,
