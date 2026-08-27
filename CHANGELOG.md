@@ -53,6 +53,37 @@ CLI로 신규 시나리오를 생성해 `--validate`를 손 편집 0으로 통�
 롤백 — baseline 미등재로 인한 커버리지 게이트 파손과 R3 tier2 분류 선점을
 피하기 위함). 상세: ledger F-001.
 
+**후속 수정(적대적 리뷰 High)**: `--output-regex`/`--file-contains`의 PATTERN을
+검증 없이 그대로 썼다 — 빈 패턴은 항상 매치하는 무의미한 어서션을 만들고,
+문법이 깨진 패턴은 생성·`--validate`는 초록인데 실제 `run.py` 실행에서만
+`re.error`로 죽는다. 생성 시점에 빈 패턴 거부 + `re.compile()` 검증을 추가했다.
+
+### Added — R3: 티어2 eval 커버리지 확대 (W-022)
+
+나머지 20개 에이전트를 이름이 아니라 각 정의의 `tools:`/출력 계약을 실제로 읽고
+평가 가능성으로 분류했다: **가능 15 / 조건부 3(`research-external`·
+`analyze-domain`·`clarify-requirements`) / 불가 2(`facilitator-teams`·
+`git-workflow`)**. 조건부·불가는 `evals/policy.json`의 `_tier2Classification`에
+등급·사유·승격 조건과 함께 남겼다 — 억지로 채운 시나리오는 없다. 특히
+`git-workflow`는 사전 조사 없이는 안 보이는 이유로 빠졌다: `eval-forge`의
+fixture 스테이징이 `.git`을 원천 제외해 실제 저장소 상태를 재현할 방법이
+없고, git 로그/커밋을 검사하는 assertion 타입도 없다.
+
+가능 15종 전부에 결정적 시나리오를 새로 만들었다(`evals/policy.json`
+`tiers.tier2`) — 읽기전용 에이전트는 `task.md`가 아니라 fixture에 심은 실제
+식별자·리터럴 토큰(예: `define-business-logic`의 `CALC-`/`VAL-`/`STATE-`/`POL-`)을
+앵커로 삼아 자기충족을 피했다. 그중 `analyze-dependencies`는 애초에 넣었던
+"문제 없음" 계열 네거티브 어서션을 두 차례(부분 맥락 오탐 → 결론부로 좁혀도
+재오탐) 실측 후 제거했다 — 나머지 5개 어서션이 이미 실질을 검증하므로
+판별력 없는 부정 검사를 억지로 유지하지 않았다(`_removedAssertions` 참고).
+
+시나리오 추가 과정에서 planning 계열 opus+`effort:high` 에이전트 2종이 기본
+300초 타임아웃 경계에서 불안정했다(하나는 타임아웃, 다른 하나는 298.2초로
+우연히 통과) — 과제 크기가 아니라 이 등급 에이전트의 본질적 소요임을 확인하고
+`evals/policy.json`의 `cost.scenarioTimeoutSeconds`를 600초로 상향했다(SSOT는
+정책 파일, `CKKIT_EVAL_TIMEOUT` 환경변수는 override로만 유지). 기준선을 35건
+전량 재실행해 재생성했다 — 기존 21건 회귀 0.
+
 ---
 
 ## [2.15.0] — 2026-08-27
