@@ -583,6 +583,104 @@ def test_no_delegation_signal_flag_exists(tmp_path, monkeypatch):
     ).exists()
 
 
+# ── 적대적 리뷰 High(2026-08-27, W-022 R2 후속) — 패턴 미검증 ──────────────
+
+
+def test_output_regex_empty_pattern_rejected(tmp_path, monkeypatch):
+    """빈 PATTERN은 re.search가 항상 매치해 무의미한 어서션이 된다 — 생성 자체를 거부."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "empty-regex",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--output-regex",
+            "",
+            "",
+        ]
+    )
+    assert rc == 1
+    assert not (root / "evals" / "scenarios" / "review-code" / "empty-regex").exists()
+
+
+def test_output_regex_malformed_pattern_rejected(tmp_path, monkeypatch):
+    """문법이 깨진 정규식은 생성·--validate는 초록이어도 실제 run.py 실행에서
+    re.error로 죽는다 — 생성 시점에 re.compile()로 미리 검증해 거부한다."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "broken-regex",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--output-regex",
+            "(unbalanced",
+            "",
+        ]
+    )
+    assert rc == 1
+    assert not (root / "evals" / "scenarios" / "review-code" / "broken-regex").exists()
+
+
+def test_file_contains_empty_pattern_rejected(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "empty-file-pattern",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--file-contains",
+            "broken.py",
+            "",
+        ]
+    )
+    assert rc == 1
+    assert not (
+        root / "evals" / "scenarios" / "review-code" / "empty-file-pattern"
+    ).exists()
+
+
+def test_file_contains_malformed_pattern_rejected(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "broken-file-pattern",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--file-contains",
+            "broken.py",
+            "(unbalanced",
+        ]
+    )
+    assert rc == 1
+    assert not (
+        root / "evals" / "scenarios" / "review-code" / "broken-file-pattern"
+    ).exists()
+
+
 def test_staging_failure_leaves_no_empty_parent(tmp_path, monkeypatch):
     """`_stage`가 터지면 dest는 없지만 방금 만든 빈 `scenarios/<agent>/`가 남았다 —
     "실패하면 아무 흔적도 남기지 않는다"는 설계 원칙 위반."""

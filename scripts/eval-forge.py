@@ -336,8 +336,40 @@ def _resolve_task(args, root: Path) -> tuple[str | None, int]:
     return task_text, 0
 
 
+def _validate_regex_args(args) -> str | None:
+    """--output-regex/--file-contains의 pattern을 생성 시점에 검증한다.
+
+    검증 없이 넘기면 두 계급의 결함이 생긴다(2026-08-27 적대적 리뷰 High, W-022 R2
+    후속): ①빈 패턴 `""`은 `re.search`가 항상 매치해 **모든 출력을 통과시키는
+    무의미한 어서션**이 되고 ②괄호 불균형 등 문법이 깨진 패턴은 생성과 `--validate`
+    (스키마 검증만 함, 컴파일은 안 함)는 초록인데 실제 `evals/run.py` 실행에서만
+    `re.error`로 죽는다. 둘 다 "green이 아무것도 보증하지 않는" 이 배치가 계속
+    잡아온 결함 클래스와 동일하다. 실패하면 사람이 읽을 오류 메시지를 반환한다.
+    """
+    for pattern, _flags in args.output_regex:
+        if not pattern:
+            return "--output-regex의 PATTERN이 빈 문자열이다 — 항상 매치하는 무의미한 어서션"
+        try:
+            re.compile(pattern)
+        except re.error as e:
+            return f"--output-regex 패턴 문법 오류: {pattern!r} ({e})"
+    for _file, pattern in args.file_contains:
+        if not pattern:
+            return "--file-contains의 PATTERN이 빈 문자열이다 — 항상 매치하는 무의미한 어서션"
+        try:
+            # run.py의 file_contains는 re.MULTILINE 기본 적용(F-003) — 동일 옵션으로 검증.
+            re.compile(pattern, re.MULTILINE)
+        except re.error as e:
+            return f"--file-contains 패턴 문법 오류: {pattern!r} ({e})"
+    return None
+
+
 def _resolve_expect(args) -> tuple[dict | None, int]:
     """채점 기준. assertion 0개는 **거부**한다 — 채점 불가능한 자산은 없느니만 못하다."""
+    regex_error = _validate_regex_args(args)
+    if regex_error:
+        print(f"[eval-forge] ✗ {regex_error}", file=sys.stderr)
+        return None, 1
     must_mention = [_split_csv(g) for g in args.must_mention]
     if args.must_not_say:
         must_not = _split_csv(args.must_not_say)
