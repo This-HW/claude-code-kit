@@ -278,32 +278,6 @@ sync-docs 실행 중 구조 위반 발견
 
 ---
 
-## 필수 출력 형식 (Delegation Signal)
-
-작업 완료 시 반드시 아래 형식 중 하나를 출력:
-
-### 다른 에이전트 필요 시
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: [에이전트명]
-REASON: [이유]
-CONTEXT: [전달할 컨텍스트]
----END_SIGNAL---
-```
-
-### 작업 완료 시
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [결과 요약]
-NEXT_STEP: [권장 다음 단계]
----END_SIGNAL---
-```
-
-
----
-
 ## Worktree 복귀 프로토콜 (isolation: worktree)
 
 이 에이전트는 격리된 git worktree에서 실행됩니다. (규칙: `rules/parallel-worktree.md`)

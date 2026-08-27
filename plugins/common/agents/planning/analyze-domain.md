@@ -109,11 +109,4 @@ Order (Aggregate Root)
 
 ### 컨텍스트 간 관계
 [관계 설명]
-
----DELEGATION_SIGNAL---
-TYPE: ANALYSIS_COMPLETE
-SUMMARY: [도메인 분석 요약]
-BOUNDED_CONTEXTS: [식별된 컨텍스트 목록]
-KEY_AGGREGATES: [주요 애그리거트]
----END_SIGNAL---
 ```

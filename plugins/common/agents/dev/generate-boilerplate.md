@@ -87,19 +87,6 @@ disallowedTools:
 
 ---
 
-## 위임 신호
-
-\`\`\`
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: {{next_agent}}
-REASON: {{delegation_reason}}
-CONTEXT: {{context}}
----END_SIGNAL---
-\`\`\`
-
----
-
 ## 연동 에이전트
 
 | 에이전트          | 연동 방식    |
@@ -264,23 +251,6 @@ tools:
 ---
 # 역할: 코드 포맷팅 전문가
 ...
-```
-
----
-
-## 위임 신호
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: implement-code
-REASON: 생성된 보일러플레이트 상세 구현 필요
-CONTEXT: {
-  generated_file: "...",
-  template_used: "agent",
-  needs_implementation: ["features", "error_handling"]
-}
----END_SIGNAL---
 ```
 
 ---

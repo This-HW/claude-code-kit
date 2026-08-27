@@ -122,11 +122,4 @@ src/
 
 ### 구현 우선순위
 [단계별 구현 계획]
-
----DELEGATION_SIGNAL---
-TYPE: PLANNING_COMPLETE
-SUMMARY: [설계 요약]
-DELEGATE_TO: implement-api
-CONTEXT: [구현에 필요한 상세 정보]
----END_SIGNAL---
 ```

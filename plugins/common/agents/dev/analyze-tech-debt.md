@@ -190,22 +190,6 @@ grep -rn "temporary\|temp\|workaround" --include="*.py"
 
 ---
 
-## 위임 신호
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-REASON: 기술 부채 분석 완료
-CONTEXT: {
-  total_score: 63,
-  p0_count: 5,
-  urgent_items: [...]
-}
----END_SIGNAL---
-```
-
----
-
 ## 연동 에이전트
 
 | 에이전트      | 연동 방식              |
