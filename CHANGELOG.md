@@ -8,6 +8,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Decided — 타겟 확장은 `runtime-verified` 만 활성화, 나머지는 근거와 함께 대기 (W-022 R9, Track B)
+
+superpowers는 9개 하네스에 배포하지만, 그 프로젝트는 새 하네스 지원에 수용 테스트 트랜스크립트를
+요구한다. 우리는 로컬에 `codex`·`agy` CLI만 있다 — 검증할 수 없는 타겟을 실었다가 Antigravity
+`agents/`처럼 "형식은 맞는데 안 도는" 컴포넌트를 광고하는 실수를 반복하지 않는다.
+
+- `packaging/targets.json`에 **3단계 검증 수준**을 SSOT로 명문화: `runtime-verified`(CLI
+  왕복 확인, codex·antigravity가 여기) / `spec-verified`(공식 스키마는 확인했으나 로컬에 CLI가
+  없어 런타임 미확인) / `researched-only`(문서만 조사됨). 활성화 기준은 **`runtime-verified`
+  유지** — Antigravity 사건이 "스키마가 맞아도 발견이 실패할 수 있다"를 이미 증명했다
+- **Cursor** 조사: 공식 스펙 저장소·문서 확인 결과 `skills`·`agents`·`rules`·`hooks`·
+  `commands`·`mcpServers` 6종을 전부 1급 지원 — kit의 33 에이전트 + 13 rules를 전부 실을 수
+  있는 유일한 후보다(codex는 skills만, antigravity는 agents 비지원). `spec-verified`로
+  기록하고 비활성 유지, `_enableWhen`(cursor CLI 왕복 검증 또는 사용자 제공 수용 테스트)을
+  명시
+- **Pi** 조사: 확장이 매니페스트가 아니라 TypeScript 모듈(`ExtensionAPI` factory export,
+  npm/git 배포) — kit의 SSOT→매니페스트 생성기 모델이 구조적으로 도달할 수 없다.
+  `researched-only`로 신규 등재하고 비활성 유지(근거 있는 폐기 — "언젠가 볼 대상"이 아니라
+  "이 구조로는 안 된다"는 확정)
+- opencode·copilot은 이번 R9 조사 범위 밖 — 기존 `[unresolved]` 표기를 그대로 유지했다(새로
+  조사하지 않은 것을 조사한 것처럼 승격시키지 않는다)
+
 ### Decided — Antigravity 훅은 싣지 않는다 (W-022 R4, Track B)
 
 `agy plugin validate`에 exec form 그대로의 루트 `hooks.json`을 스크래치 플러그인으로 돌리면
