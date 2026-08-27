@@ -241,7 +241,9 @@ def test_truncated_block_refuses_instead_of_appending(tmp_path):
     before = (target / "AGENTS.md").read_text(encoding="utf-8")
 
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
-    assert (target / "AGENTS.md").read_text(encoding="utf-8") == before, "손상 파일을 건드렸다"
+    assert (target / "AGENTS.md").read_text(encoding="utf-8") == before, (
+        "손상 파일을 건드렸다"
+    )
 
 
 def test_duplicate_blocks_refuse(tmp_path):
@@ -253,14 +255,18 @@ def test_duplicate_blocks_refuse(tmp_path):
     p.write_text(p.read_text(encoding="utf-8") * 2, encoding="utf-8")
 
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
-    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
 
 
 def test_check_reports_broken_marker(tmp_path):
     root = _minimal(tmp_path)
     target = tmp_path / "proj"
     _write_broken(target, "<!-- cck:begin x -->\n")
-    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
 
 
 def test_write_is_atomic_and_leaves_no_temp(tmp_path):
@@ -303,7 +309,9 @@ def test_refuses_symlink_escaping_target_tree(tmp_path):
     (target / "AGENTS.md").symlink_to(outside)
 
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
-    assert outside.read_text(encoding="utf-8") == "SECRET\n", "트리 밖 파일이 덮어써졌다"
+    assert outside.read_text(encoding="utf-8") == "SECRET\n", (
+        "트리 밖 파일이 덮어써졌다"
+    )
 
 
 def test_check_detects_body_tampering_with_intact_marker(tmp_path):
@@ -314,7 +322,9 @@ def test_check_detects_body_tampering_with_intact_marker(tmp_path):
     target = tmp_path / "proj"
     target.mkdir()
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
-    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
 
     p = target / "AGENTS.md"
     text = p.read_text(encoding="utf-8")
@@ -324,7 +334,9 @@ def test_check_detects_body_tampering_with_intact_marker(tmp_path):
     assert "cck:begin" in tampered and tampered != text
     p.write_text(tampered, encoding="utf-8")
 
-    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
 
 
 def test_rule_body_with_marker_string_is_rejected(tmp_path):
@@ -355,7 +367,9 @@ def test_ghost_classification_entry_is_rejected(tmp_path):
 def test_self_location_beats_env_var(tmp_path, monkeypatch):
     """셸에 남은 다른 플러그인의 CLAUDE_PLUGIN_ROOT가 남의 rules를 내보내면 안 된다."""
     other = _fake_plugin_root(tmp_path / "other", {}, complete=False)
-    (other / "rules" / "someone-elses-rule.md").write_text("# Foreign\n", encoding="utf-8")
+    (other / "rules" / "someone-elses-rule.md").write_text(
+        "# Foreign\n", encoding="utf-8"
+    )
     monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", str(other))
     # 자기 위치(plugins/common/hooks/의 부모)가 1순위여야 한다
     assert _mod._plugin_root(None) == (HOOKS_DIR.parent).resolve()
@@ -385,7 +399,9 @@ def test_generated_block_contains_exactly_one_marker_pair(tmp_path):
     target = tmp_path / "proj"
     target.mkdir()
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
-    assert _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
 
 
 def test_empty_file_gets_preamble_like_missing_file(tmp_path):
@@ -461,7 +477,9 @@ def test_malformed_marker_line_refuses(tmp_path):
     """
     root = _minimal(tmp_path)
     target = tmp_path / "proj"
-    _write_broken(target, "# mine\n\n<!-- cck:begin rules-v9.9.9 sha256:dead -->\n낡음\n")
+    _write_broken(
+        target, "# mine\n\n<!-- cck:begin rules-v9.9.9 sha256:dead -->\n낡음\n"
+    )
     before = (target / "AGENTS.md").read_text(encoding="utf-8")
 
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 1
@@ -474,7 +492,16 @@ def test_check_and_stdout_are_mutually_exclusive(tmp_path):
 
     root = _minimal(tmp_path)
     with pytest.raises(SystemExit) as exc:
-        _mod.main(["--plugin-root", str(root), "--target", str(tmp_path), "--check", "--stdout"])
+        _mod.main(
+            [
+                "--plugin-root",
+                str(root),
+                "--target",
+                str(tmp_path),
+                "--check",
+                "--stdout",
+            ]
+        )
     assert exc.value.code != 0
 
 
@@ -555,7 +582,9 @@ def test_sha_covers_generator_template_not_only_rules(tmp_path, monkeypatch):
     root = _minimal(tmp_path)
     _, sha_before = _mod.build_block(root)
     monkeypatch.setattr(
-        _mod, "BLOCK_HEADER", _mod.BLOCK_HEADER.replace("하네스 중립 규범", "하네스 중립 규범 (개정)")
+        _mod,
+        "BLOCK_HEADER",
+        _mod.BLOCK_HEADER.replace("하네스 중립 규범", "하네스 중립 규범 (개정)"),
     )
     _, sha_after = _mod.build_block(root)
     assert sha_before != sha_after
@@ -575,3 +604,191 @@ def test_missing_target_root_is_not_created(tmp_path):
     ghost = tmp_path / "typo" / "deep"
     assert _mod.main(["--plugin-root", str(root), "--target", str(ghost)]) == 1
     assert not ghost.exists()
+
+
+# ── conventions 블록 (cck2:, W-022 R7) ─────────────────────────────
+
+
+def _fake_conventions_dir(target: Path) -> Path:
+    """CONVENTIONS_INLINE + CONVENTIONS_REFERENCE_ONLY에 등재된 파일을 전부 만든다
+    — build_conventions_block()이 "표에 있는데 실물 없음"을 실패로 보기 때문에
+    (규범 블록의 PORTABLE/NOT_PORTABLE와 같은 종류의 방어)."""
+    conv_dir = target / "docs" / "conventions"
+    conv_dir.mkdir(parents=True)
+    for fname, _title in _mod.CONVENTIONS_INLINE:
+        (conv_dir / fname).write_text(f"# {fname}\n\n본문.\n", encoding="utf-8")
+    for fname in _mod.CONVENTIONS_REFERENCE_ONLY:
+        (conv_dir / fname).write_text(
+            f"# {fname}\n\n참조 전용 본문.\n", encoding="utf-8"
+        )
+    return conv_dir
+
+
+def test_conventions_block_is_none_without_docs_dir(tmp_path):
+    """docs/conventions/가 없는 target(= 설치된 플러그인 캐시에서 도는 소비자)에서는
+    conv 블록 자체가 생성 대상이 아니다 — 에러가 아니라 None."""
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.build_conventions_block(target) is None
+
+
+def test_conventions_missing_inline_file_raises(tmp_path):
+    target = tmp_path / "proj"
+    _fake_conventions_dir(target)
+    (target / "docs" / "conventions" / _mod.CONVENTIONS_INLINE[0][0]).unlink()
+    try:
+        _mod.build_conventions_block(target)
+        raise AssertionError("빠진 인라인 파일을 조용히 넘겼다")
+    except _mod.ClassificationError:
+        pass
+
+
+def test_conventions_missing_reference_file_raises(tmp_path):
+    target = tmp_path / "proj"
+    _fake_conventions_dir(target)
+    (target / "docs" / "conventions" / _mod.CONVENTIONS_REFERENCE_ONLY[0]).unlink()
+    try:
+        _mod.build_conventions_block(target)
+        raise AssertionError("빠진 참조 전용 파일을 조용히 넘겼다")
+    except _mod.ClassificationError:
+        pass
+
+
+def test_conventions_block_written_alongside_rules_block(tmp_path):
+    """rules 블록(cck:)과 conventions 블록(cck2:)이 한 파일에 독립적으로 공존한다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _fake_conventions_dir(target)
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    text = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "cck:begin" in text and _mod.END_MARK in text
+    assert "cck2:begin conventions-v" in text and _mod.CONV_END_MARK in text
+    assert text.count("cck:begin") == 1
+    assert text.count("cck2:begin") == 1
+
+
+def test_conventions_check_passes_after_write(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _fake_conventions_dir(target)
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
+
+
+def test_conventions_drift_detected_independently_of_rules(tmp_path):
+    """conventions 소스만 바뀌어도 --check가 잡는다 — rules 소스는 그대로다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    conv_dir = _fake_conventions_dir(target)
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
+
+    inline_fname = _mod.CONVENTIONS_INLINE[0][0]
+    (conv_dir / inline_fname).write_text("# 바뀐 conventions 본문\n", encoding="utf-8")
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
+
+    # 재생성하면 다시 green
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
+
+
+def test_conventions_check_ignores_rules_only_targets(tmp_path):
+    """docs/conventions/가 없는 대상은 conv 블록 검사 자체를 안 한다 — 기존 rules-only
+    --check 계약이 이 확장으로 조금도 안 변했다는 회귀 방지."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+    text = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "cck2:" not in text
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 0
+    )
+
+
+def test_conventions_body_tamper_with_intact_marker_detected(tmp_path):
+    """cck2 마커는 멀쩡한데 블록 안쪽만 손으로 고치면 --check가 잡는다
+    (규범 블록의 test_check_detects_body_tampering_with_intact_marker와 같은 공격)."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _fake_conventions_dir(target)
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    p = target / "AGENTS.md"
+    text = p.read_text(encoding="utf-8")
+    tampered = text.replace("claude-code-kit — Project Conventions", "변조된 제목")
+    assert tampered != text
+    p.write_text(tampered, encoding="utf-8")
+    assert (
+        _mod.main(["--plugin-root", str(root), "--target", str(target), "--check"]) == 1
+    )
+
+
+def test_conventions_marker_string_in_source_body_is_rejected(tmp_path):
+    """conventions 소스 파일 본문에 cck2 마커 문자열이 있으면 생성물이 자기 자신을
+    손상시킨다 — build_block()의 test_rule_body_with_marker_string_is_rejected와 같은
+    방어를 conv 쪽에도 건다."""
+    target = tmp_path / "proj"
+    conv_dir = _fake_conventions_dir(target)
+    inline_fname = _mod.CONVENTIONS_INLINE[0][0]
+    (conv_dir / inline_fname).write_text(
+        "본문 중간에 <!-- cck2:begin conventions-vX sha256:" + "0" * 64 + " -->\n",
+        encoding="utf-8",
+    )
+    try:
+        _mod.build_conventions_block(target)
+        raise AssertionError("cck2 마커 문자열이 섞인 소스를 그대로 실었다")
+    except _mod.ClassificationError:
+        pass
+
+
+def test_conventions_idempotent(tmp_path):
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _fake_conventions_dir(target)
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    first = (target / "AGENTS.md").read_text(encoding="utf-8")
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+    assert (target / "AGENTS.md").read_text(encoding="utf-8") == first
+
+
+def test_conventions_preserves_user_content_around_both_blocks(tmp_path):
+    """cck: 블록 앞, cck: 와 cck2: 사이, cck2: 블록 뒤 — 세 군데 사용자 콘텐츠가 전부
+    살아남는다."""
+    root = _minimal(tmp_path)
+    target = tmp_path / "proj"
+    target.mkdir()
+    _fake_conventions_dir(target)
+    _mod.main(["--plugin-root", str(root), "--target", str(target)])
+
+    p = target / "AGENTS.md"
+    text = p.read_text(encoding="utf-8")
+    rules_end = text.index(_mod.END_MARK) + len(_mod.END_MARK)
+    conv_begin = text.index("<!-- cck2:begin")
+    new_text = (
+        text[:rules_end] + "\n\nMID-USER\n\n" + text[conv_begin:] + "\nPOST-USER\n"
+    )
+    p.write_text("PRE-USER\n\n" + new_text, encoding="utf-8")
+
+    # 규범과 conventions 둘 다 바꿔서 재생성이 실제로 콘텐츠를 건드리게 한다
+    (root / "rules" / "ssot.md").write_text("# SSOT\n\n바뀐 규범.\n", encoding="utf-8")
+    assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
+
+    out = p.read_text(encoding="utf-8")
+    assert out.startswith("PRE-USER")
+    assert "MID-USER" in out
+    assert out.rstrip().endswith("POST-USER")
+    assert out.count("cck:begin") == 1
+    assert out.count("cck2:begin") == 1

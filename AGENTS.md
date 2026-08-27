@@ -420,3 +420,65 @@ NEVER use Bash for file operations. ALWAYS use the dedicated tool:
 
 DO use Bash for: git, package managers (npm/pip/brew), services (docker/systemctl), builds (make/cargo/go), DB CLIs (psql/mysql/redis-cli), system ops (chmod/chown/ln/mkdir), process management (kill/ps/lsof).
 <!-- cck:end -->
+
+<!-- cck2:begin conventions-v1.0.0 sha256:fdd35efc46f8fb9d019bcf266860c4b85de04ea02cde44ca5f16a8db9991eac3 -->
+
+## claude-code-kit — Project Conventions (요약 발췌)
+
+> **이 절도 자동 생성된다** (별도 마커 `cck2:` — 위 규범 블록과 독립).
+> `docs/conventions/*.md`의 일부를 인라인한 것이다. Codex의 `project_doc_max_bytes`
+> (병합 총량, 초과 시 조용히 잘림)를 넘지 않도록 가장 핵심적인 것만 골랐다 — 전체
+> 목록과 "왜 이것만 골랐는지"는 `docs/conventions/README.md` 참고. Claude Code는
+> `CLAUDE.md`의 `@docs/conventions/*.md` import로 전체를 읽는다.
+
+### 설정값으로 경로를 만들면 반드시 봉쇄한다
+
+**같은 결함이 세 번 반복됐다.** 정책·설정 파일에서 읽은 값으로 파일 경로를 조립하는 코드가
+그 값을 검증하지 않으면 레포 밖을 읽거나 쓴다. `pathlib` 의 `a / b` 는 **`b` 가 절대경로면 `a` 를
+통째로 버린다** — 이 한 줄이 세 번 모두의 원인이었다.
+
+| 인스턴스 | 발견 | 증상 |
+| --- | --- | --- |
+| `export_harness.py` | 2.14.1 적대적 리뷰 | 심링크 탈출 + 검사/쓰기가 각각 resolve (TOCTOU) |
+| `build-targets.py` | 2.15.0 교차 리뷰 | `manifestPath` 절대경로·`..`·심링크 3종 전부 레포 밖에 **씀** |
+| `check_eval_coverage.py` | 2.15.0 기획 세션 전수조사 | `baseline.file` 절대경로로 레포 밖 파일을 기준선으로 **신뢰하고 green** |
+
+**규칙**:
+
+1. 설정에서 온 경로는 **한 번만 resolve** 하고 그 결과를 끝까지 쓴다. 검사와 사용이 각각
+   resolve하면 그 틈이 TOCTOU다 (`_resolve_target()` / `_resolve_in_repo()` 관례)
+2. resolve 결과가 **레포 루트(또는 정해진 하위 디렉토리) 안**이 아니면 **exit 1**. 절대경로·`..`·심링크 전부
+3. **읽기 경로도 봉쇄한다.** 세 번째 인스턴스는 읽기 전용인데도 게이트가 거짓 green을 냈다
+4. `--check` 같은 **검사 전용 모드에도 같은 봉쇄를 건다.** 2.14.1은 쓰기에만 걸어 구멍이 남았다
+
+새 코드가 설정값으로 경로를 만든다면 이 레포의 `scripts/build-targets.py`(`_resolve_in_repo`) 또는
+`plugins/common/hooks/export_harness.py`(`_resolve_target`)의 헬퍼를 **그대로 따라라.** 관례를 새로
+발명하는 것이 이 결함이 반복된 이유다.
+
+### 드리프트 게이트는 여럿이고, 통합하지 않는다
+
+This repo's completion gate has **three** checks that ask "does the generated artifact match its
+source of truth?" — `AGENTS.md` marker block vs `rules/` (sha256), eval scenarios vs baseline (set
+comparison + tier coverage), and target manifests vs the plugin SSOT (existence + content diff).
+They look like the same question, but **the input, the pass/fail criteria, and the failure message
+are all different for each.**
+
+**They are not merged into one shared abstraction.** A common primitive would have to bend to fit
+all three cases — more branching parameters, harder-to-read gate code. A gate only works if
+whoever reads a failure trusts it enough to act; a gate nobody can follow gets ignored when it goes
+red.
+
+Duplication here is reduced through **convention, not code** — e.g. the path-containment pattern
+above, followed the same way in every place a config value becomes a file path, is exactly that.
+A fourth "does the generated thing match its source" gate is the point to reconsider this — not
+before. Rule-of-three isn't "merge at the third instance," it's "the third instance is still not
+necessarily a pattern."
+
+### 그 밖의 host-neutral 관례 (경로 참조만 — 이 파일엔 인라인하지 않음)
+
+- `docs/conventions/lint-single-ruleset.md`
+- `docs/conventions/rules-mirror.md`
+- `docs/conventions/shell-lint.md`
+- `docs/conventions/release-process.md`
+- `docs/conventions/reference-vs-judgment.md`
+<!-- cck2:end -->

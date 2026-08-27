@@ -8,6 +8,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added — R7: `docs/conventions/` SSOT + `AGENTS.md` 두 번째 생성 블록 (W-022, Track B)
+
+호스트 무관 관례(경로 봉쇄, 게이트 비통합 등) 7건이 `CLAUDE.md`에 산문으로만 있어
+Codex·Antigravity 등 다른 하네스에서 이 kit 레포 자체를 작업하는 기여자는 볼 방법이
+없었다. `docs/conventions/*.md`로 분리해 `CLAUDE.md`는 `@docs/conventions/<file>.md`
+import로 읽고, `plugins/common/hooks/export_harness.py`는 `AGENTS.md`에 **독립된 두 번째
+마커 블록**(`<!-- cck2:begin conventions-v… sha256:… -->`)으로 그중 가장 핵심적인 2건
+(`path-containment.md`, `no-gate-integration.md`)을 인라인한다 — 나머지는 경로 참조만.
+
+- 완전히 별도 마커 네임스페이스(`cck2:`) — 기존 `cck:` 규범 블록의 정규식·처리 로직은
+  한 글자도 건드리지 않았다(둘을 같은 접두어로 섞으면 규범 블록의 손상 감지가 오판한다)
+- `docs/conventions/`가 없는 target(설치된 플러그인 캐시)에서는 conv 블록이 조용히
+  생성 대상에서 빠진다(`build_conventions_block()` → `None`) — 소비자 프로젝트 동작은
+  이 변경으로 조금도 안 바뀐다
+- Codex `project_doc_max_bytes`(병합 총량, 기본 32 KiB, 초과 시 조용히 잘림)의 75%인
+  24,576 B를 이 레포 몫의 보수적 상한으로 두고, `verify-done.sh` 신설 §15가 강제한다.
+  실측 `AGENTS.md` 23,443 B — 여유 1,133 B
+- conv 블록 드리프트는 새 게이트를 만들지 않고 기존 §11(`export-harness.sh --check`)이
+  같은 명령 안에서 함께 검사한다 — rules 블록과 conv 블록은 "생성물이 소스와
+  일치하는가"라는 같은 질문의 같은 도구이므로, "드리프트 게이트는 통합하지 않는다"는
+  판단(별개 도메인 3종 게이트 간의 것)과 배치되지 않는다
+- 테스트 9건 추가(`test_export_harness.py`) — 소스 부재 시 None, 인라인/참조 목록 파일
+  누락 시 실패, 두 블록 공존·독립 드리프트·마커 문자열 자기오염·본문 변조·유휴성 검증
+
 ### Added — R8: `scripts/bump-version.sh` (W-022, Track B)
 
 버전을 SSOT(`plugins/common/.claude-plugin/plugin.json`)에서 올리면 곧바로 타겟 매니페스트를

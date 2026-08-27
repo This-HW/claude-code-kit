@@ -9,8 +9,9 @@ every target manifest (Codex, Antigravity, ...) is generated from.
 - Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
 - **버전은 `scripts/bump-version.sh <version>` 로 올린다** (수동으로 SSOT를 직접 고치지 마라).
   SSOT 갱신 → 타겟 매니페스트 재생성 → 자기 검증을 한 명령으로 묶어, "SSOT만 올리고 생성물
-  재생성을 잊는" 실수(v2.15.0에서 실제로 밟았다)를 예방한다. 낡은 버전 문자열 감사도 같이
-  돈다(보고 전용 — 릴리스를 막지 않는다)
+  재생성을 잊는" 실수(v2.15.0에서 실제로 밟았다)를 예방한다. (낡은 버전 문자열 감사 도구도
+  만들어 실물 레포에 돌려봤지만 뺐다 — 버전이 실리는 자리가 전부 생성물이거나 기존 게이트로
+  이미 막혀 있어 지킬 게 없었다. `docs/conventions/reference-vs-judgment.md` 참고)
 - Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다
 - 그 룰에 해설본 미러가 있으면 해설본도 함께 손보고 `scripts/sync-rule-mirror.sh --regenerate`
 - Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`, then
