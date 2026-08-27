@@ -4,7 +4,7 @@
 > 재생성: `./scripts/export-harness.sh` (플러그인 사용자는 `/harness-export` 스킬 참조)
 > 마커 블록 **밖의 내용은 생성기가 건드리지 않는다** — 프로젝트 고유 규약을 자유롭게 적어라.
 
-<!-- cck:begin rules-v1.4.0 sha256:3fe264bea5f3846eec48ee8ecf64e7106884edff71c81f94d546cc17d29d413d -->
+<!-- cck:begin rules-v1.4.0 sha256:0a03ad2f1a28364384d90ee69b684444ae5526623cde50c855c6120b44f9eca1 -->
 
 ## claude-code-kit — 하네스 중립 규범
 
@@ -46,7 +46,7 @@ brainstorming  →  plan-task  →  auto-dev
 | 훅 (protect-sensitive · stop-validator · auto-format) | Claude Code 훅 런타임 전용 — 다른 하네스에는 실행 지점이 없다 |
 | 서브에이전트 정의 (33종) | Claude Code 서브에이전트 규격 전용 |
 | 룰 본문의 kit-레포 전용 명령 (`scripts/verify-done.sh` 등) | "요약 금지 / 원문 그대로" 정책의 대가 — 각 룰이 "이 레포에선"으로 한정하고 있으니, 당신 프로젝트의 해당 명령으로 읽어라 |
-| `rules/agent-delegation-chain` | Claude Code 서브에이전트 위임 신호에 종속 |
+| `rules/agent-delegation-chain` | Claude Code 서브에이전트 호출·수명주기 규격에 종속 |
 | `rules/agent-system` | Claude Code 서브에이전트 정의 규격에 종속 |
 | `rules/mcp-usage` | Claude Code의 MCP 도구 allowlist 규격에 종속 |
 | `rules/parallel-worktree` | `isolation: worktree` 프론트매터(네이티브 프리미티브)에 종속 |

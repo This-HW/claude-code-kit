@@ -270,7 +270,7 @@ PORTABLE: dict[str, str] = {
 
 NOT_PORTABLE: dict[str, str] = {
     "agent-system": "Claude Code 서브에이전트 정의 규격에 종속",
-    "agent-delegation-chain": "Claude Code 서브에이전트 위임 신호에 종속",
+    "agent-delegation-chain": "Claude Code 서브에이전트 호출·수명주기 규격에 종속",
     "parallel-worktree": "`isolation: worktree` 프론트매터(네이티브 프리미티브)에 종속",
     "mcp-usage": "Claude Code의 MCP 도구 allowlist 규격에 종속",
     "task-resume": "Claude Code Task 도구 수명주기에 종속",
