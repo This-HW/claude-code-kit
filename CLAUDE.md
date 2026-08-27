@@ -394,10 +394,12 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 - Add a matching `## [x.y.z]` entry to `CHANGELOG.md` (verify-done.sh §6 fails if
   the plugin.json version and the CHANGELOG top entry diverge)
 - Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
-- **버전을 올렸으면 타겟 매니페스트를 재생성한다**: `python3 scripts/build-targets.py --write`.
-  `.claude-plugin/plugin.json` 만 올리고 이것을 빠뜨리면 Codex·Antigravity 패키지에 **옛 버전이
-  실린 채** 나간다. v2.15.0 릴리스에서 실제로 밟았고 `verify-done.sh` §14가 잡았다 —
-  게이트가 없었다면 그대로 배포됐을 실수다
+- **버전은 `scripts/bump-version.sh <version>` 로 올린다** (수동으로 `plugin.json`을 고치지
+  마라). SSOT 갱신 → 타겟 매니페스트 재생성(`build-targets.py --write`) → 자기 검증
+  (`--check`)을 한 명령으로 묶어, v2.15.0에서 실제로 밟은 함정(`.claude-plugin/plugin.json`만
+  올리고 재생성을 잊어 Codex·Antigravity에 **옛 버전이 실린 채** 나갈 뻔한 것 — `verify-done.sh`
+  §14가 잡았다)을 사람이 두 단계를 기억할 필요 없이 예방한다(W-022 R8). 낡은 버전 문자열
+  감사도 같이 돈다(`scripts/audit-version-strings.py`, 보고 전용 — 릴리스를 막지 않는다).
 - Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
 - 그 룰에 **해설본 미러**가 있으면(아래 참조) 해설본도 함께 손보고 `scripts/sync-rule-mirror.sh --regenerate`
 - Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`,
@@ -412,8 +414,8 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 - Run `scripts/verify-done.sh` (green) before claiming a release ready (definition-of-done)
 
 ```bash
-# Before git commit — update version field:
-# plugins/common/.claude-plugin/plugin.json  → "version": "x.y.z"
+# Before git commit — bump version, regenerate targets, self-verify (one command):
+scripts/bump-version.sh x.y.z
 ```
 
 ### Distribution & catalog propagation

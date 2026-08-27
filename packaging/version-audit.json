@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "_comment": "낡은 버전 문자열 감사 정책의 단일 소스 (W-022 R8). scripts/audit-version-strings.py가 읽는다. 값을 스크립트에 하드코딩하지 않는다 — packaging/targets.json과 같은 관례(정책은 데이터다).",
+  "pattern": "\\bv?(2\\.\\d+\\.\\d+)\\b",
+  "excludeDirs": [
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".mypy_cache"
+  ],
+  "excludePathPrefixes": [
+    "CHANGELOG.md",
+    "docs/specs/",
+    "docs/research/",
+    "docs/works/"
+  ],
+  "_meta": {
+    "pattern": "이 레포의 실제 버전 스킴(2.x.y)만 잡는다. major가 바뀌면(예: 3.0.0) 이 값을 갱신한다 — 스크립트를 고치지 않는다. 캡처 그룹은 정확히 1개(순수 버전 숫자)여야 한다 — audit-version-strings.py가 v 접두사(예: v2.15.0, 실제로 CLAUDE.md에 있다) 유무와 무관하게 그 그룹만 --current와 비교하기 때문. 매치 전체를 비교하면 접두사 붙은 현재 버전 표기까지 오탐한다.",
+    "excludeDirs": "버전 문자열이 있을 수 없거나(캐시) 스캔할 필요가 없는(vcs 메타데이터) 디렉토리 — os.walk가 아예 내려가지 않는다.",
+    "excludePathPrefixes": "이 레포는 코드 주석에도 과거 사고를 버전 번호로 회고하는 관례가 있다(예: .github/workflows/validate.yml의 \"2.12.0 실사고\" — F-036/F-037). 파일 단위 exclude로는 그런 인라인 회고까지 걸러낼 수 없다 — 그래서 이 도구는 hard gate가 아니라 보고 도구다(scripts/audit-version-strings.py 모듈 docstring 참고). docs/works/는 지시서 원문 목록(CHANGELOG.md·docs/specs/**·docs/research/**·.git)에는 없었지만 같은 이유(역사 기록, STAGE 완료 보고서가 과거 버전을 정당하게 인용)로 추가했다 — Stage 보고서에 근거 명시.",
+    "sourceReference": "superpowers .version-bump.json의 audit.exclude 상당 [confirmed: docs/research/2026-08-27-superpowers-distribution.md §3]"
+  }
+}
