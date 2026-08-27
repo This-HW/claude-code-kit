@@ -200,3 +200,46 @@ W-022의 R5(Codex 훅 문자열 변환)와 R9(타겟 규격 조사)에 쓸 **1�
   CCK의 Claude Code용 `hooks.json` 변경은 **이번 배치 범위 밖**이다(회귀 위험). 사실만 기록한다
 - Windows 지원은 CCK가 한 번도 실측하지 않은 영역이다 — `[unresolved]`. 폴리글롯 래퍼는 그 문제의
   기존 해법이 있다는 증거이며, 필요해지면 참고 대상이다
+
+
+---
+
+## 부록 3 — R9용 타겟 공식 규격 (기획 세션 선행 조사, 2026-08-27)
+
+Track B S4가 조사부터 시작하지 않도록 미리 모은다. **superpowers 실물과 공식 문서를 구분해 태그했다.**
+
+### Cursor — 우리 컴포넌트 전부를 1급 지원하는 유일한 타겟
+- 공식 문서 실재: `cursor.com/docs/plugins`, `cursor.com/docs/reference/plugins`,
+  공식 스펙·플러그인 저장소 `github.com/cursor/plugins` `[researched: 검색 결과, n=3 이상 독립 출처]`
+- 매니페스트: `.cursor-plugin/plugin.json` (필수). 다중 플러그인 저장소는 `.cursor-plugin/marketplace.json`
+- **컴포넌트 타입: `skills`, `agents`, `rules`, `hooks`, `commands`, `mcpServers`**
+  → Codex(skills만)·Antigravity(skills·rules, agents 비지원)와 달리 **우리 33 에이전트 + 13 rules를
+  전부 실을 수 있는 유일한 후보**다
+- 검증이 엄격하다: `additionalProperties: false`, kebab-case 패턴, URI·email 포맷 검사
+- superpowers 실물과 일치 `[confirmed: .cursor-plugin/plugin.json 원문]` —
+  `skills`·`hooks: "./hooks/hooks-cursor.json"` 사용
+
+### Pi — TypeScript 모듈. 매니페스트 방식이 아니다
+- 확장은 **TypeScript 모듈**이며 `ExtensionAPI` 를 받는 default factory를 export한다
+- 설치 위치 `~/.pi/agent/extensions`. 배포는 npm/git 패키지(`pi install`)
+  `[researched: pi.dev/docs/latest/extensions + 커뮤니티 저장소 다수, n=3]`
+- superpowers도 `.pi/extensions/superpowers.ts` **TS 파일**이다 `[confirmed]`
+- → **선언적 매니페스트 생성으로는 도달 불가.** 코드를 써야 한다. 우리 생성기 모델과 이질적
+
+### 정리 — 활성화 판단의 기준을 하나 더 둔다
+
+이 조사로 **검증 수준이 세 단계**라는 게 분명해졌다. `targets.json` 에 이 구분을 기록해라:
+
+| 수준 | 의미 | 해당 |
+| --- | --- | --- |
+| `runtime-verified` | 실물 CLI로 install→list→remove 왕복 확인 | codex, antigravity |
+| `spec-verified` | 공식 스키마·문서로 **산출물**은 검증되나 런타임 미확인 | cursor (스키마 공개) |
+| `researched-only` | 규격만 조사됨 | pi, opencode, devin, kimi, hermes |
+
+**그럼에도 활성화 기준은 `runtime-verified` 로 유지한다.** 근거: Antigravity `agents/` 사건에서
+**매니페스트는 유효했지만 컴포넌트 발견이 실패**했다. 스키마 검증은 그 실패를 잡지 못한다.
+`spec-verified` 는 "만들면 형식은 맞다"까지만 보증하며, **"동작한다"는 별개의 주장**이다.
+
+→ Cursor는 **가장 유망한 다음 타겟**이지만 이번 배치에서 활성화하지 않는다.
+   `_enableWhen`: *"cursor CLI로 왕복 검증이 가능해지거나, 사용자가 수용 테스트 트랜스크립트를
+   제공하면"* (superpowers의 새 하네스 지원 기준과 같은 바)
