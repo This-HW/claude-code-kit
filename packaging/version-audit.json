@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "_comment": "낡은 버전 문자열 감사 정책의 단일 소스 (W-022 R8). scripts/audit-version-strings.py가 읽는다. 값을 스크립트에 하드코딩하지 않는다 — packaging/targets.json과 같은 관례(정책은 데이터다).",
   "pattern": "\\bv?(2\\.\\d+\\.\\d+)\\b",
   "excludeDirs": [
@@ -13,15 +13,83 @@
     ".mypy_cache"
   ],
   "excludePathPrefixes": [
-    "CHANGELOG.md",
-    "docs/specs/",
-    "docs/research/",
-    "docs/works/"
+    {
+      "prefix": "CHANGELOG.md",
+      "why": "릴리스 히스토리 — 과거 버전 언급 전부가 정당하다"
+    },
+    {
+      "prefix": "docs/specs/",
+      "why": "스펙 문서 — 작성 당시 목표 버전을 정당하게 기록한다"
+    },
+    {
+      "prefix": "docs/research/",
+      "why": "리서치 노트 — 조사 시점 버전을 인용한다"
+    },
+    {
+      "prefix": "docs/works/",
+      "why": "STAGE 완료 보고서 등 작업 기록 — 과거 버전을 정당하게 인용한다. 지시서 원문 목록(CHANGELOG.md·docs/specs/**·docs/research/**·.git)에는 없었으나 같은 사유로 S1에서 추가했다."
+    },
+    {
+      "prefix": "docs/native-absorption.md",
+      "why": "네이티브 흡수 원장 — '이 버전 배치에서 이런 결정을 했다'는 과거 기록만 담는다. 2026-08-27 확인: '현재 버전은 X다' 형태의 주장이 없다(전부 '~배치에서 제거', '2026-MM-DD 확인' 류 과거형)."
+    },
+    {
+      "prefix": "docs/marketplace-submission.md",
+      "why": "과거 제출 이력 스냅샷(v2.7.0 시점 고정) — 문서 자신이 '현재 버전은 CHANGELOG 참조'라고 명시해 스스로 낡음을 인정한다(2026-08-27 확인)."
+    },
+    {
+      "prefix": "docs/superpowers/",
+      "why": "이 kit 개발 초기의 계획/스펙 아카이브 — 역사 기록이다."
+    },
+    {
+      "prefix": "site/content/posts/",
+      "why": "릴리스 회고 블로그 포스트 — 발행 시점 스냅샷이고, 과거 버전을 인용하는 것이 글의 목적 자체다."
+    },
+    {
+      "prefix": "scripts/audit-version-strings.py",
+      "why": "이 도구 자신의 모듈 docstring·사용 예시 — 항상 매치되는 자기잡음(예시 버전 문자열)."
+    },
+    {
+      "prefix": "scripts/tests/test_audit_version_strings.py",
+      "why": "이 도구의 테스트 픽스처(가짜 버전 문자열) — 항상 매치되는 자기잡음."
+    },
+    {
+      "prefix": "scripts/bump-version.sh",
+      "why": "이 스크립트 자신의 사용법·에러 메시지 예시('2.16'/'v2.16.0' 등) — 항상 매치되는 자기잡음."
+    },
+    {
+      "prefix": "packaging/version-audit.json",
+      "why": "이 정책 파일 자신의 위 why 필드들이 예시로 버전 문자열을 인용한다 — 항상 매치되는 자기잡음."
+    },
+    {
+      "prefix": "docs/pipeline-reinforcement-plan-v2.md",
+      "why": "2026-05-03 작성된 과거 계획 문서 — docs/specs/ 아래는 아니지만 성격이 같다(작성 당시 버전을 정당하게 기록)."
+    },
+    {
+      "prefix": "site/content/about.md",
+      "why": "역사 서술 페이지 — docs/native-absorption.md와 같은 사유(과거 제거·변경을 과거형으로만 서술, '현재 버전' 주장 없음, 2026-08-27 확인)."
+    },
+    {
+      "prefix": "site/content/about.en.md",
+      "why": "위와 동일(영문판)."
+    },
+    {
+      "prefix": "plugins/common/agents/dev/manage-api-versions.md",
+      "why": "이 에이전트의 '주제'가 API 버전 관리라 예시 데이터(REST API v2.1.0 등)에 버전꼴 문자열이 등장한다 — kit 자신의 버전과 무관한 도메인 콘텐츠."
+    },
+    {
+      "prefix": "docs/architecture/rules/agent-delegation-chain.md",
+      "why": "'Claude Code v2.1.219+'는 Claude Code 제품 자체의 버전이지 이 kit의 버전이 아니다 — 패턴이 둘을 구분 못해 오탐한다."
+    },
+    {
+      "prefix": "plugins/common/rules/agent-delegation-chain.md",
+      "why": "위와 동일 — rules 원문 쪽."
+    }
   ],
   "_meta": {
     "pattern": "이 레포의 실제 버전 스킴(2.x.y)만 잡는다. major가 바뀌면(예: 3.0.0) 이 값을 갱신한다 — 스크립트를 고치지 않는다. 캡처 그룹은 정확히 1개(순수 버전 숫자)여야 한다 — audit-version-strings.py가 v 접두사(예: v2.15.0, 실제로 CLAUDE.md에 있다) 유무와 무관하게 그 그룹만 --current와 비교하기 때문. 매치 전체를 비교하면 접두사 붙은 현재 버전 표기까지 오탐한다.",
     "excludeDirs": "버전 문자열이 있을 수 없거나(캐시) 스캔할 필요가 없는(vcs 메타데이터) 디렉토리 — os.walk가 아예 내려가지 않는다.",
-    "excludePathPrefixes": "이 레포는 코드 주석에도 과거 사고를 버전 번호로 회고하는 관례가 있다(예: .github/workflows/validate.yml의 \"2.12.0 실사고\" — F-036/F-037). 파일 단위 exclude로는 그런 인라인 회고까지 걸러낼 수 없다 — 그래서 이 도구는 hard gate가 아니라 보고 도구다(scripts/audit-version-strings.py 모듈 docstring 참고). docs/works/는 지시서 원문 목록(CHANGELOG.md·docs/specs/**·docs/research/**·.git)에는 없었지만 같은 이유(역사 기록, STAGE 완료 보고서가 과거 버전을 정당하게 인용)로 추가했다 — Stage 보고서에 근거 명시.",
+    "excludePathPrefixes": "각 항목은 {prefix, why} — 제외 사유를 데이터에 함께 적는다. 근거 없이 빼면 다음 사람이 '왜 뺐는지 모르겠다'며 되돌린다(2026-08-27 torpedo-c4 지시). 이 레포는 코드 주석에도 과거 사고를 버전 번호로 회고하는 관례가 있다(예: .github/workflows/validate.yml의 \"2.12.0 실사고\" — F-036/F-037) — 파일 단위 exclude로는 그런 인라인 회고까지 다 걸러낼 수 없다. 그래서 이 도구는 hard gate가 아니라 보고 도구다(scripts/audit-version-strings.py 모듈 docstring 참고). v1.1.0에서 확장: 초기(v1.0.0) 실측 93건 중 상위 2개가 감사 도구 자기 자신과 그 테스트였다(신호 대비 잡음 과다 — 2026-08-27 재검토) + docs/native-absorption.md·docs/marketplace-submission.md는 내용을 열어 '현재 버전 주장'이 없음을 확인한 뒤 제외에 추가했다.",
     "sourceReference": "superpowers .version-bump.json의 audit.exclude 상당 [confirmed: docs/research/2026-08-27-superpowers-distribution.md §3]"
   }
 }

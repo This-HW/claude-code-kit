@@ -17,6 +17,7 @@
 `excludePathPrefixes`로 미리 뺀다.
 
 사용:
+  python3 scripts/audit-version-strings.py                    # --current 생략 시 SSOT에서 읽음
   python3 scripts/audit-version-strings.py --current 2.16.0
   python3 scripts/audit-version-strings.py --current 2.16.0 --repo-root /path/to/repo
 
@@ -43,6 +44,28 @@ def load_policy(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+class SsotError(Exception):
+    """SSOT(`.claude-plugin/plugin.json`)에서 현재 버전을 못 읽음 — `--current` 생략 시에만 관여."""
+
+
+def default_current_version(root: Path) -> str:
+    """`--current`가 생략됐을 때 SSOT에서 현재 버전을 읽는다.
+
+    현재 버전이 이미 `.claude-plugin/plugin.json`에 있는데 사람이 매번 손으로
+    다시 입력해야 한다면 그 자체가 드리프트 원인이다(2026-08-27 지시) — 손 입력과
+    SSOT가 갈리는 순간 감사가 "현재 버전"이라고 믿는 값과 실제 SSOT가 달라진다.
+    """
+    p = root / "plugins" / "common" / ".claude-plugin" / "plugin.json"
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as err:
+        raise SsotError(f"{p} 에서 현재 버전을 읽지 못했다: {err}") from err
+    version = data.get("version")
+    if not isinstance(version, str) or not version:
+        raise SsotError(f"{p} 에 유효한 'version' 필드가 없다")
+    return version
+
+
 def find_stale(
     root: Path, policy: dict, current_version: str
 ) -> list[tuple[str, int, str]]:
@@ -60,7 +83,12 @@ def find_stale(
     """
     pattern = re.compile(policy["pattern"])
     exclude_dirs = set(policy.get("excludeDirs", []))
-    exclude_prefixes = tuple(policy.get("excludePathPrefixes", []))
+    # v1.1.0부터 각 항목이 {"prefix": ..., "why": ...} 객체다 — 제외 사유를 데이터에
+    # 남기라는 지시(2026-08-27) 반영. 과거의 순수 문자열 목록(v1.0.0)도 하위호환으로 받는다.
+    exclude_prefixes = tuple(
+        e["prefix"] if isinstance(e, dict) else e
+        for e in policy.get("excludePathPrefixes", [])
+    )
     hits: list[tuple[str, int, str]] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
@@ -90,12 +118,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--current",
-        required=True,
-        help="현재(신규) 버전 — 이 값과 정확히 일치하는 매치는 낡은 것으로 세지 않는다",
+        default=None,
+        help="현재(신규) 버전 — 이 값과 정확히 일치하는 매치는 낡은 것으로 세지 않는다."
+        " 생략하면 SSOT(.claude-plugin/plugin.json)에서 읽는다",
     )
     args = ap.parse_args(argv)
 
     root = args.repo_root.resolve()
+    current = args.current
+    if current is None:
+        try:
+            current = default_current_version(root)
+        except SsotError as err:
+            print(f"[audit-version] ✗ {err}", file=sys.stderr)
+            return 1
     try:
         policy = load_policy(args.policy)
     except (OSError, json.JSONDecodeError) as err:
@@ -119,13 +155,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    hits = find_stale(root, policy, args.current)
+    hits = find_stale(root, policy, current)
     if not hits:
-        print(f"[audit-version] ✓ 낡은 버전 문자열 없음 (현재: {args.current})")
+        print(f"[audit-version] ✓ 낡은 버전 문자열 없음 (현재: {current})")
         return 0
 
     print(
-        f"[audit-version] ! 낡은 버전 문자열 후보 {len(hits)}건 (현재: {args.current})"
+        f"[audit-version] ! 낡은 버전 문자열 후보 {len(hits)}건 (현재: {current})"
         " — 과거 사고 회고 같은 정당한 인용이면 무시해도 된다:"
     )
     for rel, lineno, line in hits:

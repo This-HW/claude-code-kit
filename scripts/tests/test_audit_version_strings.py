@@ -29,7 +29,13 @@ _mod = _load_module()
 POLICY = {
     "pattern": r"\bv?(2\.\d+\.\d+)\b",
     "excludeDirs": [".git", "cache_dir"],
-    "excludePathPrefixes": ["CHANGELOG.md", "docs/specs/"],
+    "excludePathPrefixes": [
+        {"prefix": "CHANGELOG.md", "why": "release history"},
+        {
+            "prefix": "docs/specs/",
+            "why": "spec docs cite the version at authoring time",
+        },
+    ],
 }
 
 
@@ -113,3 +119,33 @@ def test_main_clean_repo_reports_zero_and_exits_zero(tmp_path, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "낡은 버전 문자열 없음" in out
+
+
+def test_exclude_prefix_backward_compat_with_flat_string_list(tmp_path):
+    """v1.0.0 정책(문자열 목록)도 여전히 동작한다 — {prefix,why}로 마이그레이션 전 정책과 호환."""
+    legacy_policy = {**POLICY, "excludePathPrefixes": ["CHANGELOG.md"]}
+    (tmp_path / "CHANGELOG.md").write_text("## [2.10.0]\n", encoding="utf-8")
+    hits = _mod.find_stale(tmp_path, legacy_policy, "2.16.0")
+    assert hits == []
+
+
+def test_current_defaults_to_ssot_version_when_omitted(tmp_path, capsys):
+    ssot_dir = tmp_path / "plugins" / "common" / ".claude-plugin"
+    ssot_dir.mkdir(parents=True)
+    (ssot_dir / "plugin.json").write_text(
+        json.dumps({"name": "x", "version": "3.4.5"}), encoding="utf-8"
+    )
+    (tmp_path / "README.md").write_text("still on 3.4.5 here\n", encoding="utf-8")
+    policy_path = _write_policy(tmp_path, {**POLICY, "pattern": r"\bv?(3\.\d+\.\d+)\b"})
+    rc = _mod.main(["--repo-root", str(tmp_path), "--policy", str(policy_path)])
+    out = capsys.readouterr().out
+    assert rc == 0  # 3.4.5는 SSOT의 현재 버전이므로 낡은 것으로 안 잡힌다
+    assert "현재: 3.4.5" in out
+
+
+def test_current_omitted_and_ssot_missing_fails_clearly(tmp_path, capsys):
+    policy_path = _write_policy(tmp_path, POLICY)
+    rc = _mod.main(["--repo-root", str(tmp_path), "--policy", str(policy_path)])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "Traceback" not in err
