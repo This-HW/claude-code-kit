@@ -6,6 +6,100 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Decided — 타겟 확장은 `runtime-verified` 만 활성화, 나머지는 근거와 함께 대기 (W-022 R9, Track B)
+
+superpowers는 9개 하네스에 배포하지만, 그 프로젝트는 새 하네스 지원에 수용 테스트 트랜스크립트를
+요구한다. 우리는 로컬에 `codex`·`agy` CLI만 있다 — 검증할 수 없는 타겟을 실었다가 Antigravity
+`agents/`처럼 "형식은 맞는데 안 도는" 컴포넌트를 광고하는 실수를 반복하지 않는다.
+
+- `packaging/targets.json`에 **3단계 검증 수준**을 SSOT로 명문화: `runtime-verified`(CLI
+  왕복 확인, codex·antigravity가 여기) / `spec-verified`(공식 스키마는 확인했으나 로컬에 CLI가
+  없어 런타임 미확인) / `researched-only`(문서만 조사됨). 활성화 기준은 **`runtime-verified`
+  유지** — Antigravity 사건이 "스키마가 맞아도 발견이 실패할 수 있다"를 이미 증명했다
+- **Cursor** 조사: 공식 스펙 저장소·문서 확인 결과 `skills`·`agents`·`rules`·`hooks`·
+  `commands`·`mcpServers` 6종을 전부 1급 지원 — kit의 33 에이전트 + 13 rules를 전부 실을 수
+  있는 유일한 후보다(codex는 skills만, antigravity는 agents 비지원). `spec-verified`로
+  기록하고 비활성 유지, `_enableWhen`(cursor CLI 왕복 검증 또는 사용자 제공 수용 테스트)을
+  명시
+- **Pi** 조사: 확장이 매니페스트가 아니라 TypeScript 모듈(`ExtensionAPI` factory export,
+  npm/git 배포) — kit의 SSOT→매니페스트 생성기 모델이 구조적으로 도달할 수 없다.
+  `researched-only`로 신규 등재하고 비활성 유지(근거 있는 폐기 — "언젠가 볼 대상"이 아니라
+  "이 구조로는 안 된다"는 확정)
+- opencode·copilot은 이번 R9 조사 범위 밖 — 기존 `[unresolved]` 표기를 그대로 유지했다(새로
+  조사하지 않은 것을 조사한 것처럼 승격시키지 않는다)
+
+### Decided — Antigravity 훅은 싣지 않는다 (W-022 R4, Track B)
+
+`agy plugin validate`에 exec form 그대로의 루트 `hooks.json`을 스크래치 플러그인으로 돌리면
+`hooks: 1 processed`가 나온다. 그러나 이 "processed"는 skills를 21로(실제 19), agents를
+4로(실제 33, 인식 0) 오집계하는 것과 **같은 도구가 같은 방식으로** 낸 숫자다 — `agy plugin
+validate`는 파일이 있는지만 세지, 훅 이벤트 4종(SessionStart 등)의 내용을 이해했다는 증거는
+어디에도 없다. Codex 훅이 exec form을 로드하지 않는다는 걸 실측 없이 "매니페스트가
+읽힌다"만으로 넘겼다가 2.12.1에서 훅 4종이 조용히 죽어 있었던 사고와 같은 유형의 오판을
+반복하지 않기 위해, **파일 카운트만으로는 판정하지 않는다**. `packaging/targets.json`의
+Antigravity 타겟에 `_hooksEnableWhen`을 명시했다 — 재검토 조건은 "실제 Antigravity 세션에서
+훅이 발화함을 마커 파일로 확인"이지, `agy plugin validate`의 processed 카운트가 아니다.
+
+부수 정정: 위 `[2.15.0]`의 "Antigravity ... green으로 전환" 서술에 이 구분을 반영하는 주석을
+추가했다 — "green"이 "설치 가능함을 확인" 이상을 의미하지 않는다는 것.
+
+### Decided — Codex 훅 문자열 형식 변환은 기술적으로 가능하지만 **아직 싣지 않는다** (W-022 R5, Track B)
+
+S4(v2.15.0)는 exec form이 로드되지 않는다는 것만 확정했다. 이번 R5는 그 후속 질문 — "그럼
+따옴표로 감싼 문자열 형식(superpowers 패턴)은 되는가"를 실측했다. **된다.** 스크래치
+플러그인에 `"command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mark.sh\""`를 설치해 `codex exec`로
+SessionStart를 유발한 결과, `${CLAUDE_PLUGIN_ROOT}`가 실제 설치 경로로 치환되고 같은 값이
+하위 프로세스 환경변수로도 주입됨을 마커 파일로 확인했다(10초 내 발화, 5분 타임아웃 없이 완료).
+
+**그러나 형식 변환과 기능 이식은 다른 문제다.** kit의 실제 훅 5개는 Claude Code의 이벤트
+모델(툴 이름, PreToolUse/PostToolUse stdin JSON)에 맞춰 쓰였다 — 포맷만 바꿔 Codex가 실행하게
+만들어도 Codex의 이벤트·페이로드가 다르므로 의미 있게 동작하지 않는다. Codex에 실제로 유용한
+훅을 실으려면 **Codex 전용 훅 구현**이 새로 필요하고, 그건 R5(형식 변환 가능성 판정)의 범위
+밖이다. → 이 배치에서는 `hooks` 필드를 계속 넣지 않는다. `packaging/targets.json`의 codex
+타겟에 재검토 조건을 명시했다: Codex 네이티브 훅 구현이 실제 세션에서 의도한 부작용을 낸다고
+실측될 때.
+
+### Added — R7: `docs/conventions/` SSOT + `AGENTS.md` 두 번째 생성 블록 (W-022, Track B)
+
+호스트 무관 관례(경로 봉쇄, 게이트 비통합 등) 7건이 `CLAUDE.md`에 산문으로만 있어
+Codex·Antigravity 등 다른 하네스에서 이 kit 레포 자체를 작업하는 기여자는 볼 방법이
+없었다. `docs/conventions/*.md`로 분리해 `CLAUDE.md`는 `@docs/conventions/<file>.md`
+import로 읽고, `plugins/common/hooks/export_harness.py`는 `AGENTS.md`에 **독립된 두 번째
+마커 블록**(`<!-- cck2:begin conventions-v… sha256:… -->`)으로 그중 가장 핵심적인 2건
+(`path-containment.md`, `no-gate-integration.md`)을 인라인한다 — 나머지는 경로 참조만.
+
+- 완전히 별도 마커 네임스페이스(`cck2:`) — 기존 `cck:` 규범 블록의 정규식·처리 로직은
+  한 글자도 건드리지 않았다(둘을 같은 접두어로 섞으면 규범 블록의 손상 감지가 오판한다)
+- `docs/conventions/`가 없는 target(설치된 플러그인 캐시)에서는 conv 블록이 조용히
+  생성 대상에서 빠진다(`build_conventions_block()` → `None`) — 소비자 프로젝트 동작은
+  이 변경으로 조금도 안 바뀐다
+- Codex `project_doc_max_bytes`(병합 총량, 기본 32 KiB, 초과 시 조용히 잘림)의 75%인
+  24,576 B를 이 레포 몫의 보수적 상한으로 두고, `verify-done.sh` 신설 §15가 강제한다.
+  실측 `AGENTS.md` 23,443 B — 여유 1,133 B
+- conv 블록 드리프트는 새 게이트를 만들지 않고 기존 §11(`export-harness.sh --check`)이
+  같은 명령 안에서 함께 검사한다 — rules 블록과 conv 블록은 "생성물이 소스와
+  일치하는가"라는 같은 질문의 같은 도구이므로, "드리프트 게이트는 통합하지 않는다"는
+  판단(별개 도메인 3종 게이트 간의 것)과 배치되지 않는다
+- 테스트 9건 추가(`test_export_harness.py`) — 소스 부재 시 None, 인라인/참조 목록 파일
+  누락 시 실패, 두 블록 공존·독립 드리프트·마커 문자열 자기오염·본문 변조·유휴성 검증
+
+### Added — R8: `scripts/bump-version.sh` (W-022, Track B)
+
+버전을 SSOT(`plugins/common/.claude-plugin/plugin.json`)에서 올리면 곧바로 타겟 매니페스트를
+재생성(`build-targets.py --write`)하고 자기 결과를 검증(`--check`)한다 — v2.15.0에서 실제로
+밟은 "SSOT만 올리고 재생성을 잊는" 함정을 사람이 두 단계를 기억할 필요 없이 예방한다.
+
+낡은 버전 문자열 감사 도구(`audit-version-strings.py`)도 **만들어서 실물 레포에 돌려봤지만
+뺐다.** 이 레포는 버전이 실리는 자리(타겟 매니페스트·CHANGELOG↔SSOT·README)가 전부 생성물이거나
+기존 게이트로 이미 막혀 있어, superpowers류 손편집 감사가 지킬 대상 자체가 없었다 — 그 도구가
+잡아낸 93건 중 압도적 다수는 "버전 주장"이 아니라 "과거 사고를 버전으로 회고하는 코드 주석"이었고,
+문자열 매칭으로는 그 둘을 가를 수 없었다. "만들지 않았다"가 아니라 **"만들어 실측하고 필요 없다고
+판단해 뺐다"**가 정확한 기록이다.
+
+---
+
 ## [2.15.0] — 2026-08-27
 
 두 갈래를 한 릴리스로 묶는다. 공통점은 **"주장을 기계로 강제한다"** 는 것이다 —
@@ -86,7 +180,10 @@ Eval 커버리지가 33개 에이전트 중 4개뿐이었다. `/self-improve` �
   통과시킨다 — 초안은 이것들을 빠뜨려 **저작자도 라이선스도 없는 패키지**를 공개 디렉토리에
   올릴 뻔했다
 - **Antigravity** (`agy` 1.1.20): `agy plugin validate plugins/common` 이 green으로 전환
-  (이전엔 `missing plugin.json` 으로 fail), install→list→uninstall 왕복 정상, 기존 플러그인 불변
+  (이전엔 `missing plugin.json` 으로 fail), install→list→uninstall 왕복 정상, 기존 플러그인 불변.
+  **주의(W-022 R4에서 재확인, 2026-08-27)**: 이 "green"은 **파일 존재 확인**이지 내용 검증이
+  아니다 — 같은 도구가 skills를 21로(실제 19), agents를 4로(실제 33, 아래 참고) 오집계하는
+  근거가 바로 아래 단락이다. "green 전환"을 "설치 가능함을 확인"보다 강하게 읽지 말 것
 - **Claude Code 무영향 확증**: 실사용 설치본을 건드리지 않고 `plugins/common` 의 스크래치
   복사본을 다른 이름으로 임시 설치해 `claude plugin details` 컴포넌트 인벤토리를 대조 —
   스킬·에이전트·훅·MCP·LSP 수와 이름이 완전히 동일

@@ -87,6 +87,169 @@ END_MARK = "<!-- cck:end -->"  # 생성 시 쓰는 정규형
 SUSPECT_RE = re.compile(r"^<!--[ \t]*cck:(begin|end)\b.*-->[ \t]*$", re.MULTILINE)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# conventions 블록 (W-022 R7) — **완전히 별도 마커 네임스페이스**(`cck2:`)다.
+#
+# 왜 별도 마커인가: 위 BEGIN_RE는 `cck:begin (rules-v...)`처럼 "rules-v" 접두어까지
+# 하드코딩돼 있어 다른 형식의 begin 줄과 자연히 매치되지 않는다. 그런데 SUSPECT_RE는
+# `cck:(begin|end)` **아무거나** 잡는다 — 만약 conventions 블록도 `cck:begin
+# conventions-v...`처럼 같은 "cck:" 접두어를 썼다면, SUSPECT_RE는 이 줄을 "suspect"로
+# 세는데 BEGIN_RE는 안 잡으므로 `malformed = suspects - begins - ends > 0`이 되어
+# **멀쩡한 rules 블록까지 손상으로 오판**했을 것이다(2.14.1이 고친 것과 같은 클래스의
+# 취약점을 새로 만들 뻔한 지점). 그래서 접두어 자체를 `cck2:`로 완전히 분리한다 —
+# 위 세 정규식 중 어느 것도 "cck2:"를 매치하지 않는다("cck:"의 부분열이 아니므로).
+# 이 절 아래 함수들은 규범 블록의 `_existing_marker`/`_compose` 로직을 **참고**하되
+# 별도로 구현한다 — 기존 함수는 한 글자도 건드리지 않는다(STAGE2 지시).
+CONV_BEGIN_RE = re.compile(
+    r"^<!--[ \t]*cck2:begin[ \t]+(conventions-v\S+[ \t]+sha256:[0-9a-f]{64})[ \t]*-->[ \t]*$",
+    re.MULTILINE,
+)
+CONV_END_RE = re.compile(r"^<!--[ \t]*cck2:end[ \t]*-->[ \t]*$", re.MULTILINE)
+CONV_END_MARK = "<!-- cck2:end -->"
+CONV_SUSPECT_RE = re.compile(r"^<!--[ \t]*cck2:(begin|end)\b.*-->[ \t]*$", re.MULTILINE)
+
+CONVENTIONS_VERSION = "1.0.0"
+
+# 무엇을 인라인하고 무엇을 경로 참조로만 남길지는 여기 이 두 리스트가 SSOT다
+# (docs/conventions/README.md의 "인라인 vs 참조" 절이 이 리스트를 가리킨다 — 값을
+# 문서에 중복 기재하지 않는다). Codex의 project_doc_max_bytes(병합 총량, 기본
+# 32 KiB, 초과 시 조용히 잘림 — docs/research/2026-08-27-superpowers-distribution.md
+# 부록)가 예산 제약의 근거다. 이 두 항목만으로도 "설정값 경로 봉쇄"·"게이트를
+# 통합 안 하는 이유"라는, 모르면 실제로 같은 결함을 반복하게 되는 내용을 담는다.
+CONVENTIONS_INLINE: list[tuple[str, str]] = [
+    ("path-containment.md", "설정값으로 경로를 만들면 반드시 봉쇄한다"),
+    ("no-gate-integration.md", "드리프트 게이트는 여럿이고, 통합하지 않는다"),
+]
+CONVENTIONS_REFERENCE_ONLY: list[str] = [
+    "lint-single-ruleset.md",
+    "rules-mirror.md",
+    "shell-lint.md",
+    "release-process.md",
+    "reference-vs-judgment.md",
+]
+
+CONV_BLOCK_HEADER = """
+## claude-code-kit — Project Conventions (요약 발췌)
+
+> **이 절도 자동 생성된다** (별도 마커 `cck2:` — 위 규범 블록과 독립).
+> `docs/conventions/*.md`의 일부를 인라인한 것이다. Codex의 `project_doc_max_bytes`
+> (병합 총량, 초과 시 조용히 잘림)를 넘지 않도록 가장 핵심적인 것만 골랐다 — 전체
+> 목록과 "왜 이것만 골랐는지"는 `docs/conventions/README.md` 참고. Claude Code는
+> `CLAUDE.md`의 `@docs/conventions/*.md` import로 전체를 읽는다.
+
+{sections}
+### 그 밖의 host-neutral 관례 (경로 참조만 — 이 파일엔 인라인하지 않음)
+
+{references}
+"""
+
+
+def _conventions_dir(target_root: Path) -> Path:
+    return target_root / "docs" / "conventions"
+
+
+def build_conventions_block(target_root: Path) -> tuple[str, str] | None:
+    """conventions 인라인 블록을 계산한다.
+
+    `docs/conventions/`가 없으면 **None**(생성 대상 아님, 오류 아님)이다 — 이
+    디렉토리는 `plugins/`가 아니라 kit 레포 루트에 있으므로(consumer-first: `scripts/`·
+    `evals/`처럼 레포 로컬), 설치된 플러그인 캐시에서 돌 때는 자연히 없다. 규범
+    블록(첫 번째)과 달리 이 두 번째 블록은 **kit 레포 자체를 개발할 때만** 의미가
+    있다 — 다른 하네스가 kit 레포 자체를 작업할 때 CLAUDE.md의 `@import`를 못
+    읽으므로 같은 내용을 여기 인라인해서 준다.
+    """
+    conv_dir = _conventions_dir(target_root)
+    if not conv_dir.is_dir():
+        return None
+
+    sections = []
+    for fname, title in CONVENTIONS_INLINE:
+        p = conv_dir / fname
+        if not p.is_file():
+            raise ClassificationError(
+                f"docs/conventions/{fname} 없음 (CONVENTIONS_INLINE에 등재된 파일)."
+                " export_harness.py의 CONVENTIONS_INLINE 목록을 수정했다면 파일도 같이 옮겨라."
+            )
+        body = p.read_text(encoding="utf-8").rstrip()
+        if "cck2:begin" in body or "cck2:end" in body:
+            raise ClassificationError(
+                f"docs/conventions/{fname}에 cck2 마커 문자열이 있다 — 생성물이 자기 자신을 손상시킨다."
+            )
+        sections.append(f"### {title}\n\n{body}\n")
+
+    missing_ref = [
+        f for f in CONVENTIONS_REFERENCE_ONLY if not (conv_dir / f).is_file()
+    ]
+    if missing_ref:
+        raise ClassificationError(
+            "CONVENTIONS_REFERENCE_ONLY에 있지만 실물이 없는 파일: "
+            + ", ".join(missing_ref)
+        )
+    references = "\n".join(
+        f"- `docs/conventions/{f}`" for f in CONVENTIONS_REFERENCE_ONLY
+    )
+
+    header = CONV_BLOCK_HEADER.format(
+        sections="\n".join(sections), references=references
+    )
+    if "cck2:begin" in header or "cck2:end" in header:
+        raise ClassificationError(
+            "CONV_BLOCK_HEADER에 cck2 마커 문자열이 있다 — 생성물이 자기 자신을 손상시킨다."
+        )
+
+    h = hashlib.sha256()
+    h.update(f"conventions-v{CONVENTIONS_VERSION}\n".encode())
+    h.update(header.encode())
+    sha = h.hexdigest()
+    block = (
+        f"<!-- cck2:begin conventions-v{CONVENTIONS_VERSION} sha256:{sha} -->\n"
+        f"{header.rstrip()}\n{CONV_END_MARK}\n"
+    )
+    return block, sha
+
+
+def _existing_conv_marker(text: str) -> tuple[str | None, int, int]:
+    """`_existing_marker()`(규범 블록용)와 같은 알고리즘, cck2 네임스페이스로 독립 구현.
+
+    코드 중복이지만, 두 마커 체계가 정규식 하나만 공유해도 그 정규식의 결함이 양쪽에
+    동시에 번진다 — 별도 함수로 완전히 갈라 규범 블록의 실전 검증(2.14.1 이후 무결함)을
+    이 새 블록의 버그가 절대 건드리지 못하게 한다.
+    """
+    begins = list(CONV_BEGIN_RE.finditer(text))
+    ends = list(CONV_END_RE.finditer(text))
+    suspects = CONV_SUSPECT_RE.findall(text)
+    malformed = len(suspects) - len(begins) - len(ends)
+    if malformed > 0:
+        raise MarkerError(
+            f"형식이 깨진 cck2 마커 줄이 {malformed}개 있다 "
+            "(정상형: `<!-- cck2:begin conventions-v… sha256:<64자리 hex> -->` / `<!-- cck2:end -->`).\n"
+            "  손으로 고쳤거나 도구가 중간에 죽은 흔적이다. 생성기는 추측해서 고치지 않는다."
+        )
+    if not begins and not ends:
+        return None, -1, -1
+    if len(begins) != 1 or len(ends) != 1:
+        raise MarkerError(
+            f"cck2 마커가 손상됐다 (begin {len(begins)}개, end {len(ends)}개). "
+            "블록을 손으로 정리한 뒤 다시 실행하라."
+        )
+    b, e = begins[0], ends[0]
+    if e.start() < b.end():
+        raise MarkerError(
+            "cck2:end가 cck2:begin보다 앞에 있다 — 블록을 손으로 정리하라."
+        )
+    return b.group(1), b.start(), e.end()
+
+
+def _compose_conv(text: str, block: str) -> str:
+    """`_compose()`(규범 블록용)와 같은 알고리즘의 cck2 버전. 첫 번째 블록 기록 **후**의
+    텍스트를 받으므로 `text`가 빈 문자열일 일은 없다(PREAMBLE + 규범 블록이 이미 있다)."""
+    meta, s, e = _existing_conv_marker(text)
+    if meta is not None:
+        return text[:s] + block.rstrip("\n") + text[e:]
+    sep = "" if text.endswith("\n\n") else ("\n" if text.endswith("\n") else "\n\n")
+    return text + sep + block
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 이식 가능성 분류 (SSOT)
 #
 # 분류 기준은 단 하나: **다른 하네스에서 그대로 지킬 수 있는 규범인가.**
@@ -505,7 +668,9 @@ def _atomic_write(real: Path, text: str) -> None:
     #   이전에는 `<name>.tmp.<pid>` 고정 이름이었다 — O_EXCL이 "남의 파일에 쓰는 것"은
     #   막지만, 이름을 선점당하면 포착되지 않은 FileExistsError로 죽었다(가용성 저하).
     #   컨테이너처럼 낮은 PID가 재사용되는 환경에서는 우연한 충돌도 가능하다.
-    fd, tmp_name = tempfile.mkstemp(dir=str(real.parent), prefix=f".{real.name}.", suffix=".tmp")
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(real.parent), prefix=f".{real.name}.", suffix=".tmp"
+    )
     tmp = Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -555,12 +720,20 @@ def _read_target(target: Path) -> tuple[str | None, int]:
         return target.read_text(encoding="utf-8"), 0
     except (OSError, UnicodeDecodeError) as err:
         print(
-            f"[export-harness] ✗ {target} 를 UTF-8로 읽지 못했다: {err}", file=sys.stderr
+            f"[export-harness] ✗ {target} 를 UTF-8로 읽지 못했다: {err}",
+            file=sys.stderr,
         )
         return None, 1
 
 
-def cmd_check(target_root: Path, target: Path, block: str, sha: str) -> int:
+def cmd_check(
+    target_root: Path,
+    target: Path,
+    block: str,
+    sha: str,
+    conv_block: str | None = None,
+    conv_sha: str | None = None,
+) -> int:
     """드리프트 검사. 기록하지 않는다.
 
     **블록 전문을 대조한다.** 마커의 sha는 파일이 스스로 신고한 값이라, 그것만 믿으면
@@ -580,7 +753,9 @@ def cmd_check(target_root: Path, target: Path, block: str, sha: str) -> int:
         )
         return 1
     if not target.exists():
-        print(f"[export-harness] ✗ {target} 없음 — 아직 내보내지 않았다.", file=sys.stderr)
+        print(
+            f"[export-harness] ✗ {target} 없음 — 아직 내보내지 않았다.", file=sys.stderr
+        )
         return 1
     text, rc = _read_target(target)
     if text is None:
@@ -610,7 +785,46 @@ def cmd_check(target_root: Path, target: Path, block: str, sha: str) -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"[export-harness] ✓ AGENTS.md 최신 ({meta})")
+    print(f"[export-harness] ✓ AGENTS.md 규범 블록 최신 ({meta})")
+
+    # conventions 블록(W-022 R7) — conv_block이 None이면 이 target에서 생성 대상이
+    # 아니라는 뜻(build_conventions_block()이 docs/conventions/ 없음으로 스킵)이므로
+    # 검사도 스킵한다. rules 블록 검사가 이미 통과한 뒤에만 여기 도달한다 — 두 블록은
+    # 서로 독립이라 순서를 바꿔도 결과는 같지만, 기존 계약(§11)을 하나도 안 건드리려면
+    # rules 검사가 먼저 끝나 있어야 한다.
+    if conv_block is not None:
+        if conv_sha is None:
+            raise ValueError("conv_block이 있으면 conv_sha도 있어야 한다 (호출자 계약)")
+        try:
+            conv_meta, cs, ce = _existing_conv_marker(text)
+        except MarkerError as err:
+            print(f"[export-harness] ✗ {target}: {err}", file=sys.stderr)
+            return 1
+        if conv_meta is None:
+            print(
+                f"[export-harness] ✗ {target} 에 cck2 conventions 블록이 없다.",
+                file=sys.stderr,
+            )
+            return 1
+        if f"sha256:{conv_sha}" not in conv_meta:
+            print(
+                f"[export-harness] ✗ 드리프트 — {target} 의 conventions 블록이 현재 소스와 다르다.\n"
+                f"    기록됨: {conv_meta}\n"
+                f"    현재  : sha256:{conv_sha}\n"
+                "  → ./scripts/export-harness.sh 로 재생성하라.",
+                file=sys.stderr,
+            )
+            return 1
+        if text[cs:ce] != conv_block.rstrip("\n"):
+            print(
+                f"[export-harness] ✗ 블록 본문 불일치 — {target} 의 cck2 conventions 블록이 생성 결과와 다르다.\n"
+                "    (마커의 sha는 일치한다 — 손으로 고쳤거나, kit 버전이 다르다)\n"
+                "  → ./scripts/export-harness.sh 로 재생성하라.",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"[export-harness] ✓ AGENTS.md conventions 블록 최신 ({conv_meta})")
+
     return 0
 
 
@@ -628,13 +842,18 @@ def _compose(text: str | None, block: str) -> str:
     return text + sep + block
 
 
-def cmd_write(target_root: Path, target: Path, block: str, sha: str) -> int:
+def cmd_write(
+    target_root: Path,
+    target: Path,
+    block: str,
+    sha: str,
+    conv_block: str | None = None,
+    conv_sha: str | None = None,
+) -> int:
     """블록을 기록한다. 마커 블록 밖의 사용자 콘텐츠는 불가침."""
     if not target_root.is_dir():
         # --target 오타 하나로 없는 디렉터리 트리를 통째로 만들지 않는다.
-        print(
-            f"[export-harness] ✗ 대상 루트가 없다: {target_root}", file=sys.stderr
-        )
+        print(f"[export-harness] ✗ 대상 루트가 없다: {target_root}", file=sys.stderr)
         return 1
     # **읽기 전에** 심링크 탈출을 검사한다. 뒤에 두면 트리 밖 파일을 먼저 읽어
     # 메모리에 올리고, "변경 없음" 조기반환이 존재/내용 오라클로 새어나간다.
@@ -654,6 +873,12 @@ def cmd_write(target_root: Path, target: Path, block: str, sha: str) -> int:
             return rc
     try:
         new_text = _compose(text, block)
+        # conventions 블록은 rules 블록을 이미 합성한 텍스트 위에 얹는다 — 순서가
+        # 반대(conv 먼저)여도 두 블록의 마커가 겹치지 않으므로 결과는 같지만, rules
+        # 블록의 합성 로직(_compose)을 항상 먼저 통과시켜 그 함수의 기존 계약을
+        # 조금도 바꾸지 않는다는 걸 코드 순서로도 보이게 한다.
+        if conv_block is not None:
+            new_text = _compose_conv(new_text, conv_block)
     except MarkerError as err:
         print(f"[export-harness] ✗ {target}: {err}", file=sys.stderr)
         return 1
@@ -666,7 +891,15 @@ def cmd_write(target_root: Path, target: Path, block: str, sha: str) -> int:
         print(f"[export-harness] ✗ {target} 경로를 해석하지 못했다.", file=sys.stderr)
         return 1
     _atomic_write(real, new_text)
-    print(f"[export-harness] ✓ 기록 ({target}) sha256:{sha[:12]}…")
+    if conv_block is not None:
+        if conv_sha is None:
+            raise ValueError("conv_block이 있으면 conv_sha도 있어야 한다 (호출자 계약)")
+        print(
+            f"[export-harness] ✓ 기록 ({target}) rules sha256:{sha[:12]}… "
+            f"conventions sha256:{conv_sha[:12]}…"
+        )
+    else:
+        print(f"[export-harness] ✓ 기록 ({target}) sha256:{sha[:12]}…")
     return 0
 
 
@@ -692,7 +925,9 @@ def main(argv: list[str]) -> int:
     mode.add_argument(
         "--check", action="store_true", help="드리프트만 검사, 기록하지 않음"
     )
-    mode.add_argument("--stdout", action="store_true", help="블록만 출력, 기록하지 않음")
+    mode.add_argument(
+        "--stdout", action="store_true", help="블록만 출력, 기록하지 않음"
+    )
     args = ap.parse_args(argv)
 
     root = _plugin_root(args.plugin_root)
@@ -729,10 +964,25 @@ def main(argv: list[str]) -> int:
 
     target_root = Path(args.target) if args.target else _default_target()
     target = target_root / "AGENTS.md"
-    if args.check:
-        return cmd_check(target_root, target, block, sha)
+
+    # conventions 블록(W-022 R7)은 target_root에 docs/conventions/가 있을 때만 존재한다
+    # — 이 디렉토리는 plugins/에 없어 소비자의 설치된 플러그인 캐시에는 없다. None이면
+    # (repo 자체 개발 중이 아니면) 조용히 건너뛴다 — 이 도구를 임의의 소비자 프로젝트에
+    # 대고 돌려도 동작이 그대로여야 한다(consumer-first).
+    conv_block: str | None = None
+    conv_sha: str | None = None
     try:
-        return cmd_write(target_root, target, block, sha)
+        conv_result = build_conventions_block(target_root)
+    except ClassificationError as err:
+        print(f"[export-harness] ✗ conventions 블록: {err}", file=sys.stderr)
+        return 1
+    if conv_result is not None:
+        conv_block, conv_sha = conv_result
+
+    if args.check:
+        return cmd_check(target_root, target, block, sha, conv_block, conv_sha)
+    try:
+        return cmd_write(target_root, target, block, sha, conv_block, conv_sha)
     except OSError as err:
         print(f"[export-harness] ✗ {target} 기록 실패: {err}", file=sys.stderr)
         return 1

@@ -568,6 +568,27 @@ else
   red "다중 하네스 생성기 산출물 누락 (packaging/targets.json 또는 scripts/build-targets.py) — W-019"
 fi
 
+hdr "15. AGENTS.md 크기 예산 (W-022 R7)"
+# Codex의 project_doc_max_bytes(기본 32 KiB)는 전역(~/.codex/AGENTS.md) → git-root →
+# cwd AGENTS.md를 **병합한 총량**에 걸리고, 넘으면 cwd에 가까운 파일부터 **조용히
+# 잘린다**(경고 없음) — docs/research/2026-08-27-superpowers-distribution.md 부록.
+# 이 레포의 AGENTS.md 혼자 32 KiB를 다 써버리면 사용자의 전역 AGENTS.md와 합쳐지는
+# 순간 어느 쪽이든 잘릴 여지가 남는다. 그래서 32 KiB 자체가 아니라 그 75%인
+# 24,576 B를 이 레포 몫의 보수적 상한으로 둔다 — 나머지는 사용자의 전역 파일 몫.
+CONV_SIZE_CAP=24576
+if [ -f AGENTS.md ]; then
+  AGENTS_BYTES=$(wc -c <AGENTS.md | tr -d ' ')
+  if [ "$AGENTS_BYTES" -le "$CONV_SIZE_CAP" ]; then
+    green "AGENTS.md ${AGENTS_BYTES}B ≤ ${CONV_SIZE_CAP}B (Codex project_doc_max_bytes 32KiB의 75% 보수 상한)"
+  else
+    red "AGENTS.md ${AGENTS_BYTES}B > ${CONV_SIZE_CAP}B — Codex에서 전역 AGENTS.md와 병합 시 잘릴 수 있다"
+    echo "      → plugins/common/hooks/export_harness.py의 CONVENTIONS_INLINE에서 항목을 빼거나"
+    echo "        rules/*.md 원문을 줄여라. (병합 총량 상한이므로 이 파일 혼자 다 쓰면 안 된다)"
+  fi
+else
+  red "AGENTS.md 없음 — ./scripts/export-harness.sh 로 먼저 생성하라"
+fi
+
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"
 hdr "수동 DoD attest (증거와 함께 명시 — 자동 검사 불가)"
