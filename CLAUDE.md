@@ -301,6 +301,24 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 6. Runs gitleaks security scan
 7. `python39-compat` job: loads every hook under Python 3.9 (consumer floor)
 
+### 드리프트 게이트는 셋이고, 통합하지 않는다 (2026-08-27 판정)
+
+`verify-done.sh` 에는 "생성물이 SSOT와 일치하는가"를 묻는 게이트가 **셋** 있다.
+
+| § | 대상 | 판정 방식 |
+| --- | --- | --- |
+| **11** | `AGENTS.md` 마커 블록 ↔ `rules/` 원문 | **sha256 대조** |
+| **13** | eval 시나리오 ↔ 기준선 | **집합 양방향 대조** + 티어 커버리지 |
+| **14** | 타겟 매니페스트 ↔ `.claude-plugin/plugin.json` | **파일 존재 + 내용 대조** |
+
+같은 질문처럼 보이지만 **입력·판정 기준·실패 메시지가 전부 다르다.** 공통 프리미티브로 묶으면
+추상이 세 케이스를 다 감당하지 못해 분기 파라미터가 늘고, **게이트 코드가 어려워진다.**
+게이트는 읽기 쉬워야 신뢰된다 — 아무도 이해하지 못하는 게이트는 red가 떴을 때 무시된다.
+
+**그래서 통합하지 않는다.** 중복은 코드가 아니라 **규약**으로 줄인다 (위 경로 봉쇄 관례가 그 예다).
+네 번째 드리프트 게이트가 필요해지는 시점에 재검토한다 — rule of three는 세 번째에 묶으라는 뜻이
+아니라, **세 번째까지는 아직 패턴이 아닐 수 있다**는 뜻이다.
+
 ### Lint is one ruleset, everywhere
 
 `ruff.toml` at the repo root is the **single source** for both the rule set and
