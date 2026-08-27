@@ -8,6 +8,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Decided — Antigravity 훅은 싣지 않는다 (W-022 R4, Track B)
+
+`agy plugin validate`에 exec form 그대로의 루트 `hooks.json`을 스크래치 플러그인으로 돌리면
+`hooks: 1 processed`가 나온다. 그러나 이 "processed"는 skills를 21로(실제 19), agents를
+4로(실제 33, 인식 0) 오집계하는 것과 **같은 도구가 같은 방식으로** 낸 숫자다 — `agy plugin
+validate`는 파일이 있는지만 세지, 훅 이벤트 4종(SessionStart 등)의 내용을 이해했다는 증거는
+어디에도 없다. Codex 훅이 exec form을 로드하지 않는다는 걸 실측 없이 "매니페스트가
+읽힌다"만으로 넘겼다가 2.12.1에서 훅 4종이 조용히 죽어 있었던 사고와 같은 유형의 오판을
+반복하지 않기 위해, **파일 카운트만으로는 판정하지 않는다**. `packaging/targets.json`의
+Antigravity 타겟에 `_hooksEnableWhen`을 명시했다 — 재검토 조건은 "실제 Antigravity 세션에서
+훅이 발화함을 마커 파일로 확인"이지, `agy plugin validate`의 processed 카운트가 아니다.
+
+부수 정정: 위 `[2.15.0]`의 "Antigravity ... green으로 전환" 서술에 이 구분을 반영하는 주석을
+추가했다 — "green"이 "설치 가능함을 확인" 이상을 의미하지 않는다는 것.
+
+### Decided — Codex 훅 문자열 형식 변환은 기술적으로 가능하지만 **아직 싣지 않는다** (W-022 R5, Track B)
+
+S4(v2.15.0)는 exec form이 로드되지 않는다는 것만 확정했다. 이번 R5는 그 후속 질문 — "그럼
+따옴표로 감싼 문자열 형식(superpowers 패턴)은 되는가"를 실측했다. **된다.** 스크래치
+플러그인에 `"command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mark.sh\""`를 설치해 `codex exec`로
+SessionStart를 유발한 결과, `${CLAUDE_PLUGIN_ROOT}`가 실제 설치 경로로 치환되고 같은 값이
+하위 프로세스 환경변수로도 주입됨을 마커 파일로 확인했다(10초 내 발화, 5분 타임아웃 없이 완료).
+
+**그러나 형식 변환과 기능 이식은 다른 문제다.** kit의 실제 훅 5개는 Claude Code의 이벤트
+모델(툴 이름, PreToolUse/PostToolUse stdin JSON)에 맞춰 쓰였다 — 포맷만 바꿔 Codex가 실행하게
+만들어도 Codex의 이벤트·페이로드가 다르므로 의미 있게 동작하지 않는다. Codex에 실제로 유용한
+훅을 실으려면 **Codex 전용 훅 구현**이 새로 필요하고, 그건 R5(형식 변환 가능성 판정)의 범위
+밖이다. → 이 배치에서는 `hooks` 필드를 계속 넣지 않는다. `packaging/targets.json`의 codex
+타겟에 재검토 조건을 명시했다: Codex 네이티브 훅 구현이 실제 세션에서 의도한 부작용을 낸다고
+실측될 때.
+
 ### Added — R7: `docs/conventions/` SSOT + `AGENTS.md` 두 번째 생성 블록 (W-022, Track B)
 
 호스트 무관 관례(경로 봉쇄, 게이트 비통합 등) 7건이 `CLAUDE.md`에 산문으로만 있어
@@ -122,7 +153,10 @@ Eval 커버리지가 33개 에이전트 중 4개뿐이었다. `/self-improve` �
   통과시킨다 — 초안은 이것들을 빠뜨려 **저작자도 라이선스도 없는 패키지**를 공개 디렉토리에
   올릴 뻔했다
 - **Antigravity** (`agy` 1.1.20): `agy plugin validate plugins/common` 이 green으로 전환
-  (이전엔 `missing plugin.json` 으로 fail), install→list→uninstall 왕복 정상, 기존 플러그인 불변
+  (이전엔 `missing plugin.json` 으로 fail), install→list→uninstall 왕복 정상, 기존 플러그인 불변.
+  **주의(W-022 R4에서 재확인, 2026-08-27)**: 이 "green"은 **파일 존재 확인**이지 내용 검증이
+  아니다 — 같은 도구가 skills를 21로(실제 19), agents를 4로(실제 33, 아래 참고) 오집계하는
+  근거가 바로 아래 단락이다. "green 전환"을 "설치 가능함을 확인"보다 강하게 읽지 말 것
 - **Claude Code 무영향 확증**: 실사용 설치본을 건드리지 않고 `plugins/common` 의 스크래치
   복사본을 다른 이름으로 임시 설치해 `claude plugin details` 컴포넌트 인벤토리를 대조 —
   스킬·에이전트·훅·MCP·LSP 수와 이름이 완전히 동일
