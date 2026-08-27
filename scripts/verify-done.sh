@@ -332,7 +332,7 @@ done
 
 hdr "9. test-ratchet (테스트/assert 삭제 방지, W-013)"
 # diff에서 test/assert가 allow-marker 없이 순감소하면 FAIL. 산문 규율이 아닌 기계 체크.
-python3 - <<'EOF' && green "test-ratchet: 테스트 감소 없음" || red "test-ratchet: allow-marker 없이 테스트/assert 순감소 (의도적이면 diff에 TEST-RATCHET-ALLOW 명시)"
+python3 - <<'EOF' && green "test-ratchet: 테스트 감소 없음" || red "test-ratchet: allow-marker 없이 테스트/assert 순감소 (의도적이면 커밋 메시지에 TEST-RATCHET-ALLOW 명시)"
 import re
 import subprocess
 import sys
@@ -361,15 +361,7 @@ if mrc != 0 or not base or base == head:
             # fresh/단일-커밋 저장소: HEAD를 base로 두면 최소한 워킹트리 미커밋
             # 테스트 삭제는 잡는다(조용한 skip보다 낫다, 적대적 리뷰 P2).
             base = "HEAD"
-r = subprocess.run(
-    ["git", "diff", "--unified=0", base], capture_output=True, text=True
-)
-if r.returncode != 0:
-    print(f"    [warn] test-ratchet: git diff 실패({base}) — skip")
-    sys.exit(0)
-diff = r.stdout
-if not diff.strip() or "TEST-RATCHET-ALLOW" in diff:
-    sys.exit(0)
+
 pat = re.compile(r"(def\s+test_|\bassert\b|\bit\(|\btest\(|\bexpect\()")
 # 테스트 파일 경로만 집계 — prod 코드의 방어적 assert 삭제가 오탐 FAIL 내지 않도록.
 test_path = re.compile(
@@ -388,35 +380,89 @@ def _is_test(p):
     return bool(test_path.search(p))
 
 
-# --unified=0에서 삭제된 내용줄 '-- x'는 '--- x'로, 추가줄 '++ x'는 '+++ x'로 보여
-# 파일 헤더로 오인될 수 있다(적대적 리뷰). diff --git/@@ 로 헤더 영역 vs 내용 영역을
-# 명확히 분리해, --- /+++ 는 hunk 시작(@@) 전에만 헤더로 해석한다.
-added = removed = 0
-old_test = in_test = in_hunk = False
-for ln in diff.splitlines():
-    if ln.startswith("diff --git"):
-        in_hunk = False
-        old_test = in_test = False
-        continue
-    if ln.startswith("@@"):
-        in_hunk = True
-        continue
-    if not in_hunk and ln.startswith("--- "):
-        old_test = _is_test(ln[4:])
-        continue
-    if not in_hunk and ln.startswith("+++ "):
-        in_test = old_test or _is_test(ln[4:])
-        continue
-    if not in_hunk or not in_test:
-        continue
-    if ln.startswith("+") and pat.search(ln):
-        added += 1
-    elif ln.startswith("-") and pat.search(ln):
-        removed += 1
-if removed - added > 0:
-    print(f"    테스트 삭제 {removed} > 추가 {added} (net -{removed - added})")
-    sys.exit(1)
-sys.exit(0)
+def count(diff):
+    """diff에서 테스트 파일의 (추가, 삭제) 마커 줄 수.
+
+    --unified=0에서 삭제된 내용줄 '-- x'는 '--- x'로, 추가줄 '++ x'는 '+++ x'로 보여
+    파일 헤더로 오인될 수 있다(적대적 리뷰). diff --git/@@ 로 헤더 영역 vs 내용 영역을
+    명확히 분리해, --- /+++ 는 hunk 시작(@@) 전에만 헤더로 해석한다.
+    """
+    added = removed = 0
+    old_test = in_test = in_hunk = False
+    for ln in diff.splitlines():
+        if ln.startswith("diff --git"):
+            in_hunk = False
+            old_test = in_test = False
+            continue
+        if ln.startswith("@@"):
+            in_hunk = True
+            continue
+        if not in_hunk and ln.startswith("--- "):
+            old_test = _is_test(ln[4:])
+            continue
+        if not in_hunk and ln.startswith("+++ "):
+            in_test = old_test or _is_test(ln[4:])
+            continue
+        if not in_hunk or not in_test:
+            continue
+        if ln.startswith("+") and pat.search(ln):
+            added += 1
+        elif ln.startswith("-") and pat.search(ln):
+            removed += 1
+    return added, removed
+
+
+fail = False
+
+# ── (1) base 대비 순증감 — PR 관점. 워킹트리 미커밋 삭제도 여기서 잡힌다 ──────────
+r = subprocess.run(["git", "diff", "--unified=0", base], capture_output=True, text=True)
+if r.returncode != 0:
+    print(f"    [warn] test-ratchet: git diff 실패({base}) — 순증감 검사 skip")
+else:
+    diff = r.stdout
+    if diff.strip() and "TEST-RATCHET-ALLOW" not in diff:
+        added, removed = count(diff)
+        if removed - added > 0:
+            print(f"    테스트 삭제 {removed} > 추가 {added} (net -{removed - added}, base={base[:8]})")
+            fail = True
+
+# ── (2) 커밋 단위 — 순증감이 상쇄해 가리는 삭제를 드러낸다 ────────────────────────
+# 2026-08-27 발견: (1)만 있으면 장기 통합 브랜치(25+ 커밋)에서 "먼저 20개 추가 →
+# 나중에 14개 삭제"가 net +6 으로 green이 된다. 'PR 단위 순감소'는 막지만 '브랜치
+# 내부 삭제'는 구조적으로 못 본다. 게이트가 있다는 사실이 방어를 보증하지 않는다.
+# 마커는 **커밋 메시지**에서 찾는다 — diff 아무 곳이나 허용하면 무관한 파일의 한 줄로
+# 검사 전체가 꺼진다(같은 날 발견한 두 번째 구멍).
+revs, rrc = sh("git", "rev-list", "--no-merges", f"{base}..HEAD")
+if rrc != 0:
+    print("    [warn] test-ratchet: rev-list 실패 — 커밋 단위 검사 skip")
+elif revs:
+    offenders = []
+    for rev in revs.split("\n"):
+        rev = rev.strip()
+        if not rev:
+            continue
+        msg, _ = sh("git", "log", "-1", "--format=%B", rev)
+        if "TEST-RATCHET-ALLOW" in msg:
+            continue
+        d = subprocess.run(
+            ["git", "show", "--unified=0", "--format=", rev],
+            capture_output=True,
+            text=True,
+        )
+        if d.returncode != 0:
+            continue
+        a, rm = count(d.stdout)
+        if rm - a > 0:
+            subj, _ = sh("git", "log", "-1", "--format=%s", rev)
+            offenders.append(f"{rev[:8]} -{rm - a} {subj[:56]}")
+    if offenders:
+        print("    커밋 단위 테스트 감소 (순증감으로 가려짐):")
+        for o in offenders:
+            print(f"      {o}")
+        print("    의도적이면 해당 커밋 메시지에 TEST-RATCHET-ALLOW 를 남겨라")
+        fail = True
+
+sys.exit(1 if fail else 0)
 EOF
 
 hdr "10. Agent evals 스키마 (오프라인, W-B / toolkit-improvement-batch)"

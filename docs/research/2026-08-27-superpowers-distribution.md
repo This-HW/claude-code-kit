@@ -113,3 +113,90 @@ GEMINI.md    mode=100644  실체 파일 92 B      ← 심링크 아님. 별도 �
 | npm 배포 | CCK는 npm 패키지가 아니다. 배포 채널을 늘리는 것 자체가 목적이 될 수 없다 |
 | 별도 evals 저장소 + tmux 하네스 | 우리 evals는 에이전트 단위로 이미 동작한다. 스킬 행동 evals는 별도 문제 |
 | 마켓플레이스 포크 PR 자동화 | **자격 미확보**(공개 게시는 사람의 행위). 다만 절차를 문서에 반영한다 |
+
+
+---
+
+## 부록 — `project_doc_max_bytes` 의미 확정 (2026-08-27, 기획 세션 추가 조사)
+
+W-022 §4.2(컨텍스트 SSOT) 설계가 이 값에 걸려 있어 별도로 확인했다.
+
+**결론: 파일당이 아니라 병합 총량이다. 그리고 초과분은 조용히 사라진다.**
+
+- 공식 문서 원문 `[confirmed: learn.chatgpt.com/docs/agent-configuration/agents-md, 2026-08-27]`:
+  > "Codex skips empty files and stops adding files once the combined size reaches the limit
+  > defined by `project_doc_max_bytes` (32 KiB by default)."
+- 병합 순서는 **글로벌 → git root → cwd** 로 내려가며 이어붙이고, 상한에 닿으면 **더 이상 추가하지 않는다**.
+  즉 **cwd에 가까운(나중에 붙는) 파일이 먼저 잘려나간다**
+- 경고·로그·TUI 표시가 **없다** — 조용히 잘린다
+  `[researched: openai/codex issues #7138, #13386, n=2 — 독립 이슈 두 건이 같은 증상 보고]`
+
+### 설계에 미치는 영향 (중요)
+
+1. **"하위 디렉토리 `AGENTS.md` 로 분할"은 우회로가 되지 못한다.** 총량 상한이고, 깊은 파일이
+   먼저 버려지므로 오버플로를 아래로 밀어내면 그게 바로 잘리는 부분이 된다
+2. **우리 파일만으로 예산을 다 쓰면 안 된다.** 상한은 소비자의 `~/.codex/AGENTS.md`(글로벌)까지
+   합산한 값이다. 소비자가 이미 큰 글로벌 지침을 두고 있으면 우리 몫은 그만큼 줄어든다
+   → **여유를 두는 것이 예의가 아니라 요구사항이다**
+3. 조용히 잘리므로 **우리 쪽 게이트가 유일한 방어선**이다. 소비자는 잘린 사실조차 모른다
+
+### 상충 기록
+2차 자료 일부는 "farthest-from-cwd 가 먼저 잘린다"고 서술해 공식 문서와 **반대**다
+`[unresolved — 자료 간 상충]`. 공식 문서의 "stops adding files"(root부터 붙이므로 깊은 것이 누락)를
+채택하되, **어느 쪽이든 '총량이고 조용히 사라진다'는 결론은 같으므로** 설계 판단에는 영향이 없다.
+
+
+---
+
+## 부록 2 — 타겟별 매니페스트·훅 실물 (2026-08-27, `gh api` 직접 조회)
+
+W-022의 R5(Codex 훅 문자열 변환)와 R9(타겟 규격 조사)에 쓸 **1차 자료**다.
+전부 `[confirmed: gh api repos/obra/superpowers/contents/<path>, 2026-08-27]`.
+
+### 타겟별 매니페스트 필드
+
+| 타겟 | 파일 | 특징적인 필드 |
+| --- | --- | --- |
+| Cursor | `.cursor-plugin/plugin.json` | `skills: "./skills/"` + **`hooks: "./hooks/hooks-cursor.json"`** — 훅을 **타겟 전용 파일**로 분리 |
+| Kimi | `.kimi-plugin/plugin.json` | `skills` + **`sessionStart: {skill: "using-superpowers"}`** (부트스트랩 선언) + **`skillInstructions`**(툴 매핑 산문) |
+| Devin | `.devin-plugin/plugin.json` | **메타데이터만.** 컴포넌트 필드 없음 → 규약으로 발견하는 듯 |
+| Hermes | `.hermes-plugin/plugin.yaml` | **YAML.** `provides_hooks: [pre_llm_call]` — 훅 모델 자체가 다르다 |
+| Pi | `.pi/extensions/superpowers.ts` | **TypeScript 모듈** |
+| Codex 카탈로그 | `.agents/plugins/marketplace.json` | 우리와 동일 경로 |
+
+### ⭐ 훅 — 우리 R5의 답이 여기 있다
+
+**superpowers는 Claude Code용에도 exec form을 쓰지 않는다. 문자열 커맨드를 쓰고 경로를 직접 인용한다.**
+
+```jsonc
+// hooks/hooks.json  (Claude Code)
+{ "type": "command",
+  "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-start",
+  "shell": "bash", "async": false }
+
+// hooks/hooks-cursor.json  (Cursor)
+{ "version": 1,
+  "hooks": { "sessionStart": [ { "command": "./hooks/run-hook.cmd session-start" } ] } }
+```
+
+세 가지가 드러난다:
+
+1. **인용 문제의 해법은 "경로를 문자열 안에서 따옴표로 감싸는 것"** 이다. `${CLAUDE_PLUGIN_ROOT}` 는
+   호스트가 치환하지만, **치환 결과가 따옴표 안에 들어가므로** 공백이 있어도 깨지지 않는다.
+   → CCK의 R5(Codex용 문자열 변환)는 `"python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/x.py\""` 형태가 답이다
+2. **타겟마다 훅 스키마가 다르다** — 이벤트 이름 대소문자(`SessionStart` vs `sessionStart`),
+   `matcher` 유무, `version` 필드, 경로 표기(절대 치환 vs 상대). **타겟별 파일 분리가 필수**다
+3. **폴리글롯 래퍼** `hooks/run-hook.cmd` — 한 파일이 Windows(cmd 배치)와 Unix(bash) 양쪽에서 동작한다.
+   훅 스크립트를 **확장자 없이** 두는 이유가 원문에 적혀 있다:
+   > "Hook scripts use extensionless filenames … so Claude Code's Windows auto-detection —
+   > which prepends 'bash' to any command containing .sh — doesn't interfere."
+
+### CCK에 대한 시사점
+
+- **R5는 실현 가능하다.** 인용 방식이 이미 실증된 패턴이다
+- CCK의 `hooks.json` 이 exec form인 이유는 `CLAUDE.md` 에 *"`${CLAUDE_PLUGIN_ROOT}` 경로에 셸 인용이
+  필요 없도록"* 이라고 적혀 있다. superpowers는 반대 선택(문자열 + 명시 인용)을 하고 **이식성**을 얻었다.
+  **트레이드오프이지 우열이 아니다** — 다만 다중 하네스를 노린다면 문자열 쪽이 유리하다.
+  CCK의 Claude Code용 `hooks.json` 변경은 **이번 배치 범위 밖**이다(회귀 위험). 사실만 기록한다
+- Windows 지원은 CCK가 한 번도 실측하지 않은 영역이다 — `[unresolved]`. 폴리글롯 래퍼는 그 문제의
+  기존 해법이 있다는 증거이며, 필요해지면 참고 대상이다
