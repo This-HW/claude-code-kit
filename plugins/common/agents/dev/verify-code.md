@@ -3,8 +3,7 @@ name: verify-code
 description: |
   코드 검증 전문가.
   MUST USE when: "검증", "빌드", "린트", "타입체크" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: verify-code" 반환 시.
-  OUTPUT: 검증 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 검증 결과
 model: haiku
 effort: low
 maxTurns: 10
@@ -272,27 +271,3 @@ verify-code ✅ PASS
 
 ---
 
-## 필수 출력 형식 (Delegation Signal)
-
-작업 완료 시 반드시 아래 형식 중 하나를 출력:
-
-### 다른 에이전트 필요 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: [에이전트명]
-REASON: [이유]
-CONTEXT: [전달할 컨텍스트]
----END_SIGNAL---
-```
-
-### 작업 완료 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [결과 요약]
-NEXT_STEP: [권장 다음 단계]
----END_SIGNAL---
-```

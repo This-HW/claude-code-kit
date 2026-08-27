@@ -23,7 +23,9 @@ exit code 규율 (false-green 금지 — v2.9.3 교훈):
   python3 evals/run.py --compare <baseline> --report evals/reports/<ts>.json  # 재실행 없이 비교
 
 환경 변수:
-  CKKIT_EVAL_TIMEOUT   시나리오당 기본 타임아웃(초). 기본 300.
+  CKKIT_EVAL_TIMEOUT   시나리오당 기본 타임아웃(초). override 전용 — 기본값의
+                       SSOT는 evals/policy.json의 cost.scenarioTimeoutSeconds다
+                       (W-022 R3). 미설정 시 정책 파일 값을 쓴다.
   CKKIT_EVAL_JUDGE=1   opt-in LLM-judge 실행 (deterministic 전부 통과 시에만).
 """
 
@@ -54,11 +56,25 @@ SCENARIOS_ROOT = EVALS_ROOT / "scenarios"
 REPORTS_DIR = EVALS_ROOT / "reports"
 BASELINE_DIR = EVALS_ROOT / "baseline"
 
+
+def _policy_default_timeout() -> int:
+    """정책 파일의 timeout이 기본값의 SSOT다(W-022 R3) — 환경변수는 override로만
+    남긴다. 실행자마다 다른 기본값으로 스위트를 돌리면 "누구는 통과, 누구는
+    타임아웃"이 되는 드리프트가 생긴다 — 이 레포가 계속 잡아온 것과 같은 클래스."""
+    try:
+        policy = json.loads((EVALS_ROOT / "policy.json").read_text(encoding="utf-8"))
+        return int(policy.get("cost", {}).get("scenarioTimeoutSeconds", 300))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return 300
+
+
 try:
-    DEFAULT_TIMEOUT = int(os.environ.get("CKKIT_EVAL_TIMEOUT", "300"))
+    DEFAULT_TIMEOUT = int(os.environ["CKKIT_EVAL_TIMEOUT"])
+except KeyError:
+    DEFAULT_TIMEOUT = _policy_default_timeout()
 except ValueError:
-    print("[eval] CKKIT_EVAL_TIMEOUT 비정수 — 기본 300s 사용", file=sys.stderr)
-    DEFAULT_TIMEOUT = 300
+    print("[eval] CKKIT_EVAL_TIMEOUT 비정수 — 정책 기본값 사용", file=sys.stderr)
+    DEFAULT_TIMEOUT = _policy_default_timeout()
 
 EXIT_PASS = 0
 EXIT_FAIL = 1

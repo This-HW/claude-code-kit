@@ -33,20 +33,6 @@ ALWAYS specify subagent_type explicitly — no general-purpose fallback.
 `verify-integration`(연동 검증). 동일 에이전트 다중 복제는 관점 다양성(편향 방지)을 잃는다.
 단, 다중도메인·외부지식이 필요한 자유 조사는 위 general-purpose 예외를 유지한다.
 
-## Delegation Signal Format
-
-Canonical definition (SSOT): `agent-delegation-chain.md`. Every agent ends output
-with this block (TYPE values must match the canonical set):
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT | NEED_CLARIFICATION
-TARGET: [agent-name]        # DELEGATE_TO 일 때만
-REASON: [reason]
-CONTEXT: [handoff context]
----END_SIGNAL---
-```
-
 ## isolation: worktree
 
 ALWAYS set `isolation: worktree` for file-modifying agents: implement-code, fix-bugs, write-tests, write-api-tests, implement-api, generate-boilerplate, sync-docs, optimize-logic.

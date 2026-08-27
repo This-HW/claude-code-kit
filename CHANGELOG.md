@@ -8,58 +8,88 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Decided — 타겟 확장은 `runtime-verified` 만 활성화, 나머지는 근거와 함께 대기 (W-022 R9, Track B)
+## [2.16.0] — 2026-08-27
 
-superpowers는 9개 하네스에 배포하지만, 그 프로젝트는 새 하네스 지원에 수용 테스트 트랜스크립트를
-요구한다. 우리는 로컬에 `codex`·`agy` CLI만 있다 — 검증할 수 없는 타겟을 실었다가 Antigravity
-`agents/`처럼 "형식은 맞는데 안 도는" 컴포넌트를 광고하는 실수를 반복하지 않는다.
+W-022 "remaining debt" 배치. **구현보다 판정이 많았던 릴리스다** — 아래 11건 중 3건이
+`Decided`(무엇을 **하지 않기로** 했는지와 그 승격 조건)이고, 3건은 우리 자신의 이전
+결과물을 정정한 `Fixed`다. 소비자에게 보이는 동작 변경은 DELEGATION_SIGNAL 폐기 하나뿐이며,
+나머지는 커버리지·게이트·패키징 기반 작업이다.
 
-- `packaging/targets.json`에 **3단계 검증 수준**을 SSOT로 명문화: `runtime-verified`(CLI
-  왕복 확인, codex·antigravity가 여기) / `spec-verified`(공식 스키마는 확인했으나 로컬에 CLI가
-  없어 런타임 미확인) / `researched-only`(문서만 조사됨). 활성화 기준은 **`runtime-verified`
-  유지** — Antigravity 사건이 "스키마가 맞아도 발견이 실패할 수 있다"를 이미 증명했다
-- **Cursor** 조사: 공식 스펙 저장소·문서 확인 결과 `skills`·`agents`·`rules`·`hooks`·
-  `commands`·`mcpServers` 6종을 전부 1급 지원 — kit의 33 에이전트 + 13 rules를 전부 실을 수
-  있는 유일한 후보다(codex는 skills만, antigravity는 agents 비지원). `spec-verified`로
-  기록하고 비활성 유지, `_enableWhen`(cursor CLI 왕복 검증 또는 사용자 제공 수용 테스트)을
-  명시
-- **Pi** 조사: 확장이 매니페스트가 아니라 TypeScript 모듈(`ExtensionAPI` factory export,
-  npm/git 배포) — kit의 SSOT→매니페스트 생성기 모델이 구조적으로 도달할 수 없다.
-  `researched-only`로 신규 등재하고 비활성 유지(근거 있는 폐기 — "언젠가 볼 대상"이 아니라
-  "이 구조로는 안 된다"는 확정)
-- opencode·copilot은 이번 R9 조사 범위 밖 — 기존 `[unresolved]` 표기를 그대로 유지했다(새로
-  조사하지 않은 것을 조사한 것처럼 승격시키지 않는다)
+### Changed — DELEGATION_SIGNAL 계약 폐기 (W-022 R1, 세션 동작 변경)
 
-### Decided — Antigravity 훅은 싣지 않는다 (W-022 R4, Track B)
+**소비자에게 보이는 동작 변경.** 매 세션 주입되는 규칙(`plugins/common/rules/`)이
+바뀌었다 — 서브에이전트 출력을 받은 뒤 메인 Claude가 하던 절차가 달라진다.
 
-`agy plugin validate`에 exec form 그대로의 루트 `hooks.json`을 스크래치 플러그인으로 돌리면
-`hooks: 1 processed`가 나온다. 그러나 이 "processed"는 skills를 21로(실제 19), agents를
-4로(실제 33, 인식 0) 오집계하는 것과 **같은 도구가 같은 방식으로** 낸 숫자다 — `agy plugin
-validate`는 파일이 있는지만 세지, 훅 이벤트 4종(SessionStart 등)의 내용을 이해했다는 증거는
-어디에도 없다. Codex 훅이 exec form을 로드하지 않는다는 걸 실측 없이 "매니페스트가
-읽힌다"만으로 넘겼다가 2.12.1에서 훅 4종이 조용히 죽어 있었던 사고와 같은 유형의 오판을
-반복하지 않기 위해, **파일 카운트만으로는 판정하지 않는다**. `packaging/targets.json`의
-Antigravity 타겟에 `_hooksEnableWhen`을 명시했다 — 재검토 조건은 "실제 Antigravity 세션에서
-훅이 발화함을 마커 파일로 확인"이지, `agy plugin validate`의 processed 카운트가 아니다.
+**무엇이 바뀌었나.** 과거 모든 에이전트는 출력 끝에 `---DELEGATION_SIGNAL---` 블록
+(`TYPE`/`TARGET`/`REASON`/`CONTEXT`)으로 끝나야 했고, 메인 Claude는 이 블록을 스캔해
+`TARGET`으로 다음 에이전트를 자동 호출했다(순차 체인 모델). 이제 메인 Claude는 서브
+에이전트 출력을 **읽고 판단할 결과물**로 다루고, 다음 단계는 호출한 스킬(`auto-dev` 등)이
+정한다 — 신호 문자열을 파싱해 분기하지 않는다.
 
-부수 정정: 위 `[2.15.0]`의 "Antigravity ... green으로 전환" 서술에 이 구분을 반영하는 주석을
-추가했다 — "green"이 "설치 가능함을 확인" 이상을 의미하지 않는다는 것.
+**소비자에게 무슨 영향인가.** 별도 조치는 필요 없다 — 오케스트레이션은 이미 스킬 주도
+플랫 위임(Spec 2/W-006)으로 동작하고 있었고, 이번 변경은 그 실태에 맞춰 계약과 문서를
+정리한 것이다. 커스텀 에이전트를 만들 때 더 이상 `---DELEGATION_SIGNAL---` 블록을
+흉내 낼 필요가 없다.
 
-### Decided — Codex 훅 문자열 형식 변환은 기술적으로 가능하지만 **아직 싣지 않는다** (W-022 R5, Track B)
+**왜 폐기했나.** 판별 결과(W-021) hooks·skills·scripts·rules 어디에도 이 블록을
+파싱하는 결정론적 코드가 없었다 — rules의 유일한 소비 지점도 파서가 아니라 메인
+Claude에게 준 자연어 지시였다. 오케스트레이션도 이미 스킬 주도 플랫 위임으로
+넘어가 있어, 신호는 아무도 읽지 않는 사문화된 2차 경로였는데도 파이프라인은 정상
+동작했다. 조사를 시작하게 만든 트리거는 커버리지를 13종으로 넓히며(W-018) 관측된
+준수율(8종 중 6종)이었지만, 이 관측은 교란돼 있다 — `implement-code`의 안정적
+준수는 `task.md`가 신호 보고를 직접 지시한 조건의 결과였고, 무지시 준수 사례는
+`plan-implementation` 2/2뿐이다. 폐기 근거는 이 통계가 아니라 결정론적 파싱 부재와
+오케스트레이션 모델 이전이므로 판정은 그대로다. 상세: ledger F-002.
 
-S4(v2.15.0)는 exec form이 로드되지 않는다는 것만 확정했다. 이번 R5는 그 후속 질문 — "그럼
-따옴표로 감싼 문자열 형식(superpowers 패턴)은 되는가"를 실측했다. **된다.** 스크래치
-플러그인에 `"command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mark.sh\""`를 설치해 `codex exec`로
-SessionStart를 유발한 결과, `${CLAUDE_PLUGIN_ROOT}`가 실제 설치 경로로 치환되고 같은 값이
-하위 프로세스 환경변수로도 주입됨을 마커 파일로 확인했다(10초 내 발화, 5분 타임아웃 없이 완료).
+**어디까지 걷어냈나**: 에이전트 정의 33종의 본문 블록 + frontmatter 신호 토큰(32종),
+스킬 4종의 예시 블록, `verify-done.sh` §12 + CI 동등 스텝, 주입 규칙 2종의 신호
+기계 계약(무관 정책은 보존), 해설본 미러. eval `delegation_signal` 체크 타입은
+유지하되(코드 자체는 결함이 아니었다) 5개 시나리오의 어서션은 제거. 상세 근거·범위:
+`docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021),
+`CLAUDE.md`의 "Delegation Signal" 절.
 
-**그러나 형식 변환과 기능 이식은 다른 문제다.** kit의 실제 훅 5개는 Claude Code의 이벤트
-모델(툴 이름, PreToolUse/PostToolUse stdin JSON)에 맞춰 쓰였다 — 포맷만 바꿔 Codex가 실행하게
-만들어도 Codex의 이벤트·페이로드가 다르므로 의미 있게 동작하지 않는다. Codex에 실제로 유용한
-훅을 실으려면 **Codex 전용 훅 구현**이 새로 필요하고, 그건 R5(형식 변환 가능성 판정)의 범위
-밖이다. → 이 배치에서는 `hooks` 필드를 계속 넣지 않는다. `packaging/targets.json`의 codex
-타겟에 재검토 조건을 명시했다: Codex 네이티브 훅 구현이 실제 세션에서 의도한 부작용을 낸다고
-실측될 때.
+### Added — `/eval-forge` 어서션 타입 확장 (W-022 R2)
+
+`scripts/eval-forge.py`가 `evals/run.py`의 7개 어서션 타입 중 3개를 만들 방법이
+없었다(F-001) — 생성 후 `expect.json`을 손으로 보강해야 했다. `--output-regex
+PATTERN FLAGS`(반복 지정, FLAGS 빈 문자열이면 flags 키 생략)와 `--file-unchanged
+FILE`(반복 지정)을 신설했고, 단일 값만 받던 `--file-contains`를 반복 지정으로
+바꿨다. `delegation_signal`은 계약이 폐기됐으므로(R1) opt-in 플래그조차 만들지
+않았다. 회귀 테스트 6건 추가(수정 전 5건 red 확인). 자기적용 검증: 확장된
+CLI로 신규 시나리오를 생성해 `--validate`를 손 편집 0으로 통과시켰다(증적 후
+롤백 — baseline 미등재로 인한 커버리지 게이트 파손과 R3 tier2 분류 선점을
+피하기 위함). 상세: ledger F-001.
+
+**후속 수정(적대적 리뷰 High)**: `--output-regex`/`--file-contains`의 PATTERN을
+검증 없이 그대로 썼다 — 빈 패턴은 항상 매치하는 무의미한 어서션을 만들고,
+문법이 깨진 패턴은 생성·`--validate`는 초록인데 실제 `run.py` 실행에서만
+`re.error`로 죽는다. 생성 시점에 빈 패턴 거부 + `re.compile()` 검증을 추가했다.
+
+### Added — R3: 티어2 eval 커버리지 확대 (W-022)
+
+나머지 20개 에이전트를 이름이 아니라 각 정의의 `tools:`/출력 계약을 실제로 읽고
+평가 가능성으로 분류했다: **가능 15 / 조건부 3(`research-external`·
+`analyze-domain`·`clarify-requirements`) / 불가 2(`facilitator-teams`·
+`git-workflow`)**. 조건부·불가는 `evals/policy.json`의 `_tier2Classification`에
+등급·사유·승격 조건과 함께 남겼다 — 억지로 채운 시나리오는 없다. 특히
+`git-workflow`는 사전 조사 없이는 안 보이는 이유로 빠졌다: `eval-forge`의
+fixture 스테이징이 `.git`을 원천 제외해 실제 저장소 상태를 재현할 방법이
+없고, git 로그/커밋을 검사하는 assertion 타입도 없다.
+
+가능 15종 전부에 결정적 시나리오를 새로 만들었다(`evals/policy.json`
+`tiers.tier2`) — 읽기전용 에이전트는 `task.md`가 아니라 fixture에 심은 실제
+식별자·리터럴 토큰(예: `define-business-logic`의 `CALC-`/`VAL-`/`STATE-`/`POL-`)을
+앵커로 삼아 자기충족을 피했다. 그중 `analyze-dependencies`는 애초에 넣었던
+"문제 없음" 계열 네거티브 어서션을 두 차례(부분 맥락 오탐 → 결론부로 좁혀도
+재오탐) 실측 후 제거했다 — 나머지 5개 어서션이 이미 실질을 검증하므로
+판별력 없는 부정 검사를 억지로 유지하지 않았다(`_removedAssertions` 참고).
+
+시나리오 추가 과정에서 planning 계열 opus+`effort:high` 에이전트 2종이 기본
+300초 타임아웃 경계에서 불안정했다(하나는 타임아웃, 다른 하나는 298.2초로
+우연히 통과) — 과제 크기가 아니라 이 등급 에이전트의 본질적 소요임을 확인하고
+`evals/policy.json`의 `cost.scenarioTimeoutSeconds`를 600초로 상향했다(SSOT는
+정책 파일, `CKKIT_EVAL_TIMEOUT` 환경변수는 override로만 유지). 기준선을 35건
+전량 재실행해 재생성했다 — 기존 21건 회귀 0.
 
 ### Added — R7: `docs/conventions/` SSOT + `AGENTS.md` 두 번째 생성 블록 (W-022, Track B)
 
@@ -84,6 +114,19 @@ import로 읽고, `plugins/common/hooks/export_harness.py`는 `AGENTS.md`에 **�
   판단(별개 도메인 3종 게이트 간의 것)과 배치되지 않는다
 - 테스트 9건 추가(`test_export_harness.py`) — 소스 부재 시 None, 인라인/참조 목록 파일
   누락 시 실패, 두 블록 공존·독립 드리프트·마커 문자열 자기오염·본문 변조·유휴성 검증
+
+### Added — R8: `scripts/bump-version.sh` (W-022, Track B)
+
+버전을 SSOT(`plugins/common/.claude-plugin/plugin.json`)에서 올리면 곧바로 타겟 매니페스트를
+재생성(`build-targets.py --write`)하고 자기 결과를 검증(`--check`)한다 — v2.15.0에서 실제로
+밟은 "SSOT만 올리고 재생성을 잊는" 함정을 사람이 두 단계를 기억할 필요 없이 예방한다.
+
+낡은 버전 문자열 감사 도구(`audit-version-strings.py`)도 **만들어서 실물 레포에 돌려봤지만
+뺐다.** 이 레포는 버전이 실리는 자리(타겟 매니페스트·CHANGELOG↔SSOT·README)가 전부 생성물이거나
+기존 게이트로 이미 막혀 있어, superpowers류 손편집 감사가 지킬 대상 자체가 없었다 — 그 도구가
+잡아낸 93건 중 압도적 다수는 "버전 주장"이 아니라 "과거 사고를 버전으로 회고하는 코드 주석"이었고,
+문자열 매칭으로는 그 둘을 가를 수 없었다. "만들지 않았다"가 아니라 **"만들어 실측하고 필요 없다고
+판단해 뺐다"**가 정확한 기록이다.
 
 ### Fixed — `§9 test-ratchet` 이 테스트 삭제를 못 보고 있었다 (W-022, 기획 세션)
 
@@ -118,18 +161,58 @@ DELEGATION_SIGNAL 폐기 결론은 유지된다(근거는 ①파싱 코드 부�
 교차 적대적 리뷰가 아니었으면 릴리스에 실렸다.
 폐기 기록으로 교체하면서 **"사라진 것은 기계 판독 블록이지 위임이 아니다"** 를 분명히 했다.
 
-### Added — R8: `scripts/bump-version.sh` (W-022, Track B)
+### Decided — Antigravity 훅은 싣지 않는다 (W-022 R4, Track B)
 
-버전을 SSOT(`plugins/common/.claude-plugin/plugin.json`)에서 올리면 곧바로 타겟 매니페스트를
-재생성(`build-targets.py --write`)하고 자기 결과를 검증(`--check`)한다 — v2.15.0에서 실제로
-밟은 "SSOT만 올리고 재생성을 잊는" 함정을 사람이 두 단계를 기억할 필요 없이 예방한다.
+`agy plugin validate`에 exec form 그대로의 루트 `hooks.json`을 스크래치 플러그인으로 돌리면
+`hooks: 1 processed`가 나온다. 그러나 이 "processed"는 skills를 21로(실제 19), agents를
+4로(실제 33, 인식 0) 오집계하는 것과 **같은 도구가 같은 방식으로** 낸 숫자다 — `agy plugin
+validate`는 파일이 있는지만 세지, 훅 이벤트 4종(SessionStart 등)의 내용을 이해했다는 증거는
+어디에도 없다. Codex 훅이 exec form을 로드하지 않는다는 걸 실측 없이 "매니페스트가
+읽힌다"만으로 넘겼다가 2.12.1에서 훅 4종이 조용히 죽어 있었던 사고와 같은 유형의 오판을
+반복하지 않기 위해, **파일 카운트만으로는 판정하지 않는다**. `packaging/targets.json`의
+Antigravity 타겟에 `_hooksEnableWhen`을 명시했다 — 재검토 조건은 "실제 Antigravity 세션에서
+훅이 발화함을 마커 파일로 확인"이지, `agy plugin validate`의 processed 카운트가 아니다.
 
-낡은 버전 문자열 감사 도구(`audit-version-strings.py`)도 **만들어서 실물 레포에 돌려봤지만
-뺐다.** 이 레포는 버전이 실리는 자리(타겟 매니페스트·CHANGELOG↔SSOT·README)가 전부 생성물이거나
-기존 게이트로 이미 막혀 있어, superpowers류 손편집 감사가 지킬 대상 자체가 없었다 — 그 도구가
-잡아낸 93건 중 압도적 다수는 "버전 주장"이 아니라 "과거 사고를 버전으로 회고하는 코드 주석"이었고,
-문자열 매칭으로는 그 둘을 가를 수 없었다. "만들지 않았다"가 아니라 **"만들어 실측하고 필요 없다고
-판단해 뺐다"**가 정확한 기록이다.
+부수 정정: 위 `[2.15.0]`의 "Antigravity ... green으로 전환" 서술에 이 구분을 반영하는 주석을
+추가했다 — "green"이 "설치 가능함을 확인" 이상을 의미하지 않는다는 것.
+
+### Decided — Codex 훅 문자열 형식 변환은 기술적으로 가능하지만 **아직 싣지 않는다** (W-022 R5, Track B)
+
+S4(v2.15.0)는 exec form이 로드되지 않는다는 것만 확정했다. 이번 R5는 그 후속 질문 — "그럼
+따옴표로 감싼 문자열 형식(superpowers 패턴)은 되는가"를 실측했다. **된다.** 스크래치
+플러그인에 `"command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mark.sh\""`를 설치해 `codex exec`로
+SessionStart를 유발한 결과, `${CLAUDE_PLUGIN_ROOT}`가 실제 설치 경로로 치환되고 같은 값이
+하위 프로세스 환경변수로도 주입됨을 마커 파일로 확인했다(10초 내 발화, 5분 타임아웃 없이 완료).
+
+**그러나 형식 변환과 기능 이식은 다른 문제다.** kit의 실제 훅 5개는 Claude Code의 이벤트
+모델(툴 이름, PreToolUse/PostToolUse stdin JSON)에 맞춰 쓰였다 — 포맷만 바꿔 Codex가 실행하게
+만들어도 Codex의 이벤트·페이로드가 다르므로 의미 있게 동작하지 않는다. Codex에 실제로 유용한
+훅을 실으려면 **Codex 전용 훅 구현**이 새로 필요하고, 그건 R5(형식 변환 가능성 판정)의 범위
+밖이다. → 이 배치에서는 `hooks` 필드를 계속 넣지 않는다. `packaging/targets.json`의 codex
+타겟에 재검토 조건을 명시했다: Codex 네이티브 훅 구현이 실제 세션에서 의도한 부작용을 낸다고
+실측될 때.
+
+### Decided — 타겟 확장은 `runtime-verified` 만 활성화, 나머지는 근거와 함께 대기 (W-022 R9, Track B)
+
+superpowers는 9개 하네스에 배포하지만, 그 프로젝트는 새 하네스 지원에 수용 테스트 트랜스크립트를
+요구한다. 우리는 로컬에 `codex`·`agy` CLI만 있다 — 검증할 수 없는 타겟을 실었다가 Antigravity
+`agents/`처럼 "형식은 맞는데 안 도는" 컴포넌트를 광고하는 실수를 반복하지 않는다.
+
+- `packaging/targets.json`에 **3단계 검증 수준**을 SSOT로 명문화: `runtime-verified`(CLI
+  왕복 확인, codex·antigravity가 여기) / `spec-verified`(공식 스키마는 확인했으나 로컬에 CLI가
+  없어 런타임 미확인) / `researched-only`(문서만 조사됨). 활성화 기준은 **`runtime-verified`
+  유지** — Antigravity 사건이 "스키마가 맞아도 발견이 실패할 수 있다"를 이미 증명했다
+- **Cursor** 조사: 공식 스펙 저장소·문서 확인 결과 `skills`·`agents`·`rules`·`hooks`·
+  `commands`·`mcpServers` 6종을 전부 1급 지원 — kit의 33 에이전트 + 13 rules를 전부 실을 수
+  있는 유일한 후보다(codex는 skills만, antigravity는 agents 비지원). `spec-verified`로
+  기록하고 비활성 유지, `_enableWhen`(cursor CLI 왕복 검증 또는 사용자 제공 수용 테스트)을
+  명시
+- **Pi** 조사: 확장이 매니페스트가 아니라 TypeScript 모듈(`ExtensionAPI` factory export,
+  npm/git 배포) — kit의 SSOT→매니페스트 생성기 모델이 구조적으로 도달할 수 없다.
+  `researched-only`로 신규 등재하고 비활성 유지(근거 있는 폐기 — "언젠가 볼 대상"이 아니라
+  "이 구조로는 안 된다"는 확정)
+- opencode·copilot은 이번 R9 조사 범위 밖 — 기존 `[unresolved]` 표기를 그대로 유지했다(새로
+  조사하지 않은 것을 조사한 것처럼 승격시키지 않는다)
 
 ---
 

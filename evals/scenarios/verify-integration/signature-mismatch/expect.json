@@ -1,0 +1,40 @@
+{
+  "assertions": [
+    {
+      "type": "output_contains_any",
+      "values": [
+        "create_user"
+      ]
+    },
+    {
+      "type": "output_not_contains",
+      "values": [
+        "취약점 없음",
+        "취약점이 없",
+        "취약점은 없",
+        "문제 없음",
+        "문제가 없",
+        "버그 없음",
+        "버그가 없",
+        "이상 없음",
+        "no vulnerabilities",
+        "no issues found",
+        "looks fine",
+        "looks good"
+      ]
+    },
+    {
+      "type": "file_unchanged",
+      "file": "user_api.py"
+    },
+    {
+      "type": "file_unchanged",
+      "file": "user_service.py"
+    }
+  ],
+  "judge": {
+    "enabled": false,
+    "rubric": "verify-integration가 signature-mismatch 상황을 정확히 처리하는가?",
+    "threshold": 7
+  }
+}

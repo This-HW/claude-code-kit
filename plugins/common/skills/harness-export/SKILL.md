@@ -142,15 +142,3 @@ python3 "$EH" --target /path/to/project
 
 이 레포는 스스로 도그푸딩한다 — `scripts/verify-done.sh §11`과 CI가 `./scripts/export-harness.sh --check`를
 같은 명령으로 실행한다. `rules/`를 고치고 재생성하지 않으면 완료 게이트가 막힌다.
-
----
-
-## 다음 단계
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-REASON: AGENTS.md 내보내기/검사 완료
-CONTEXT: 생성 대상 경로와 sha, 이식 제외 룰 목록
----END_SIGNAL---
-```

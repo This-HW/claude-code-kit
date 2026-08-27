@@ -4,8 +4,7 @@ description: |
   백엔드 API 테스트 작성 전문가. 단위, 통합, API 테스트를 작성합니다.
   MUST USE when: "API 테스트", "백엔드 테스트", "단위 테스트", "통합 테스트" 요청.
   MUST USE when: 백엔드 코드에 대한 테스트 작성이 필요할 때.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: write-api-tests" 반환 시.
-  OUTPUT: 테스트 코드 + "DELEGATE_TO: verify-code" 또는 "TASK_COMPLETE"
+  OUTPUT: 테스트 코드
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -224,20 +223,6 @@ describe("User API", () => {
 | 통합   | `tests/integration/`      | 영구 |
 | E2E    | `tests/e2e/`              | 영구 |
 | 실험적 | `tests/scratch/`          | 임시 |
-
-## 출력 형식
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [작성된 테스트 요약]
-TEST_FILES: [생성된 테스트 파일 목록]
-COVERAGE: [테스트 커버리지 정보]
----END_SIGNAL---
-```
-
-
----
 
 ## Worktree 복귀 프로토콜 (isolation: worktree)
 

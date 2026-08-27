@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SCRIPTS_DIR.parent
 
@@ -244,18 +246,30 @@ def test_repeated_must_mention_becomes_and_of_or_groups(tmp_path, monkeypatch):
     _patch_root(monkeypatch, root)
     rc = _mod.main(
         [
-            "--agent", "review-code",
-            "--id", "two-findings",
-            "--task", "t",
-            "--fixture", str(_fixture_file(tmp_path)),
-            "--must-mention", "secret,시크릿",
-            "--must-mention", "symlink,심링크",
+            "--agent",
+            "review-code",
+            "--id",
+            "two-findings",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--must-mention",
+            "secret,시크릿",
+            "--must-mention",
+            "symlink,심링크",
         ]
     )
     assert rc == 0
     expect = json.loads(
-        (root / "evals" / "scenarios" / "review-code" / "two-findings" / "expect.json")
-        .read_text(encoding="utf-8")
+        (
+            root
+            / "evals"
+            / "scenarios"
+            / "review-code"
+            / "two-findings"
+            / "expect.json"
+        ).read_text(encoding="utf-8")
     )
     groups = [a for a in expect["assertions"] if a["type"] == "output_contains_any"]
     assert len(groups) == 2, "반복 지정이 한 덩어리로 뭉개졌다"
@@ -292,7 +306,9 @@ def test_rejects_agent_with_path_traversal(tmp_path, monkeypatch):
 def test_rejects_agent_with_slash(tmp_path, monkeypatch):
     root = _fake_repo(tmp_path)
     _patch_root(monkeypatch, root)
-    assert _mod.main(_args(_fixture_file(tmp_path), **{"--agent": "dev/review-code"})) == 1
+    assert (
+        _mod.main(_args(_fixture_file(tmp_path), **{"--agent": "dev/review-code"})) == 1
+    )
 
 
 def test_fixture_symlinks_are_not_dereferenced(tmp_path, monkeypatch):
@@ -312,7 +328,9 @@ def test_fixture_symlinks_are_not_dereferenced(tmp_path, monkeypatch):
     assert not (fx / "leak.py").exists(), "심링크가 남았다"
     for f in fx.rglob("*"):
         if f.is_file():
-            assert "SECRET-CONTENT" not in f.read_text(encoding="utf-8", errors="replace")
+            assert "SECRET-CONTENT" not in f.read_text(
+                encoding="utf-8", errors="replace"
+            )
 
 
 def test_single_file_symlink_fixture_is_rejected(tmp_path, monkeypatch):
@@ -354,6 +372,313 @@ def test_rollback_survives_timeout(tmp_path, monkeypatch):
     assert rc == 1, "타임아웃이 계약된 종료코드 대신 예외로 새어나갔다"
     assert not (root / "evals" / "scenarios" / "review-code" / "timed-out").exists()
     assert not (root / "evals" / "scenarios" / "review-code").exists(), "빈 부모 잔존"
+
+
+# ── R2 (ledger F-001) — 누락 어서션 타입 생성 지원 ──────────────────
+
+
+def test_generates_output_regex(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "regex-check",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--output-regex",
+            r"off-by-\d",
+            "i",
+        ]
+    )
+    assert rc == 0
+    expect = json.loads(
+        (
+            root / "evals" / "scenarios" / "review-code" / "regex-check" / "expect.json"
+        ).read_text(encoding="utf-8")
+    )
+    regexes = [a for a in expect["assertions"] if a["type"] == "output_regex"]
+    assert len(regexes) == 1
+    assert regexes[0]["pattern"] == r"off-by-\d"
+    assert regexes[0]["flags"] == "i"
+
+
+def test_output_regex_empty_flags_omits_flags_key(tmp_path, monkeypatch):
+    """flags가 빈 문자열이면 run.py의 flags 파싱(문자별 순회)에 영향이 없어야
+    하지만, 굳이 빈 값을 키로 남기지 않는다 — expect.json을 깔끔하게 유지."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "regex-no-flags",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--output-regex",
+            "TODO",
+            "",
+        ]
+    )
+    assert rc == 0
+    expect = json.loads(
+        (
+            root
+            / "evals"
+            / "scenarios"
+            / "review-code"
+            / "regex-no-flags"
+            / "expect.json"
+        ).read_text(encoding="utf-8")
+    )
+    regexes = [a for a in expect["assertions"] if a["type"] == "output_regex"]
+    assert len(regexes) == 1
+    assert "flags" not in regexes[0]
+
+
+def test_generates_file_unchanged(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "unchanged-check",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--file-unchanged",
+            "broken.py",
+        ]
+    )
+    assert rc == 0
+    expect = json.loads(
+        (
+            root
+            / "evals"
+            / "scenarios"
+            / "review-code"
+            / "unchanged-check"
+            / "expect.json"
+        ).read_text(encoding="utf-8")
+    )
+    unchanged = [a for a in expect["assertions"] if a["type"] == "file_unchanged"]
+    assert unchanged == [{"type": "file_unchanged", "file": "broken.py"}]
+
+
+def test_file_unchanged_repeatable(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    src = tmp_path / "pkg2"
+    src.mkdir()
+    (src / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (src / "b.py").write_text("y = 2\n", encoding="utf-8")
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "unchanged-multi",
+            "--task",
+            "t",
+            "--fixture",
+            str(src),
+            "--file-unchanged",
+            "a.py",
+            "--file-unchanged",
+            "b.py",
+        ]
+    )
+    assert rc == 0
+    expect = json.loads(
+        (
+            root
+            / "evals"
+            / "scenarios"
+            / "review-code"
+            / "unchanged-multi"
+            / "expect.json"
+        ).read_text(encoding="utf-8")
+    )
+    files = sorted(
+        a["file"] for a in expect["assertions"] if a["type"] == "file_unchanged"
+    )
+    assert files == ["a.py", "b.py"]
+
+
+def test_file_contains_is_repeatable(tmp_path, monkeypatch):
+    """단일 --file-contains만 되던 것 — 여러 번 지정하면 전부 살아야 한다."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    src = tmp_path / "pkg3"
+    src.mkdir()
+    (src / "out.py").write_text("def foo():\n    return 42\n", encoding="utf-8")
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "multi-file-contains",
+            "--task",
+            "t",
+            "--fixture",
+            str(src),
+            "--file-contains",
+            "out.py",
+            "return 42",
+            "--file-contains",
+            "out.py",
+            "def foo",
+        ]
+    )
+    assert rc == 0
+    expect = json.loads(
+        (
+            root
+            / "evals"
+            / "scenarios"
+            / "review-code"
+            / "multi-file-contains"
+            / "expect.json"
+        ).read_text(encoding="utf-8")
+    )
+    fc = [a for a in expect["assertions"] if a["type"] == "file_contains"]
+    assert len(fc) == 2, "두 번째 --file-contains가 첫 번째를 덮어썼다"
+    patterns = {a["pattern"] for a in fc}
+    assert patterns == {"return 42", "def foo"}
+
+
+def test_no_delegation_signal_flag_exists(tmp_path, monkeypatch):
+    """R1에서 계약이 폐기됐다 — eval-forge가 이 어서션을 생성하는 경로를
+    만들지 않는다는 결정(S2 지시서)을 CLI 파서 수준에서 고정한다.
+    argparse는 미지의 옵션에 parser.error() -> sys.exit(2)로 반응한다(예외)."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    with pytest.raises(SystemExit) as exc_info:
+        _mod.main(
+            [
+                "--agent",
+                "review-code",
+                "--id",
+                "no-signal-flag",
+                "--task",
+                "t",
+                "--fixture",
+                str(_fixture_file(tmp_path)),
+                "--delegation-signal",
+            ]
+        )
+    assert exc_info.value.code == 2
+    assert not (
+        root / "evals" / "scenarios" / "review-code" / "no-signal-flag"
+    ).exists()
+
+
+# ── 적대적 리뷰 High(2026-08-27, W-022 R2 후속) — 패턴 미검증 ──────────────
+
+
+def test_output_regex_empty_pattern_rejected(tmp_path, monkeypatch):
+    """빈 PATTERN은 re.search가 항상 매치해 무의미한 어서션이 된다 — 생성 자체를 거부."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "empty-regex",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--output-regex",
+            "",
+            "",
+        ]
+    )
+    assert rc == 1
+    assert not (root / "evals" / "scenarios" / "review-code" / "empty-regex").exists()
+
+
+def test_output_regex_malformed_pattern_rejected(tmp_path, monkeypatch):
+    """문법이 깨진 정규식은 생성·--validate는 초록이어도 실제 run.py 실행에서
+    re.error로 죽는다 — 생성 시점에 re.compile()로 미리 검증해 거부한다."""
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "broken-regex",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--output-regex",
+            "(unbalanced",
+            "",
+        ]
+    )
+    assert rc == 1
+    assert not (root / "evals" / "scenarios" / "review-code" / "broken-regex").exists()
+
+
+def test_file_contains_empty_pattern_rejected(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "empty-file-pattern",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--file-contains",
+            "broken.py",
+            "",
+        ]
+    )
+    assert rc == 1
+    assert not (
+        root / "evals" / "scenarios" / "review-code" / "empty-file-pattern"
+    ).exists()
+
+
+def test_file_contains_malformed_pattern_rejected(tmp_path, monkeypatch):
+    root = _fake_repo(tmp_path)
+    _patch_root(monkeypatch, root)
+    rc = _mod.main(
+        [
+            "--agent",
+            "review-code",
+            "--id",
+            "broken-file-pattern",
+            "--task",
+            "t",
+            "--fixture",
+            str(_fixture_file(tmp_path)),
+            "--file-contains",
+            "broken.py",
+            "(unbalanced",
+        ]
+    )
+    assert rc == 1
+    assert not (
+        root / "evals" / "scenarios" / "review-code" / "broken-file-pattern"
+    ).exists()
 
 
 def test_staging_failure_leaves_no_empty_parent(tmp_path, monkeypatch):

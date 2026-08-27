@@ -101,15 +101,3 @@ python3 scripts/eval-forge.py --agent <name> --id <kebab-id> \
 `./scripts/run-evals.sh --agent <name> --scenario <id>` — API 비용이 들며
 릴리스 전 게이트다. 스키마 green을 "에이전트가 통과했다"로 보고하지 마라
 (false-green 금지, v2.9.3 교훈).
-
----
-
-## 다음 단계
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-REASON: eval 시나리오 생성 + 스키마 검증 완료
-CONTEXT: 생성 경로, assertion 구성, 커버리지 변화, 행동 eval 미실행 여부
----END_SIGNAL---
-```

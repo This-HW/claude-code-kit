@@ -3,8 +3,7 @@ name: fix-bugs
 description: |
   버그 수정 전문가.
   MUST USE when: "버그", "에러", "수정해줘", "안돼", "안됨", "오류" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: fix-bugs" 반환 시.
-  OUTPUT: 수정 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 수정 결과
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -330,34 +329,6 @@ verify-code 실패
 
 Planning/clarify-requirements로 위임하여 요구사항 명확화 필요
 ```
-
----
-
-## 필수 출력 형식 (Delegation Signal)
-
-작업 완료 시 반드시 아래 형식 중 하나를 출력:
-
-### 다른 에이전트 필요 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: [에이전트명]
-REASON: [이유]
-CONTEXT: [전달할 컨텍스트]
----END_SIGNAL---
-```
-
-### 작업 완료 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [결과 요약]
-NEXT_STEP: [권장 다음 단계]
----END_SIGNAL---
-```
-
 
 ---
 

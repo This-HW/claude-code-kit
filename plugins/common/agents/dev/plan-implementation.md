@@ -3,8 +3,7 @@ name: plan-implementation
 description: |
   구현 계획 수립 전문가.
   MUST USE when: "구현 계획", "설계해줘", "어떻게 만들지" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: plan-implementation" 반환 시.
-  OUTPUT: 상세 구현 계획 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 상세 구현 계획
 model: opus
 effort: high
 maxTurns: 20
@@ -109,29 +108,6 @@ plan-implementation 완료
 | **Low** | 단순 CRUD, 타입 정의 | 인터페이스, 상수 |
 | **Medium** | 로직 포함, 여러 파일 | API 연동, 상태 관리 |
 | **High** | 복잡한 로직, 외부 연동 | 인증, 비즈니스 로직 |
-
----
-
-## 필수 출력 형식 (Delegation Signal)
-
-### 다른 에이전트 필요 시
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: [에이전트명]
-REASON: [이유]
-CONTEXT: [전달할 컨텍스트]
----END_SIGNAL---
-```
-
-### 작업 완료 시
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [결과 요약]
-NEXT_STEP: [권장 다음 단계]
----END_SIGNAL---
-```
 
 ---
 
@@ -325,6 +301,5 @@ NEXT_STEP: [권장 다음 단계]
 1. **너의 마지막 메시지 본문이 곧 반환값이다.** 호출자는 그 텍스트만 받는다.
    진행 상황 서술("~를 확인하겠습니다")로 끝내지 마라 — 그게 반환값이 된다.
 2. 요청받은 **리포트 형식 그대로**, 서두 없이 마지막 메시지에 담아라.
-3. 그 뒤에 위 문서에 정의된 `---DELEGATION_SIGNAL---` 블록을 붙여 끝낸다.
-4. 도구를 쓸 수 없어 못 한 일이 있으면 **그 사실을 리포트에 적어라.** 조용히 빈 결과를
+3. 도구를 쓸 수 없어 못 한 일이 있으면 **그 사실을 리포트에 적어라.** 조용히 빈 결과를
    반환하는 것은 실패를 성공으로 위장하는 것이다.

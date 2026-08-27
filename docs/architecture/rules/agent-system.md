@@ -86,41 +86,13 @@ explore-codebase(Haiku) → 결과를 clarify-requirements(Opus)에 전달
 
 ---
 
-## 4. DELEGATION_SIGNAL 형식
+## 4. DELEGATION_SIGNAL 형식 — 폐기됨 (2026-08-27, W-022 R1)
 
-모든 에이전트는 출력 마지막에 위임 신호를 포함해야 합니다. 이 신호가 없으면 메인 Claude가 체인을 이어갈 수 없습니다.
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT
-TARGET: [agent-name]
-REASON: [이유]
-CONTEXT: [핸드오프 컨텍스트]
----END_SIGNAL---
-```
-
-### TYPE별 의미와 처리 방식
-
-| TYPE              | 의미                      | 메인 Claude 행동                        |
-| ----------------- | ------------------------- | --------------------------------------- |
-| `DELEGATE_TO`     | 다음 에이전트로 위임 필요 | TARGET 에이전트를 CONTEXT와 함께 호출   |
-| `TASK_COMPLETE`   | 작업 완료                 | 사용자에게 완료 보고                    |
-| `NEED_USER_INPUT` | 사용자 입력 필요          | AskUserQuestion으로 QUESTIONS 항목 질문 |
-
-**실전 예시 — Planning 완료 후 Dev로 위임:**
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: implement-code
-REASON: Planning 완료, P0 모호함 0개, 구현 준비됨
-CONTEXT:
-  요구사항: 사용자 인증 API (JWT 기반)
-  데이터 모델: User(id, email, passwordHash, createdAt)
-  API 엔드포인트: POST /auth/login, POST /auth/refresh
-  에러 처리: 401 Unauthorized, 422 Validation Error
----END_SIGNAL---
-```
+이 절은 원래 위임 신호 블록 형식을 여기서도 반복 설명했다. 정본
+(`plugins/common/rules/agent-system.md`)에서 이 블록 정의를 제거했으므로 이 해설도
+따라간다 — 이 문서는 정본을 재정의하지 않는다는 원칙 그대로다. 서브에이전트 출력을
+받은 뒤의 절차는 `agent-delegation-chain.md`(해설본) §2를 보라. 폐기 근거:
+`docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021).
 
 ---
 

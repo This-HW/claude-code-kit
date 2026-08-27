@@ -4,8 +4,7 @@ description: |
   Git 워크플로우 전문가. 브랜치 관리, 커밋, 머지, 리베이스, 충돌 해결을 담당합니다.
   MUST USE when: "git", "브랜치", "커밋", "머지", "리베이스", "충돌", "cherry-pick" 요청.
   MUST USE when: git 히스토리 정리나 복잡한 git 작업이 필요할 때.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: git-workflow" 반환 시.
-  OUTPUT: git 작업 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: git 작업 결과
 model: haiku
 effort: low
 maxTurns: 10
@@ -307,11 +306,6 @@ git log --oneline -5
 
 ### 다음 단계
 [필요시 추가 작업 안내]
-
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [작업 요약]
----END_SIGNAL---
 ```
 
 ### 충돌 발생 시
@@ -327,13 +321,4 @@ SUMMARY: [작업 요약]
 
 ### 해결 방법
 [제안하는 해결 방법]
-
----DELEGATION_SIGNAL---
-TYPE: NEED_USER_INPUT
-QUESTION: 충돌을 어떻게 해결할까요?
-OPTIONS:
-  - ours: 현재 브랜치 버전 유지
-  - theirs: 대상 브랜치 버전 사용
-  - manual: 수동으로 해결
----END_SIGNAL---
 ```

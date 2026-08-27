@@ -78,22 +78,18 @@ P0가 발견되면 즉시 멈추고 아래 형식으로 사용자에게 질문�
         └──────────────────────────────┘
 ```
 
-**Dev → Planning 역위임 신호 예시:**
+**P0_AMBIGUITY 보고 예시** (`AskUserQuestion`에 담을 내용 — 2026-08-27 갱신: 과거 이
+예시는 폐기된 `---DELEGATION_SIGNAL---` 기계 블록 형식으로 적혀 있었다. 신호가 아니라
+`AskUserQuestion`으로 직접 사용자에게 묻는다, `agent-delegation-chain.md`(해설본) §2 참고):
 
 ```
----DELEGATION_SIGNAL---
-TYPE: NEED_USER_INPUT
-TARGET: (없음)
-REASON: P0_AMBIGUITY — 장바구니 수량 0 설정 시 처리 방법 미정의
-CONTEXT:
-  발생 위치: CartService.updateQuantity()
-  발견한 문제: 수량을 0으로 설정했을 때 아이템을 삭제해야 하는지,
-               0개 상태로 유지해야 하는지 명세 없음
-  제안 옵션:
-    1. 수량 0 = 아이템 삭제 (일반적인 전자상거래 방식)
-    2. 수량 0 유지 + 별도 삭제 버튼 필요
-  필요한 결정: 위 두 가지 중 선택
----END_SIGNAL---
+발생 위치: CartService.updateQuantity()
+발견한 문제: 수량을 0으로 설정했을 때 아이템을 삭제해야 하는지,
+             0개 상태로 유지해야 하는지 명세 없음
+제안 옵션:
+  1. 수량 0 = 아이템 삭제 (일반적인 전자상거래 방식)
+  2. 수량 0 유지 + 별도 삭제 버튼 필요
+필요한 결정: 위 두 가지 중 선택
 ```
 
 ---

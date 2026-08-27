@@ -35,49 +35,22 @@ ALWAYS have main Claude manage the delegation chain directly.
 > 없이 예측불가능성 부채만 더한다. 대규모 병렬은 네이티브 `ultracode`로 위임한다
 > (Spec 2 / W-006, `CLAUDE.md` → Orchestration Model).
 
-## Canonical Delegation Signal Format (SSOT)
-
-모든 에이전트는 출력 끝에 아래 블록 하나만 사용한다. 이 형식이 표준이며, 다른 문서는
-이 정의를 참조한다.
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT | NEED_CLARIFICATION
-TARGET: [agent-name]        # TYPE=DELEGATE_TO 일 때만
-REASON: [한 줄 이유]
-CONTEXT: [다음 에이전트로 넘길 핸드오프 컨텍스트]
----END_SIGNAL---
-```
-
-- 정확히 이 구분자(`---DELEGATION_SIGNAL---` / `---END_SIGNAL---`)를 사용한다.
-- 필드 누락 시 main이 NEED_CLARIFICATION으로 처리한다.
-
 ## On Receiving Subagent Output
 
-1. Scan for DELEGATION_SIGNAL block
-2. If P0 ambiguity exists, ask user first (AskUserQuestion)
-3. If TARGET specified, auto-call that agent with CONTEXT
-4. After chain completes, report summary to user
+서브에이전트 출력은 읽고 판단할 결과물이다. 다음 단계의 순서는 호출한 스킬이 정하지,
+출력 안의 신호가 정하지 않는다 (스킬 주도 플랫 위임 — `CLAUDE.md` → Orchestration
+Model, Spec 2/W-006). 절차:
 
-## Signal Type → Action
+1. 출력을 읽고 완료 여부·품질을 판단한다.
+2. P0 모호성이 있으면 사용자에게 먼저 묻는다 (AskUserQuestion).
+3. 다음 에이전트 호출 여부·대상은 호출한 스킬의 절차를 따른다.
+4. 체인(또는 병렬 dispatch)이 끝나면 사용자에게 요약을 보고한다.
 
-- NEED_USER_INPUT → AskUserQuestion with QUESTIONS items
-- NEED_CLARIFICATION → call clarify-requirements
-- DELEGATE_TO → call TARGET agent, pass CONTEXT
-- JOURNEY_COMPLETE → call define-business-logic or plan-implementation
-- BUSINESS_LOGIC_COMPLETE → call plan-implementation
-- PLANNING_COMPLETE → report results to user, implementation ready
-
-## Auto-call Prompt MUST Include
-
-- Original user request
-- Previous agent result summary
-- Resolved P0 items
-- Specific task being requested
-
-## Stop Delegation When
-
-- P0 unresolved (user answer required)
-- Loop detected (same agent called 2+ times)
-- Explicit completion signal received
-- Error occurred
+> **폐기 기록 (2026-08-27, W-022 R1)**: 과거 이 절은 에이전트 출력에서
+> `---DELEGATION_SIGNAL---` 블록을 스캔해 `TYPE`/`TARGET` 필드로 다음 에이전트를
+> 자동 호출하는 순차 체인 모델을 규정했다. 판별 결과 이 블록을 실제로 파싱하는
+> 결정론적 코드는 어디에도 없었고(hooks/skills/scripts 전수 검색), 8종 관측 중
+> 6종(75%)이 신호를 내지 않는데도 파이프라인은 정상 동작했다 — 이 프로젝트는 이미
+> 스킬 주도 플랫 위임으로 넘어가 있었다. 비결정적 보조 경로는 없는 것보다 나쁘다는
+> 판단(evals `delegation_signal` 어서션 분리와 같은 논리)에 따라 신호 기계 계약(형식
+> 정의·TYPE→Action 매핑·자동 호출 절차)을 폐기했다. 상세: `docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021).

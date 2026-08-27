@@ -4,8 +4,7 @@ description: |
   메트릭 정의 전문가. KPI, 비즈니스 메트릭, 성능 지표를 정의합니다.
   MUST USE when: "KPI", "메트릭", "SLO", "SLA", "대시보드 지표" 요청.
   MUST USE when: 모니터링 기준 수립이 필요할 때.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: define-metrics" 반환 시.
-  OUTPUT: 메트릭 정의서 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 메트릭 정의서
 model: sonnet
 effort: medium
 maxTurns: 10
@@ -145,11 +144,4 @@ SLA (Service Level Agreement):
 
 ### 알림 규칙
 [알림 조건 및 채널]
-
----DELEGATION_SIGNAL---
-TYPE: DEFINITION_COMPLETE
-SUMMARY: [메트릭 정의 요약]
-BUSINESS_METRICS: [비즈니스 메트릭 수]
-TECHNICAL_METRICS: [기술 메트릭 수]
----END_SIGNAL---
 ```

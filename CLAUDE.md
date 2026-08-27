@@ -122,9 +122,9 @@ Apply to agents that **modify files** — prevents filesystem conflicts:
 Merge-back protocol (exit conditions, sequential merge, conflict escalation) is
 governed by `plugins/common/rules/parallel-worktree.md`.
 
-### Delegation Signal
+### Delegation Signal — 폐기됨 (2026-08-27, W-022 R1)
 
-All agents end with a structured delegation signal:
+과거 모든 에이전트는 출력 끝에 아래 블록으로 끝나야 했다:
 
 ```
 ---DELEGATION_SIGNAL---
@@ -135,20 +135,51 @@ CONTEXT: [handoff context]
 ---END_SIGNAL---
 ```
 
-> **⚠ 이 계약은 런타임에 잘 지켜지지 않는다 (2026-08-27 실측).** 커버리지를 13종으로 넓히자
-> **관측 8종 중 6종(75%)** 이 이 마커를 간헐적으로 생략한다는 것이 드러났다
-> (`implement-code` 6/6 · `plan-implementation` 2/2 는 안정, 나머지는 1/2~2/3).
-> `implement-api` 는 모델·effort가 낮지 않은데도 실패해 "좋은 모델이면 안정"이라는 가설을 반증했다.
->
-> **⚠ 단, 이 측정은 교란돼 있다**: `implement-code` 시나리오의 `task.md` 가 신호 형식을 직접
-> 지시한다(나머지는 안 한다). 6/6 은 대조군이 아니다. 무지시 준수 사례는 `plan-implementation`
-> 2/2(n=2)뿐이며, **"75% 미준수"는 조사 트리거였지 판정 근거가 아니다.**
->
-> `verify-done.sh` §12는 이 계약이 **정의 파일에 적혀 있는지**를 33/33 검사해 왔지만,
-> **런타임에 실제 방출되는지는 아무도 잰 적이 없었다.** 오케스트레이션이 이미 스킬 주도 플랫
-> 위임으로 바뀐 만큼 이 신호가 사문화됐을 가능성도 있다 — 계약을 고칠 것인지 폐기할 것인지는
-> `docs/specs/2026-08-27-delegation-signal-contract-review.md` (W-021)에서 판별한다.
-> **그때까지 이 절을 "동작하는 계약"으로 읽지 말 것.**
+**왜 있었나.** 구 순차 체인 오케스트레이션 모델에서, 서브에이전트가 이 신호로 메인
+Claude에게 다음 에이전트를 지목했다.
+
+**왜 없앴나.** 판별 결과(W-021): **hooks·skills·scripts·rules 어디에도 이 블록을
+파싱하는 결정론적 코드가 없었다.** 유일한 소비 지점은 `rules/agent-delegation-chain.md`가
+메인 Claude에게 "신호 블록을 스캔해 TARGET이 있으면 다음 에이전트를 자동 호출하라"고
+준 **자연어 지시**였다 — 파서가 아니라 모델 판단에 의존하는 경로였다는 점이 이 결론의
+무게다. 게다가 오케스트레이션은 이미 §Orchestration Model의 스킬 주도 플랫 위임으로
+넘어가 있었다 — 신호를 스캔해 다음 에이전트를 자동 호출하는 구 순차 체인 모델 자체가
+더 이상 쓰이지 않았다.
+
+이 조사를 시작하게 만든 트리거는 커버리지를 13종으로 넓히던 중(W-018) 드러난 준수율
+관측이었다 — **8종 중 6종(75%)**이 이 마커를 간헐적으로 생략했다(`implement-code`
+6/6·`plan-implementation` 2/2만 안정, `implement-api`는 모델·effort가 낮지 않은데도
+실패해 "좋은 모델이면 안정" 가설을 반증했다). 단, 이 관측은 교란돼 있다 —
+`implement-code` 시나리오의 `task.md`가 형식을 직접 지시했으므로 6/6은 대조군이
+아니다. 무지시 준수 사례는 `plan-implementation` 2/2(n=2)뿐이다. 그럼에도 폐기
+결론(B: 사문화) 자체는 이 통계가 아니라 위 두 근거로 유지된다 — 비결정적 보조 경로는
+없는 것보다 나쁘다는 판단(이번 배치에서 evals `delegation_signal` 어서션을 분리한
+것과 같은 논리)에 따라 폐기를 실행했다. 상세 근거:
+`docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021), ledger F-002.
+
+**어디까지 걷어냈나** (다음 사람이 잔재를 찾을 때 기준):
+
+- 에이전트 정의 33종 — 본문 `---DELEGATION_SIGNAL---` 블록 전부 제거
+- 위 33종 중 32종의 frontmatter `OUTPUT:`/`MUST USE when:` — 신호 토큰만 제거,
+  실제 산출물 서술과 무관한 트리거 문구는 보존. 산문 중 `DELEGATE_TO: git-workflow`
+  같은 **에스컬레이션 의도 서술**은 기계 계약이 아니므로 그대로 유지
+- `verify-done.sh` §12(에이전트 출력 계약 위치 검사) + CI 동등 스텝 — 제거. **번호 12는
+  재사용하지 않고 비워 둔다** (아래 verify-done.sh 섹션 규약 참고 — 스펙·
+  decision-log 47곳 이상이 섹션 번호로 게이트를 참조한다)
+- 스킬 4종(`agent-creator`·`eval-forge`·`harness-export`·`skill-forge`)의 예시
+  블록 — 제거. `agent-creator`는 특히 중요했다: 새 에이전트 템플릿에 블록이 박혀
+  있어 폐기를 무효화할 수 있었다
+- 주입 규칙 2종(`plugins/common/rules/agent-system.md`,
+  `agent-delegation-chain.md`) — **외과적** 삭제. 신호 기계 계약(형식 정의·
+  TYPE→Action 매핑·자동 호출 절차)만 제거하고, 무관한 정책(Standing User
+  Authorization, "서브에이전트는 서브에이전트를 호출하지 않는다")은 보존.
+  `On Receiving Subagent Output` 절은 삭제가 아니라 스킬 주도 모델에 맞게 재작성.
+  해설본(`docs/architecture/rules/`)도 같은 원칙으로 갱신, CHECKSUMS/MIRROR 재생성
+- eval `delegation_signal` 체크 타입 — **삭제하지 않음.** `implement-code`·
+  `plan-implementation` 등 안정 통과 시나리오가 있어 체크 자체는 유효했다
+  (`evals/run.py`). 계약이 폐기됐으므로 그 시나리오들의 어서션은 개별 판단 대상
+- 유지: 본문 산문의 `DELEGATE_TO: X` 같은 에스컬레이션 서술(기계 계약 아님),
+  역사 기록(CHANGELOG, decision-log, 과거 spec)
 
 ## Development Conventions
 
@@ -165,7 +196,9 @@ from the end of its definition, its reports came back empty twice, and the worki
 fix could not be verified in the same session. Two consequences:
 
 - **Never conclude "the definition change worked" from in-session behavior.** Verify by
-  reading the file, or by a machine check (`verify-done.sh §12` is exactly that).
+  reading the file, or by a machine check (`verify-done.sh` § checks against the working
+  tree; note that `§12`, the check this incident originally motivated, was retired in
+  W-022 R1 — see the Delegation Signal section above).
 - To actually exercise a definition change, bump the version and reinstall
   (`/plugin marketplace update` → `/plugin install`), or point a scratch install at the
   working tree.
@@ -178,8 +211,7 @@ cache), but `scripts/` and `evals/` are repo-local and take effect immediately.
 1. Create `plugins/common/agents/{category}/{name}.md`
 2. Add required frontmatter (see template above)
 3. Write Korean description with `MUST USE when:` trigger conditions
-4. Add delegation chain at the end
-5. No manifest edit needed — agents are auto-discovered from the directory
+4. No manifest edit needed — agents are auto-discovered from the directory
    (plugin.json has no agent/skill registry)
 
 ### Adding a New Skill
@@ -266,7 +298,26 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 
 ### 설정값으로 경로를 만들면 반드시 봉쇄한다 (2026-08-27 확정)
 
-@docs/conventions/path-containment.md
+**같은 결함이 세 번 반복됐다.** 정책·설정 파일에서 읽은 값으로 파일 경로를 조립하는 코드가
+그 값을 검증하지 않으면 레포 밖을 읽거나 쓴다. `pathlib` 의 `a / b` 는 **`b` 가 절대경로면 `a` 를
+통째로 버린다** — 이 한 줄이 세 번 모두의 원인이었다.
+
+| 인스턴스 | 발견 | 증상 |
+| --- | --- | --- |
+| `export_harness.py` | 2.14.1 적대적 리뷰 | 심링크 탈출 + 검사/쓰기가 각각 resolve (TOCTOU) |
+| `build-targets.py` | 2.15.0 교차 리뷰 | `manifestPath` 절대경로·`..`·심링크 3종 전부 레포 밖에 **씀** |
+| `check_eval_coverage.py` | 2.15.0 기획 세션 전수조사 | `baseline.file` 절대경로로 레포 밖 파일을 기준선으로 **신뢰하고 green** |
+
+**규칙**:
+
+1. 설정에서 온 경로는 **한 번만 resolve** 하고 그 결과를 끝까지 쓴다. 검사와 사용이 각각
+   resolve하면 그 틈이 TOCTOU다 (`_resolve_target()` / `_resolve_in_repo()` 관례)
+2. resolve 결과가 **레포 루트(또는 정해진 하위 디렉토리) 안**이 아니면 **exit 1**. 절대경로·`..`·심링크 전부
+3. **읽기 경로도 봉쇄한다.** 세 번째 인스턴스는 읽기 전용인데도 게이트가 거짓 green을 냈다
+4. `--check` 같은 **검사 전용 모드에도 같은 봉쇄를 건다.** 2.14.1은 쓰기에만 걸어 구멍이 남았다
+
+새 코드가 설정값으로 경로를 만든다면 위 두 파일의 헬퍼를 **그대로 따라라.** 관례를 새로
+발명하는 것이 이 결함이 반복된 이유다.
 
 ## Security
 
@@ -288,19 +339,85 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 
 ### 드리프트 게이트는 셋이고, 통합하지 않는다 (2026-08-27 판정)
 
-@docs/conventions/no-gate-integration.md
+`verify-done.sh` 에는 "생성물이 SSOT와 일치하는가"를 묻는 게이트가 **셋** 있다.
+
+| § | 대상 | 판정 방식 |
+| --- | --- | --- |
+| **11** | `AGENTS.md` 마커 블록 ↔ `rules/` 원문 | **sha256 대조** |
+| **13** | eval 시나리오 ↔ 기준선 | **집합 양방향 대조** + 티어 커버리지 |
+| **14** | 타겟 매니페스트 ↔ `.claude-plugin/plugin.json` | **파일 존재 + 내용 대조** |
+
+같은 질문처럼 보이지만 **입력·판정 기준·실패 메시지가 전부 다르다.** 공통 프리미티브로 묶으면
+추상이 세 케이스를 다 감당하지 못해 분기 파라미터가 늘고, **게이트 코드가 어려워진다.**
+게이트는 읽기 쉬워야 신뢰된다 — 아무도 이해하지 못하는 게이트는 red가 떴을 때 무시된다.
+
+**그래서 통합하지 않는다.** 중복은 코드가 아니라 **규약**으로 줄인다 (위 경로 봉쇄 관례가 그 예다).
+네 번째 드리프트 게이트가 필요해지는 시점에 재검토한다 — rule of three는 세 번째에 묶으라는 뜻이
+아니라, **세 번째까지는 아직 패턴이 아닐 수 있다**는 뜻이다.
 
 ### Lint is one ruleset, everywhere
 
-@docs/conventions/lint-single-ruleset.md
+`ruff.toml` at the repo root is the **single source** for both the rule set and
+the lint scope; `ruff check .` is the only command (CI, `verify-done.sh §3`, and
+the `auto-format` hook all resolve to it). Two traps it exists to close:
+
+- **No project config → ruff falls back to the developer's global
+  `~/.config/ruff/ruff.toml`** (which this kit itself installs). That masked a
+  real CI failure once: local green, CI red.
+- **Ruff's *default* rule set changes between releases** (0.15 enables E402, 0.16
+  does not), so relying on defaults makes two machines disagree. The rules are
+  therefore listed explicitly, and the version is pinned in `.ruff-version`
+  (CI installs exactly that; `verify-done.sh` warns when the local ruff differs).
+
+Raising the ruff pin is a deliberate act: bump `.ruff-version`, fix what the new
+version flags, land both together.
+
+**The test runner is pinned the same way.** `.pytest-version` is the pin; CI
+installs exactly it, and `verify-done.sh §4` warns when the local pytest differs.
+pytest changes collection, fixture, and deprecation behavior across majors, so an
+unpinned runner means CI silently floats to the newest release and can go red with
+no code change — the same failure `.ruff-version` exists to prevent. Both pins are
+also what makes a dev venv reproducible:
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install "pytest==$(cat .pytest-version)" "ruff==$(cat .ruff-version)"
+```
 
 ### Rules have a long-form mirror — and it is checksum-guarded
 
-@docs/conventions/rules-mirror.md
+`plugins/common/rules/` (13) is what gets **injected every session**, so it is compressed.
+`docs/architecture/rules/` (9) is the long-form human explanation of nine of those rules,
+created in W-004 — tables, worked examples, anti-patterns. The remaining four
+(`definition-of-done`, `feedback-loop`, `loop-engineering`, `parallel-worktree`) have no
+mirror by design; the injected rule is the whole story for them.
+
+Nothing linked the two, so they drifted silently — a 2026-08-17 audit found three behind,
+and the `planning-check` mirror still told readers to search Notion/Figma MCP in order,
+**assuming those MCPs are installed**, which contradicts the consumer-first north-star.
+`docs/architecture/rules/MIRROR.sha256` now records, per mirrored rule, the sha256 of the
+injected rule the explanation last reflected. `verify-done.sh §7` fails when they diverge;
+`scripts/sync-rule-mirror.sh --regenerate` updates it. Regeneration is deliberate on
+purpose — auto-updating the manifest would make the check meaningless.
+
+Normative statements live in the injected rule. The mirror explains and points at it; it
+must not redefine anything, or the drift comes back through the front door.
 
 ### Shell is linted too
 
-@docs/conventions/shell-lint.md
+The completion gate (`verify-done.sh`) and the installer (`setup.sh`) *are* shell —
+linting Python rigorously while leaving them unchecked means the code that decides
+"done" is the code nobody checks. `scripts/lint-shell.sh` is the single command
+(CI and `verify-done.sh §3b` both call it); it owns the target list and the
+severity threshold, so neither side can drift. Targets are resolved from
+`git ls-files` by extension **and** shebang, so extensionless scripts like
+`plugins/common/setup/pre-commit` are covered and new scripts need no registration.
+shellcheck is pinned in `.shellcheck-version` and CI verifies the release tarball's
+sha256 — bump both together or the step fails loudly.
+
+One deliberate asymmetry with ruff: a *missing* shellcheck is a yellow note locally,
+not a red. CI (pinned version) is the authoritative verdict; the local run is fast
+feedback. It never reports green when it could not check.
 
 ## Release Checklist
 
@@ -308,11 +425,31 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 
 Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update fetched = users never get the fix.
 
-@docs/conventions/release-process.md
+- Patch bump (2.x.y) for bug fixes and hook changes
+- Minor bump (2.x.0) for new agents, skills, or features
+- Add a matching `## [x.y.z]` entry to `CHANGELOG.md` (verify-done.sh §6 fails if
+  the plugin.json version and the CHANGELOG top entry diverge)
+- Keep README/docs version-agnostic (link to CHANGELOG) so they can't drift
+- **버전을 올렸으면 타겟 매니페스트를 재생성한다**: `python3 scripts/build-targets.py --write`.
+  `.claude-plugin/plugin.json` 만 올리고 이것을 빠뜨리면 Codex·Antigravity 패키지에 **옛 버전이
+  실린 채** 나간다. v2.15.0 릴리스에서 실제로 밟았고 `verify-done.sh` §14가 잡았다 —
+  게이트가 없었다면 그대로 배포됐을 실수다
+- Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
+- 그 룰에 **해설본 미러**가 있으면(아래 참조) 해설본도 함께 손보고 `scripts/sync-rule-mirror.sh --regenerate`
+- Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`,
+  then `git push --tags`. Later commits that leave the version untouched (docs, repo
+  tooling) are not a new release and do not move the tag. `verify-done.sh §6` fails when
+  any past CHANGELOG release lacks a tag — the practice lapsed silently once (20 untagged
+  releases between 2.10.4 and 2.12.3), so it is a machine check now, not a convention.
+  Two caveats on existing tags: the 2026-08-17 backfill could not recover which commit was
+  actually pushed as each old release, so it used the closest approximation — the last
+  commit carrying that version; and tags predating v2.11.0 were placed ad hoc and follow
+  no single rule. Every tag does point at a commit whose `plugin.json` matches it.
+- Run `scripts/verify-done.sh` (green) before claiming a release ready (definition-of-done)
 
 ```bash
-# Before git commit — bump version, regenerate targets, self-verify (one command):
-scripts/bump-version.sh x.y.z
+# Before git commit — update version field:
+# plugins/common/.claude-plugin/plugin.json  → "version": "x.y.z"
 ```
 
 ### Distribution & catalog propagation

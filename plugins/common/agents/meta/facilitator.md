@@ -3,7 +3,7 @@ name: facilitator
 description: |
   Multi-perspective review 조율자. 문서를 분석하고 필요한 관점의 전문가를 식별합니다.
   MUST USE when: 다관점 리뷰 시작 시, 복잡한 기획/디자인 문서 검토.
-  OUTPUT: 필요한 관점 목록 + focus_areas + "TASK_COMPLETE"
+  OUTPUT: 필요한 관점 목록 + focus_areas
 model: opus
 effort: high
 maxTurns: 10
@@ -349,55 +349,3 @@ facilitator-teams.md (Lead)
 
 ---
 
-## 🚨 필수 출력 형식 (Delegation Signal)
-
-**작업 완료 시:**
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: |
-  문서 분석 완료. {N}개 관점 식별됨.
-  복잡도: {complexity}
-  도메인: {domains}
-PERSPECTIVES: |
-  {JSON 형식의 관점 목록}
-NEXT_STEP: 메인 Claude가 Round 1 병렬 실행
----END_SIGNAL---
-```
-
-**예시:**
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: |
-  포인트 시스템 기획 문서 분석 완료. 5개 관점 식별됨.
-  복잡도: Large
-  도메인: payments, business_logic, security, data
-COMMON_CONTEXT: |
-  Level 1 (모든 에이전트):
-    - CLAUDE.md
-    - .claude/rules/planning-protocol.md
-  Level 2 (Meta 에이전트):
-    - .claude/rules/agent-system.md
-PERSPECTIVES: |
-  [
-    {
-      "name": "requirements",
-      "agent": "clarify-requirements",
-      "focus_areas": ["P0 모호함", "엣지 케이스"],
-      "priority": "critical"
-    },
-    {
-      "name": "security",
-      "agent": "security-scan",
-      "focus_areas": ["포인트 조작 방지", "감사 로그"],
-      "priority": "critical"
-    }
-  ]
-NEXT_STEP: |
-  1. 메인 Claude가 Level 1 파일 읽기
-  2. 위 에이전트들을 Task로 병렬 호출 (Level 1 Context 포함)
----END_SIGNAL---
-```

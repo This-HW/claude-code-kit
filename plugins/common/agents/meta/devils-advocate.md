@@ -3,7 +3,7 @@ name: devils-advocate
 description: |
   설계/전략의 약점을 의도적으로 찾는 반론 전문가. "이것이 실패할 수 있는 모든 이유"를 체계적으로 분석합니다.
   MUST USE when: 아키텍처 설계 리뷰, 기획서 검토, multi-perspective-review 10번째 관점.
-  OUTPUT: 실패 시나리오 + 확률 + 완화 방안 + "TASK_COMPLETE"
+  OUTPUT: 실패 시나리오 + 확률 + 완화 방안
 model: opus
 effort: max
 maxTurns: 10
@@ -458,62 +458,3 @@ facilitator가 9개 관점 분석 후:
 
 ---
 
-## 필수 출력 형식 (Delegation Signal)
-
-### 다른 에이전트 필요 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: [에이전트명]
-REASON: [이유]
-CONTEXT: [전달할 컨텍스트]
----END_SIGNAL---
-```
-
-### 작업 완료 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: |
-  Devil's Advocate 분석 완료.
-  HIGH: {N}개, MEDIUM: {M}개, LOW: {K}개
-  전체 리스크 등급: {CRITICAL/HIGH/MEDIUM/LOW}
-SCENARIOS: |
-  [실패 시나리오 JSON]
-NEXT_STEP: synthesizer로 통합 분석
----END_SIGNAL---
-```
-
-**예시:**
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: |
-  포인트 시스템 아키텍처 분석 완료.
-  HIGH: 2개, MEDIUM: 1개, LOW: 1개
-  전체 리스크 등급: HIGH (즉시 완화 필요)
-SCENARIOS: |
-  [
-    {
-      "id": "FAIL-001",
-      "severity": "HIGH",
-      "persona": "확장성 파괴자",
-      "title": "동시 적립/차감 시 Race Condition",
-      "probability": "High (>50%)",
-      "mitigation": "DB 트랜잭션 + Optimistic Locking"
-    },
-    {
-      "id": "FAIL-002",
-      "severity": "HIGH",
-      "persona": "비용 감시자",
-      "title": "포인트 테이블 무제한 증가",
-      "probability": "High (>50%)",
-      "mitigation": "만료 정책 (1년) + 파티셔닝"
-    }
-  ]
-NEXT_STEP: synthesizer로 9개 관점 + devils-advocate 통합
----END_SIGNAL---
-```

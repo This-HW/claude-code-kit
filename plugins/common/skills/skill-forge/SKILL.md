@@ -98,15 +98,3 @@ scripts/verify-done.sh
   대응 시나리오를 함께 만든다.
 - `/self-improve`와 역할이 다르다 — 그쪽은 **결함**을 정의 파일에 반영하고,
   이쪽은 **성공**을 새 자산으로 승격한다. 둘 다 proposal-only다.
-
----
-
-## 다음 단계
-
-```
----DELEGATION_SIGNAL---
-TYPE: NEED_USER_INPUT | TASK_COMPLETE
-REASON: 스킬 초안 승인 대기 | 3조건 미충족으로 강등 완료
-CONTEXT: 3조건 판정 근거, 초안 전문 또는 강등 경로 실행 결과
----END_SIGNAL---
-```

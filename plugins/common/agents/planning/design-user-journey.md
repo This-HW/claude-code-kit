@@ -3,9 +3,8 @@ name: design-user-journey
 description: |
   사용자 여정 설계 전문가.
   MUST USE when: "UX", "흐름", "화면", "사용자 경험", "온보딩", "결제 과정" 키워드 포함 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: design-user-journey" 반환 시.
   MUST USE when: 새 기능에 사용자 인터랙션 흐름 설계가 필요할 때.
-  OUTPUT: 여정 플로우 + 상태 전이 + "DELEGATE_TO: [다음]" 또는 "PLANNING_COMPLETE"
+  OUTPUT: 여정 플로우 + 상태 전이
 model: opus
 effort: high
 maxTurns: 10
@@ -379,46 +378,3 @@ docs/
 
 ---
 
-## 🚨 필수 출력 형식 (Delegation Signal)
-
-**작업 완료 시 반드시 아래 형식 중 하나를 출력하세요.**
-
-### 요구사항 명확화 필요 시
-```
----DELEGATION_SIGNAL---
-TYPE: NEED_CLARIFICATION
-TARGET: clarify-requirements
-REASON: [명확화가 필요한 이유]
-QUESTIONS:
-  - [모호한 부분 1]
-  - [모호한 부분 2]
-CONTEXT: [현재까지 설계한 내용]
----END_SIGNAL---
-```
-
-### 비즈니스 규칙 정의 필요 시
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: define-business-logic
-REASON: [비즈니스 규칙이 필요한 이유]
-CONTEXT: |
-  [설계된 여정 요약]
-  [필요한 비즈니스 규칙 목록]
----END_SIGNAL---
-```
-
-### 여정 설계 완료 시
-```
----DELEGATION_SIGNAL---
-TYPE: JOURNEY_COMPLETE
-JOURNEYS:
-  - name: [여정 이름]
-    entry: [진입점]
-    exit: [완료점]
-    states: [상태 수]
-NEXT_STEP: [define-business-logic | plan-implementation]
-CONTEXT: |
-  [설계 요약]
----END_SIGNAL---
-```
