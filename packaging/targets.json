@@ -118,12 +118,14 @@
     {
       "id": "opencode",
       "enabled": false,
-      "_disabledReason": "플러그인 단위가 매니페스트가 아니라 실행 가능한 JS/TS 모듈 — 구조적으로 이질적 [unresolved: 원문 미대조]. 후속 배치."
+      "_disabledReason": "플러그인 단위가 매니페스트가 아니라 실행 가능한 JS/TS 모듈 — 구조적으로 이질적 [unresolved: 원문 미대조]. R9(2026-08-27)에서 _verificationLevels SSOT를 신설하며 일관성을 위해 researched-only로 태깅했다 — 이번 라운드에 재조사하지는 않았다(W-019 시점 판단을 그대로 이어받음). 후속 배치.",
+      "verificationLevel": "researched-only"
     },
     {
       "id": "copilot",
       "enabled": false,
-      "_disabledReason": "매니페스트 기반 공식 배포 단위 존재 여부 자체가 [unresolved]. AGENTS.md 는 이미 지원됨."
+      "_disabledReason": "매니페스트 기반 공식 배포 단위 존재 여부 자체가 [unresolved]. AGENTS.md는 이미 지원됨. R9(2026-08-27)에서 _verificationLevels SSOT를 신설하며 일관성을 위해 researched-only로 태깅했다 — 이번 라운드에 재조사하지는 않았다(W-019 시점 판단을 그대로 이어받음).",
+      "verificationLevel": "researched-only"
     }
   ],
   "gate": {
