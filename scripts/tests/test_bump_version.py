@@ -64,16 +64,6 @@ def _fake_repo(tmp_path: Path, *, changelog_version: str = "1.0.0") -> Path:
     (root / "packaging" / "targets.json").write_text(
         json.dumps(POLICY, indent=2), encoding="utf-8"
     )
-    (root / "packaging" / "version-audit.json").write_text(
-        json.dumps(
-            {
-                "pattern": r"\bv?(1\.\d+\.\d+)\b",
-                "excludeDirs": [".git"],
-                "excludePathPrefixes": ["CHANGELOG.md"],
-            }
-        ),
-        encoding="utf-8",
-    )
     (root / "CHANGELOG.md").write_text(
         f"# Changelog\n\n## [{changelog_version}] — 2026-01-01\n\ninit\n",
         encoding="utf-8",
@@ -129,10 +119,6 @@ def _scratch_bump_with_stub_build_targets(tmp_path: Path, *, check_fails: bool) 
     scripts_dir = tmp_path / "scratch-scripts"
     scripts_dir.mkdir(parents=True)
     shutil.copy2(BUMP_SH, scripts_dir / "bump-version.sh")
-    shutil.copy2(
-        SCRIPTS_DIR / "audit-version-strings.py",
-        scripts_dir / "audit-version-strings.py",
-    )
     check_exit = "1" if check_fails else "0"
     stub = f"""#!/usr/bin/env python3
 import sys
@@ -207,25 +193,3 @@ def test_rejects_malformed_version_and_touches_nothing(tmp_path):
         assert "버전 형식 오류" in result.stderr
 
     assert ssot_path.read_text() == before  # 아무것도 갱신되지 않았다
-
-
-# ── 추가: 낡은 버전 문자열 감사가 실제로 하나를 찾아낸다 ─────────────────────────
-
-
-def test_audit_finds_planted_stale_version_string(tmp_path):
-    root = _fake_repo(tmp_path)
-    stale_doc = root / "README.md"
-    stale_doc.write_text("이 프로젝트는 v1.0.0 기준으로 작성됨\n", encoding="utf-8")
-
-    result = _run_bump(root, "1.1.0")
-    assert result.returncode == 0  # 감사는 bump을 실패시키지 않는다(보고 전용)
-    assert "낡은 버전 문자열 후보" in result.stdout
-    assert "README.md" in result.stdout
-    assert "1.0.0" in result.stdout
-
-
-def test_audit_clean_when_no_stale_strings(tmp_path):
-    root = _fake_repo(tmp_path)
-    result = _run_bump(root, "1.1.0")
-    assert result.returncode == 0
-    assert "낡은 버전 문자열 없음" in result.stdout

@@ -18,6 +18,15 @@
 # 적용될 지점이 없다. 실제 봉쇄가 필요한 지점(타겟 매니페스트 경로)은
 # `build-targets.py`가 이미 그 관례로 처리한다 — 여기서 다시 구현하지 않는다.
 #
+# 낡은 버전 문자열 감사는 **만들었다가 뺐다**(2026-08-27, decision-log 참고).
+# superpowers(`.version-bump.json`)가 감사를 두는 이유는 그쪽이 매니페스트 6개를
+# **손으로** 편집하기 때문이다. 이 레포는 생성물이라 그 실패 모드 자체가 없다 —
+# claim이 실릴 수 있는 자리(타겟 매니페스트 §14, SSOT↔CHANGELOG §6, README)가 전부
+# 이미 다른 게이트로 막혀 있다. 실제로 만들어 실물 레포에 돌려본 결과 93건 중
+# 압도적 다수가 "버전을 주장"이 아니라 "과거 사고를 버전으로 회고"하는 코드 주석
+# (mention)이었다 — 그 둘은 문자열 매칭으로 못 가른다. **읽히지 않는 리포트는 없는
+# 도구보다 나쁘다** — 있다고 착각하게 만든다. 다시 만들기 전에 이 판단을 재확인해라.
+#
 # 사용:
 #   scripts/bump-version.sh <new-version> [--repo-root <path>]
 #
@@ -122,13 +131,5 @@ if [ "$CL_VER" != "$NEW_VERSION" ]; then
   printf '  \033[33m! CHANGELOG.md 최상단이 아직 %s 가 아니다(현재: %s) — verify-done.sh §6이 최종 판정한다.\033[0m\n' \
     "$NEW_VERSION" "${CL_VER:-없음}"
 fi
-
-# ── 5) 낡은 버전 문자열 감사 — 보고만 한다. 실패시켜 bump를 중단하지 않는다.
-#       (audit-version-strings.py 모듈 docstring 참고 — 이 레포는 코드 주석에도
-#       과거 사고를 버전으로 회고하는 관례가 있어 문자열 매칭만으로는 "낡은 주장"과
-#       "정당한 회고"를 구분할 수 없다. 그래서 사람에게 후보를 보여주는 것까지가
-#       이 도구의 역할이고, 릴리스를 막는 결정은 사람이 한다.)
-python3 "$HERE/audit-version-strings.py" --repo-root "$ROOT" \
-  --policy "$ROOT/packaging/version-audit.json" --current "$NEW_VERSION" || true
 
 echo "[bump-version] ✓ 완료: $OLD_VERSION → $NEW_VERSION"

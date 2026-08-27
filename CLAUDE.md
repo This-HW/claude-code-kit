@@ -398,8 +398,11 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
   마라). SSOT 갱신 → 타겟 매니페스트 재생성(`build-targets.py --write`) → 자기 검증
   (`--check`)을 한 명령으로 묶어, v2.15.0에서 실제로 밟은 함정(`.claude-plugin/plugin.json`만
   올리고 재생성을 잊어 Codex·Antigravity에 **옛 버전이 실린 채** 나갈 뻔한 것 — `verify-done.sh`
-  §14가 잡았다)을 사람이 두 단계를 기억할 필요 없이 예방한다(W-022 R8). 낡은 버전 문자열
-  감사도 같이 돈다(`scripts/audit-version-strings.py`, 보고 전용 — 릴리스를 막지 않는다).
+  §14가 잡았다)을 사람이 두 단계를 기억할 필요 없이 예방한다(W-022 R8). (낡은 버전 문자열
+  감사 도구도 만들어 봤지만 뺐다 — 이 레포는 버전이 실리는 자리가 전부 생성물이거나 기존
+  게이트(§6·§14)로 이미 막혀 있어, superpowers류 손편집 감사가 지킬 게 없었다. 실측 결과
+  93건 중 대다수가 "버전 주장"이 아니라 "과거 사고를 버전으로 회고하는 코드 주석"이었고
+  — 그 둘은 문자열 매칭으로 못 가른다. 읽히지 않는 리포트는 없는 도구보다 나쁘다.)
 - Rules `.md` 변경 시 CHECKSUMS 재생성: `(cd plugins/common/rules && shasum -a 256 *.md | grep -v CHECKSUMS > CHECKSUMS.sha256)` — 이 매니페스트는 보안 경계가 아니라 우발적 드리프트 감지기다 (verify-done §7이 집합 동등성까지 강제)
 - 그 룰에 **해설본 미러**가 있으면(아래 참조) 해설본도 함께 손보고 `scripts/sync-rule-mirror.sh --regenerate`
 - Tag **the commit you push as the release**: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`,

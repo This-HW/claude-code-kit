@@ -6,6 +6,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added — R8: `scripts/bump-version.sh` (W-022, Track B)
+
+버전을 SSOT(`plugins/common/.claude-plugin/plugin.json`)에서 올리면 곧바로 타겟 매니페스트를
+재생성(`build-targets.py --write`)하고 자기 결과를 검증(`--check`)한다 — v2.15.0에서 실제로
+밟은 "SSOT만 올리고 재생성을 잊는" 함정을 사람이 두 단계를 기억할 필요 없이 예방한다.
+
+낡은 버전 문자열 감사 도구(`audit-version-strings.py`)도 **만들어서 실물 레포에 돌려봤지만
+뺐다.** 이 레포는 버전이 실리는 자리(타겟 매니페스트·CHANGELOG↔SSOT·README)가 전부 생성물이거나
+기존 게이트로 이미 막혀 있어, superpowers류 손편집 감사가 지킬 대상 자체가 없었다 — 그 도구가
+잡아낸 93건 중 압도적 다수는 "버전 주장"이 아니라 "과거 사고를 버전으로 회고하는 코드 주석"이었고,
+문자열 매칭으로는 그 둘을 가를 수 없었다. "만들지 않았다"가 아니라 **"만들어 실측하고 필요 없다고
+판단해 뺐다"**가 정확한 기록이다.
+
+---
+
 ## [2.15.0] — 2026-08-27
 
 두 갈래를 한 릴리스로 묶는다. 공통점은 **"주장을 기계로 강제한다"** 는 것이다 —
