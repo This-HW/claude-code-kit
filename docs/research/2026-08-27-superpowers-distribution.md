@@ -243,3 +243,40 @@ Track B S4가 조사부터 시작하지 않도록 미리 모은다. **superpower
 → Cursor는 **가장 유망한 다음 타겟**이지만 이번 배치에서 활성화하지 않는다.
    `_enableWhen`: *"cursor CLI로 왕복 검증이 가능해지거나, 사용자가 수용 테스트 트랜스크립트를
    제공하면"* (superpowers의 새 하네스 지원 기준과 같은 바)
+
+
+---
+
+## 부록 4 — R4(Antigravity 훅) 선행 실측 (기획 세션, 2026-08-27)
+
+### 사실
+```
+plugins/common (우리 구조: hooks/hooks.json)   → hooks : skipped (not found)
+같은 내용을 루트 hooks.json 으로 복사한 사본    → hooks : 1 processed
+```
+`[confirmed: agy 1.1.20 실행, 스크래치 사본]`
+
+즉 **Antigravity는 루트 `hooks.json` 을 본다.** 우리는 `hooks/hooks.json` 이라 경로가 다르다.
+그리고 **exec form 내용 그대로도 `1 processed`** 가 나왔다.
+
+### ⚠ 그런데 이 결과로 "동작한다"고 결론 내면 안 된다
+`agy plugin validate` 는 **파일 존재를 세는 도구이지 내용 검증기가 아니다.** 근거가 이제 셋이다:
+
+| 컴포넌트 | validate 결과 | 실제 |
+| --- | --- | --- |
+| skills | `21 processed` | 실제 스킬은 **19**. `README.md`·`references/`(SKILL.md 없음)를 함께 셌다 |
+| agents | `4 processed` | 실제 에이전트는 **33**. 카테고리 디렉토리 4개를 셌고 **인식은 0** |
+| hooks | `1 processed` | 파일 **1개**를 찾았다는 뜻. 이벤트 4종을 이해했다는 근거는 **없다** |
+
+**세 번 모두 같은 패턴이다: validate는 "찾았다"만 말하고 "이해했다"는 말하지 않는다.**
+Antigravity `agents/` 사건에서 우리가 배운 것이 바로 이것이고, 훅은 그 **세 번째 확인**이다.
+
+### 판정 (기획): **Antigravity 훅은 이번 배치에서 싣지 않는다**
+- 경로는 맞출 수 있다(루트 `hooks.json` 생성). 그러나 **형식이 이해되는지 검증할 수단이 없다**
+- 우리에겐 Antigravity 런타임에서 훅이 실제로 발화하는지 확인할 경로가 없다
+- 2.12.1의 "훅 4종이 3.9에서 침묵 사망"이 정확히 이 유형이다 — **로드되는 것처럼 보이지만 안 도는 것**
+- `_enableWhen`: *"Antigravity 세션에서 훅이 실제 발화함을 마커 파일 등으로 확인하면"*
+
+> **부수 소득**: `agy plugin validate` 를 **게이트로 신뢰해서는 안 된다**는 것이 확정됐다.
+> W-019에서 이걸 "green으로 전환됐다"는 성과로 적었는데, 그 green은 **"파일이 있다"** 이상을
+> 의미하지 않는다. README·스펙의 서술을 이 수준에 맞춰야 한다.
