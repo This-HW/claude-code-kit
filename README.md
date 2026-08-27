@@ -246,18 +246,21 @@ Phase 2 (Development)  → Implement based on Phase 1 artifacts
 Phase 3 (Validation)   → Parallel review + security scan
 ```
 
-### Delegation Signal
+### Delegation Signal — removed in v2.16.0
 
-Every agent ends its response with a structured handoff:
+Agents used to end every response with a structured `---DELEGATION_SIGNAL---` block so that
+main Claude could read `TYPE`/`TARGET` and auto-invoke the next agent. **That contract is gone.**
 
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO | TASK_COMPLETE | NEED_USER_INPUT
-TARGET: [agent-name]
-REASON: [reason]
-CONTEXT: [handoff context]
----END_SIGNAL---
-```
+Two findings retired it. First, **nothing parsed it** — a full sweep of `hooks/`, `skills/`,
+`scripts/` and `rules/` found no deterministic consumer; the one place that referenced it was a
+rule telling main Claude to scan for it, which is an instruction to a model, not a parser.
+Second, **orchestration had already moved on**: sequencing comes from the invoking skill
+(see [Orchestration Model](CLAUDE.md)), not from a signal embedded in agent output.
+
+Delegation itself is unchanged — main Claude still dispatches agents and collects their results.
+What disappeared is the machine-readable block, not the delegation.
+
+Full rationale and the exact removal scope: `docs/specs/2026-08-27-delegation-signal-contract-review.md`.
 
 ### Model Selection
 
