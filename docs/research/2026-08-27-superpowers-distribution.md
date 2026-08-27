@@ -280,3 +280,58 @@ Antigravity `agents/` 사건에서 우리가 배운 것이 바로 이것이고, 
 > **부수 소득**: `agy plugin validate` 를 **게이트로 신뢰해서는 안 된다**는 것이 확정됐다.
 > W-019에서 이걸 "green으로 전환됐다"는 성과로 적었는데, 그 green은 **"파일이 있다"** 이상을
 > 의미하지 않는다. README·스펙의 서술을 이 수준에 맞춰야 한다.
+
+---
+
+## 부록 5 — R5(Codex 훅 문자열 형식) 실측 완결 (2026-08-27, trackB)
+
+기획 세션(torpedo-c4)의 1차 시도가 `codex exec` 5분 타임아웃으로 결론을 못 냈다. trackB가
+원인을 특정하고 재실측해 완결했다.
+
+### 결과: 따옴표 문자열 형식은 된다
+
+스크래치 플러그인의 `hooks/hooks.json`에 SessionStart 훅을 아래처럼 설치:
+
+```jsonc
+{ "type": "command",
+  "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mark.sh\"",
+  "async": false }
+```
+
+`mark.sh`는 자신의 `$0`과 `$CLAUDE_PLUGIN_ROOT` 환경변수를 마커 파일에 적는다. `codex exec`로
+SessionStart를 유발한 결과, 마커 파일:
+
+```
+fired argv0=/Users/hw/.codex/plugins/cache/hookprobe-marketplace/hookprobe/0.0.1/hooks/mark.sh
+CLAUDE_PLUGIN_ROOT_env=/Users/hw/.codex/plugins/cache/hookprobe-marketplace/hookprobe/0.0.1
+```
+
+`${CLAUDE_PLUGIN_ROOT}`가 따옴표 문자열 안에서 **실제 설치 경로로 치환**되고, 같은 값이
+**하위 프로세스 환경변수로도 노출**된다 — 두 메커니즘 다 확인 [confirmed: codex-cli 0.147.0
+실측, 2026-08-27]. superpowers의 인용 패턴(`"\"${CLAUDE_PLUGIN_ROOT}/...\""`)이 Codex에서도
+그대로 성립한다.
+
+### 재현 절차 (다음 사람을 위해 — torpedo-c4의 1차 시도 실패 원인 포함)
+
+1. `codex exec`에 **`--dangerously-bypass-hook-trust`를 반드시 포함**한다. 이게 빠지면 훅 신뢰
+   확인이 비대화형 `exec`에서 응답을 못 받아 무한 대기한다 — **torpedo-c4의 1차 시도가 5분
+   타임아웃으로 막힌 원인으로 추정된다**(확정은 아니다 — 그쪽 실행 로그가 없어 대조 불가).
+2. macOS에는 `timeout` 명령이 없다. `codex exec ... &`로 백그라운드 실행 후 마커 파일을
+   폴링하고, 일정 시간(예: 45초) 지나면 무조건 kill한다.
+3. 정리(`codex plugin remove` / `codex plugin marketplace remove`)를 **성공 경로에만 두지
+   마라**. `trap cleanup EXIT`로 모든 종료 경로(성공·실패·강제 kill)에서 실행되게 하라 —
+   torpedo-c4의 1차 시도는 이게 없어 `~/.codex`에 플러그인이 남았다(수동으로 치웠다).
+4. `codex plugin remove`는 `~/.codex/plugins/cache/<marketplace-name>/`에 빈 디렉토리를
+   남길 수 있다(CLI 자체의 불완전 정리) — 정리 스크립트에 `rmdir`(빈 경우만) 단계를 넣어라.
+5. 정리 후 `~/.codex/config.toml`을 사전 스냅샷과 diff해 완전 원복을 확인하라.
+
+### 그러나 형식 변환 ≠ 기능 이식
+
+`packaging/targets.json`의 codex 타겟 `omit.hooks`에 훅별(5개) 근거를 전문 기록했다 — kit의
+실제 훅은 전부 Claude Code의 이벤트 모델(툴 이름 매처, `PreToolUse`/`PostToolUse`의
+`tool_name`/`tool_input` stdin JSON, `SessionStart`의 `hookSpecificOutput.additionalContext`
+출력 계약, `Stop`의 `decision:block`+재개 프로토콜)에 의존한다. 형식만 바꿔 Codex가
+실행하게 만들어도 이 계약을 Codex가 이해한다는 근거가 없다 — 특히 `protect-sensitive.py`·
+`auto-format.py`는 매처가 전부 실패해 **조용히 no-op**(차단이 꺼진 채 켜져 있다는 착각)되는
+쪽이라 위험하다. → **이 배치에서는 hooks 필드를 넣지 않는다.** 자세한 훅별 근거는
+`packaging/targets.json`이 SSOT.
