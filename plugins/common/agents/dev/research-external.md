@@ -3,8 +3,7 @@ name: research-external
 description: |
   외부 정보 조사 전문가.
   MUST USE when: "외부 API", "라이브러리 조사", "문서 찾아줘" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: research-external" 반환 시.
-  OUTPUT: 조사 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 조사 결과
 model: sonnet
 effort: low
 maxTurns: 10

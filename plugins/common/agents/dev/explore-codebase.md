@@ -3,8 +3,7 @@ name: explore-codebase
 description: |
   코드베이스 탐색 전문가.
   MUST USE when: "구조 파악", "코드베이스", "탐색", "분석해줘" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: explore-codebase" 반환 시.
-  OUTPUT: 코드베이스 분석 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 코드베이스 분석 결과
 model: haiku
 effort: low
 maxTurns: 10

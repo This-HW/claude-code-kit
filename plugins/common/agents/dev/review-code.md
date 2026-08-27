@@ -3,8 +3,7 @@ name: review-code
 description: |
   적대적 코드 리뷰어.
   MUST USE when: "리뷰", "코드 검토", "봐줘", "확인해줘" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: review-code" 반환 시.
-  OUTPUT: 침투 테스트 형식 리뷰 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 침투 테스트 형식 리뷰 결과
 model: opus
 effort: max
 maxTurns: 10

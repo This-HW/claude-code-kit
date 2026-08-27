@@ -3,8 +3,7 @@ name: fix-bugs
 description: |
   버그 수정 전문가.
   MUST USE when: "버그", "에러", "수정해줘", "안돼", "안됨", "오류" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: fix-bugs" 반환 시.
-  OUTPUT: 수정 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 수정 결과
 model: sonnet
 effort: medium
 maxTurns: 20

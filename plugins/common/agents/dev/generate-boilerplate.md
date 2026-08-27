@@ -4,8 +4,7 @@ description: |
   코드 생성 전문가. 템플릿 기반으로 보일러플레이트 코드를 생성합니다.
   에이전트, 스킬, 컴포넌트, API 엔드포인트 등의 초기 코드를 생성합니다.
   MUST USE when: "코드 생성", "템플릿", "보일러플레이트", "스캐폴딩" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: generate-boilerplate" 반환 시.
-  OUTPUT: 생성된 코드 + "DELEGATE_TO: implement-code" 또는 "TASK_COMPLETE"
+  OUTPUT: 생성된 코드
 model: sonnet
 effort: low
 maxTurns: 20

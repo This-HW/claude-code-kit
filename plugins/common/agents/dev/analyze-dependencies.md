@@ -3,8 +3,7 @@ name: analyze-dependencies
 description: |
   의존성 및 영향도 분석 전문가.
   MUST USE when: "의존성", "패키지", "라이브러리", "영향 범위" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: analyze-dependencies" 반환 시.
-  OUTPUT: 의존성 분석 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 의존성 분석 결과
 model: haiku
 effort: low
 maxTurns: 10

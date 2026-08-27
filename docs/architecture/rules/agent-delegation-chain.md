@@ -1,10 +1,17 @@
-# 에이전트 자동 위임 체인
+# 에이전트 위임과 서브에이전트 출력 처리
 
-> 이 문서는 메인 Claude가 에이전트 결과를 받아 다음 에이전트로 자동 위임하는 체인 메커니즘을 설명합니다.
+> 이 문서는 메인 Claude가 위임을 사전 승인받는 방식과, 서브에이전트 결과를 받은 뒤
+> 무엇을 하는지를 설명합니다. **정본은 `plugins/common/rules/agent-delegation-chain.md`**
+> (세션에 주입되는 룰)이다 — 이 문서는 그 정의를 **설명**하는 것이지 재정의가 아니다.
 
-> **DELEGATION_SIGNAL 형식의 정본은 `plugins/common/rules/agent-delegation-chain.md`**
-> (세션에 주입되는 룰)이다. 아래 §4의 TYPE별 예시는 그 정의를 **설명**하는 것이지
-> 재정의가 아니다 — 형식이 바뀌면 정본을 먼저 고친다.
+> **폐기 기록 (2026-08-27, W-022 R1)**: 이 문서는 원래 `---DELEGATION_SIGNAL---` 블록을
+> 스캔해 `TYPE`/`TARGET` 필드로 다음 에이전트를 자동 호출하는 **순차 체인 모델**을
+> 설명했다(과거 §2~§7 — 플로우 다이어그램, TYPE별 처리, 위임 중단 조건, 워크드 예시).
+> 판별 결과 이 신호를 실제로 파싱하는 결정론적 코드는 어디에도 없었고, 8종 관측 중
+> 6종(75%)이 신호를 내지 않는데도 파이프라인은 정상 동작했다 — 이미 스킬 주도 플랫
+> 위임으로 넘어가 있었다는 뜻이다. 신호 기계 계약(형식·TYPE→Action 매핑·자동 호출
+> 절차)을 정본에서 폐기했고, 이 해설본도 그에 맞춰 정리했다. 상세 근거:
+> `docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021).
 
 > **leaf 에이전트는 중첩하지 않는다.** 네이티브 중첩 서브에이전트가 가능해도, 이 레포
 > 스케일에서 leaf 중첩은 성능 이득 없이 예측불가능성·디버깅 부채만 더한다. 대규모 병렬은
@@ -71,222 +78,55 @@ ALWAYS have main Claude manage the delegation chain directly.
 
 ---
 
-## 2. 위임 체인 플로우 다이어그램
+## 2. 서브에이전트 출력을 받았을 때
+
+정본의 `On Receiving Subagent Output` 절에 대한 해설이다.
+
+**핵심 관점 전환.** 서브에이전트 출력은 **읽고 판단할 결과물**이다. 과거 모델(위 폐기
+기록 참고)은 출력 안의 신호 필드가 다음 단계를 결정했다 — 지금은 그 반대다: **다음
+단계의 순서는 호출한 스킬(예: `auto-dev`)이 정한다.** 출력은 그 스킬이 다음 판단을
+내리기 위해 읽는 입력일 뿐, 자기 자신 안에 다음 행동 지시를 담고 있지 않다.
+
+**절차 (정본 그대로):**
+
+1. 출력을 읽고 완료 여부·품질을 판단한다.
+2. P0 모호성이 있으면 사용자에게 먼저 묻는다 (`AskUserQuestion`). 이 항목은 옛 모델에서도
+   동일했다 — 신호 유무와 무관하게 항상 참이다.
+3. 다음 에이전트 호출 여부·대상은 호출한 스킬의 절차를 따른다. `auto-dev`라면 그 스킬의
+   Step 순서(Development → Validation 등)가 SSOT다. 서브에이전트 출력 안의 특정 문자열을
+   파싱해 분기하지 않는다.
+4. 체인(또는 병렬 dispatch)이 끝나면 사용자에게 요약을 보고한다.
+
+**P0 모호함이란? (여전히 유효한 예시)**
 
 ```
-사용자 요청
-    │
-    ▼
-┌─────────────────────────────────────────────────────────┐
-│  메인 Claude                                            │
-│  1. 요청 분석 → 첫 번째 에이전트 선택                  │
-│  2. 에이전트 호출 (Task tool)                           │
-│  3. 결과 수신 → DELEGATION_SIGNAL 파싱                  │
-│  4. TYPE에 따라 행동 결정                               │
-└─────────────────────────────────────────────────────────┘
-    │
-    ├─ NEED_USER_INPUT ──────────────► 사용자에게 질문
-    │                                       │
-    │                                       ▼ 답변 수신
-    │                                  다음 에이전트로 재개
-    │
-    ├─ DELEGATE_TO ──────────────────► 다음 에이전트 호출
-    │                                       │
-    │                                       ▼ 결과 수신
-    │                                  DELEGATION_SIGNAL 파싱
-    │                                  (체인 반복)
-    │
-    └─ TASK_COMPLETE ────────────────► 사용자에게 최종 보고
-```
-
----
-
-## 3. 메인 Claude 행동 규칙 (단계별)
-
-### Step 1: 서브에이전트 출력 수신
-
-서브에이전트가 완료되면 메인 Claude는 출력에서 `---DELEGATION_SIGNAL---` 블록을 찾습니다.
-
-```python
-# 내부 처리 로직 (개념적)
-output = agent_result.text
-signal = parse_delegation_signal(output)
-
-# TYPE 확인
-if signal.type == "NEED_USER_INPUT":
-    ask_user(signal.questions)
-elif signal.type == "DELEGATE_TO":
-    call_agent(signal.target, signal.context)
-elif signal.type == "TASK_COMPLETE":
-    report_to_user(output)
-```
-
-### Step 2: P0 모호함 확인
-
-`DELEGATE_TO` 신호를 받았어도 P0 모호함이 존재하면 사용자에게 먼저 질문합니다.
-
-```
-P0 모호함이란?
 - 데이터 무결성에 영향: "삭제 시 관련 데이터도 삭제하나요?"
 - 보안 정책: "관리자만 접근 가능한가요, 모든 인증 사용자가 접근 가능한가요?"
 - 금융/비용 계산: "할인이 중복 적용되나요?"
 - 핵심 비즈니스 분기: "재고 없을 때 주문을 받나요, 막나요?"
 ```
 
-### Step 3: 다음 에이전트 호출 시 포함해야 할 정보
-
-메인 Claude가 다음 에이전트를 호출할 때 반드시 포함해야 할 정보:
-
-```
-1. 원본 사용자 요청 (original user request)
-2. 이전 에이전트 결과 요약 (previous agent result summary)
-3. 해결된 P0 항목 (resolved P0 items)
-4. 구체적인 다음 작업 내용 (specific task being requested)
-```
-
-**예시:**
-
-```
-사용자 요청: 사용자 인증 시스템 구현
-이전 에이전트: plan-implementation 완료
-계획 요약:
-  - JWT 기반 인증 (access: 15min, refresh: 7days)
-  - User 테이블: id, email, passwordHash, createdAt
-  - API: POST /auth/login, POST /auth/refresh, POST /auth/logout
-해결된 P0:
-  - 세션 방식: stateless JWT (서버 상태 없음)
-  - 비밀번호 정책: 8자+ 영문+숫자 필수
-다음 작업: 위 계획을 기반으로 TypeScript + Express로 구현
-```
+**병렬 dispatch에서는 무엇이 다른가.** 스킬 주도 플랫 위임(`CLAUDE.md` → Orchestration
+Model, Spec 2/W-006)에서는 메인이 여러 에이전트를 동시에 dispatch하고 결과를 모아
+판단한다 — 순차 체인처럼 "이전 출력의 신호가 다음 호출을 트리거"하는 구조가 아니다.
+이 절이 순차 호출을 전제하지 않는 것은 그래서다.
 
 ---
 
-## 4. DELEGATION_SIGNAL TYPE별 처리 상세
-
-### NEED_USER_INPUT
-
-```
----DELEGATION_SIGNAL---
-TYPE: NEED_USER_INPUT
-TARGET: (없음)
-REASON: P0 모호함 발견 — 데이터 삭제 정책 미정의
-CONTEXT:
-  QUESTIONS:
-    1. 사용자 계정 삭제 시 작성한 게시글을 함께 삭제하나요, 유지하나요?
-    2. 소프트 삭제(비활성화)를 사용하나요, 하드 삭제를 사용하나요?
----END_SIGNAL---
-```
-
-**처리:** AskUserQuestion으로 QUESTIONS 항목을 사용자에게 전달. 답변 수신 후 체인 재개.
-
----
-
-### DELEGATE_TO
-
-```
----DELEGATION_SIGNAL---
-TYPE: DELEGATE_TO
-TARGET: implement-code
-REASON: Planning 완료, 구현 준비됨
-CONTEXT:
-  요구사항 요약: 사용자 인증 API
-  기술 스택: TypeScript, Express, Prisma
-  데이터 모델: User(id, email, passwordHash, createdAt)
-  API 명세: POST /auth/login → JWT 반환
-  P1 미결: 로그인 시도 횟수 제한 (기본값 5회로 가정)
----END_SIGNAL---
-```
-
-**처리:** `implement-code` 에이전트를 CONTEXT 포함해 즉시 호출.
-
----
-
-### TASK_COMPLETE
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-TARGET: (없음)
-REASON: 코드 리뷰 완료, Must Fix 0개, 구현 완료
-CONTEXT:
-  완료 항목:
-    - 사용자 인증 API 구현
-    - 단위 테스트 85% 커버리지
-    - 보안 스캔 통과
----END_SIGNAL---
-```
-
-**처리:** 사용자에게 최종 완료 보고. 체인 종료.
-
----
-
-## 5. 위임 중단 조건
-
-아래 상황에서 자동 위임을 즉시 중단합니다.
-
-| 조건                                | 이유                                       | 메인 Claude 행동                 |
-| ----------------------------------- | ------------------------------------------ | -------------------------------- |
-| P0 미해결                           | 핵심 비즈니스 규칙 불명확 상태로 진행 불가 | 사용자에게 P0 질문               |
-| 루프 감지 (동일 에이전트 2회+ 호출) | 무한 루프 위험                             | 사용자에게 상황 보고 후 중단     |
-| 명시적 완료 신호                    | 체인 종료 시점                             | 최종 보고                        |
-| 에러 발생                           | 에이전트 실행 실패                         | 에러 내용과 함께 사용자에게 보고 |
-
-**루프 감지 예시:**
-
-```
-1차: plan-implementation 호출 → DELEGATE_TO: plan-implementation (루프!)
-→ 메인 Claude: "plan-implementation이 자기 자신을 다시 호출하려 합니다.
-   현재 상황을 확인해 주세요: [이전 결과 요약]"
-```
-
----
-
-## 6. 실전 예시: Planning → Dev 위임 흐름
-
-### 사용자 요청
-
-```
-사용자: "게시판 CRUD API를 만들어줘"
-```
-
-### 흐름
-
-```
-Step 1: 메인 Claude → clarify-requirements 호출
-  └─ 결과: P0 발견 (삭제 정책 불명확)
-     DELEGATION_SIGNAL: NEED_USER_INPUT
-     QUESTIONS: ["게시글 삭제 시 소프트 삭제인가요, 하드 삭제인가요?"]
-
-Step 2: 메인 Claude → 사용자에게 질문
-  └─ 사용자 답변: "소프트 삭제 (deletedAt 컬럼 사용)"
-
-Step 3: 메인 Claude → plan-implementation 호출 (P0 해결 후)
-  └─ 결과: 구현 계획 완성
-     DELEGATION_SIGNAL: DELEGATE_TO
-     TARGET: implement-code
-
-Step 4: 메인 Claude → implement-code 호출 (이전 계획 포함)
-  └─ 결과: 구현 완료
-     DELEGATION_SIGNAL: TASK_COMPLETE
-
-Step 5: 메인 Claude → 사용자에게 최종 보고
-  "게시판 CRUD API 구현이 완료되었습니다.
-   소프트 삭제(deletedAt) 방식으로 구현되었습니다."
-```
-
----
-
-## 7. 체인 관련 Anti-Patterns
+## 3. 체인 관련 Anti-Patterns
 
 ```
 # 잘못된 예 1: 서브에이전트가 서브에이전트 호출
 implement-code 내부에서:
   Task("fix-bugs", ...)  ← 금지! disallowedTools: [Task]
 
-# 잘못된 예 2: P0 모호함 무시하고 DELEGATE_TO
+# 잘못된 예 2: P0 모호함 무시하고 다음 단계로 진행
 P0: "결제 오류 시 환불 정책 미정의"
-→ DELEGATE_TO: implement-code  ← 위험! P0 해결 없이 구현 시작
+→ (P0 해결 없이) implement-code 호출  ← 위험! P0 해결 없이 구현 시작
 
-# 올바른 예: P0 항상 우선
-P0 발견 → NEED_USER_INPUT → 답변 수신 → DELEGATE_TO
+# 잘못된 예 3 (폐기된 패턴): 서브에이전트 출력의 특정 문자열을 파싱해 분기
+if "DELEGATE_TO" in output: call_agent(...)  ← 폐기 — 스킬이 다음 단계를 정한다
+
+# 올바른 예: P0 항상 우선, 다음 단계는 스킬이 정한다
+P0 발견 → 사용자에게 질문 → 답변 수신 → 호출한 스킬의 다음 단계 진행
 ```

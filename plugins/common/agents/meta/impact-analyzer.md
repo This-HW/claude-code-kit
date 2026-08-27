@@ -3,7 +3,7 @@ name: impact-analyzer
 description: |
   Multi-perspective review 영향도 분석자. 합의된 변경사항의 시스템 전체 영향을 분석합니다.
   MUST USE when: 합의 완료 후 영향도 분석, 최종 의사결정 전.
-  OUTPUT: 영향받는 시스템 + 개발 시간 + 리스크 + 비용 + "TASK_COMPLETE"
+  OUTPUT: 영향받는 시스템 + 개발 시간 + 리스크 + 비용
 model: opus
 effort: high
 maxTurns: 10

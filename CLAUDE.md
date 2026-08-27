@@ -122,9 +122,9 @@ Apply to agents that **modify files** — prevents filesystem conflicts:
 Merge-back protocol (exit conditions, sequential merge, conflict escalation) is
 governed by `plugins/common/rules/parallel-worktree.md`.
 
-### Delegation Signal
+### Delegation Signal — 폐기됨 (2026-08-27, W-022 R1)
 
-All agents end with a structured delegation signal:
+과거 모든 에이전트는 출력 끝에 아래 블록으로 끝나야 했다:
 
 ```
 ---DELEGATION_SIGNAL---
@@ -135,16 +135,42 @@ CONTEXT: [handoff context]
 ---END_SIGNAL---
 ```
 
-> **⚠ 이 계약은 런타임에 잘 지켜지지 않는다 (2026-08-27 실측).** 커버리지를 13종으로 넓히자
-> **관측 8종 중 6종(75%)** 이 이 마커를 간헐적으로 생략한다는 것이 드러났다
-> (`implement-code` 6/6 · `plan-implementation` 2/2 는 안정, 나머지는 1/2~2/3).
-> `implement-api` 는 모델·effort가 낮지 않은데도 실패해 "좋은 모델이면 안정"이라는 가설을 반증했다.
->
-> `verify-done.sh` §12는 이 계약이 **정의 파일에 적혀 있는지**를 33/33 검사해 왔지만,
-> **런타임에 실제 방출되는지는 아무도 잰 적이 없었다.** 오케스트레이션이 이미 스킬 주도 플랫
-> 위임으로 바뀐 만큼 이 신호가 사문화됐을 가능성도 있다 — 계약을 고칠 것인지 폐기할 것인지는
-> `docs/specs/2026-08-27-delegation-signal-contract-review.md` (W-021)에서 판별한다.
-> **그때까지 이 절을 "동작하는 계약"으로 읽지 말 것.**
+**왜 있었나.** 구 순차 체인 오케스트레이션 모델에서, 서브에이전트가 이 신호로 메인
+Claude에게 다음 에이전트를 지목했다.
+
+**왜 없앴나.** 커버리지를 13종으로 넓히자(W-018) **관측 8종 중 6종(75%)**이 이 마커를
+간헐적으로 생략한다는 게 드러났다(`implement-code` 6/6·`plan-implementation` 2/2만
+안정, `implement-api`는 모델·effort가 낮지 않은데도 실패해 "좋은 모델이면 안정"
+가설을 반증했다). W-021이 판별한 결과: **hooks/skills/scripts 어디에도 이 블록을
+파싱하는 결정론적 코드가 없었다.** 오케스트레이션은 이미 §Orchestration Model의
+스킬 주도 플랫 위임으로 넘어가 있었고, 신호는 아무도 읽지 않는 사문화된 2차 경로였다
+— 그런데도 파이프라인은 정상 동작했다. 비결정적 보조 경로는 없는 것보다 나쁘다는
+판단(이번 배치에서 evals `delegation_signal` 어서션을 분리한 것과 같은 논리)에 따라
+결론 B(사문화)로 확정하고 폐기를 실행했다. 상세 근거:
+`docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021).
+
+**어디까지 걷어냈나** (다음 사람이 잔재를 찾을 때 기준):
+
+- 에이전트 정의 33종 — 본문 `---DELEGATION_SIGNAL---` 블록 전부 제거
+- 위 33종 중 32종의 frontmatter `OUTPUT:`/`MUST USE when:` — 신호 토큰만 제거,
+  실제 산출물 서술과 무관한 트리거 문구는 보존. 산문 중 `DELEGATE_TO: git-workflow`
+  같은 **에스컬레이션 의도 서술**은 기계 계약이 아니므로 그대로 유지
+- `verify-done.sh` §12(에이전트 출력 계약 위치 검사) + CI 동등 스텝 — 제거(20/20 →
+  섹션 번호는 재사용하지 않음, 아래 verify-done.sh 섹션 규약 참고)
+- 스킬 4종(`agent-creator`·`eval-forge`·`harness-export`·`skill-forge`)의 예시
+  블록 — 제거. `agent-creator`는 특히 중요했다: 새 에이전트 템플릿에 블록이 박혀
+  있어 폐기를 무효화할 수 있었다
+- 주입 규칙 2종(`plugins/common/rules/agent-system.md`,
+  `agent-delegation-chain.md`) — **외과적** 삭제. 신호 기계 계약(형식 정의·
+  TYPE→Action 매핑·자동 호출 절차)만 제거하고, 무관한 정책(Standing User
+  Authorization, "서브에이전트는 서브에이전트를 호출하지 않는다")은 보존.
+  `On Receiving Subagent Output` 절은 삭제가 아니라 스킬 주도 모델에 맞게 재작성.
+  해설본(`docs/architecture/rules/`)도 같은 원칙으로 갱신, CHECKSUMS/MIRROR 재생성
+- eval `delegation_signal` 체크 타입 — **삭제하지 않음.** `implement-code`·
+  `plan-implementation` 등 안정 통과 시나리오가 있어 체크 자체는 유효했다
+  (`evals/run.py`). 계약이 폐기됐으므로 그 시나리오들의 어서션은 개별 판단 대상
+- 유지: 본문 산문의 `DELEGATE_TO: X` 같은 에스컬레이션 서술(기계 계약 아님),
+  역사 기록(CHANGELOG, decision-log, 과거 spec)
 
 ## Development Conventions
 
@@ -161,7 +187,9 @@ from the end of its definition, its reports came back empty twice, and the worki
 fix could not be verified in the same session. Two consequences:
 
 - **Never conclude "the definition change worked" from in-session behavior.** Verify by
-  reading the file, or by a machine check (`verify-done.sh §12` is exactly that).
+  reading the file, or by a machine check (`verify-done.sh` § checks against the working
+  tree; note that `§12`, the check this incident originally motivated, was retired in
+  W-022 R1 — see the Delegation Signal section above).
 - To actually exercise a definition change, bump the version and reinstall
   (`/plugin marketplace update` → `/plugin install`), or point a scratch install at the
   working tree.
@@ -174,8 +202,7 @@ cache), but `scripts/` and `evals/` are repo-local and take effect immediately.
 1. Create `plugins/common/agents/{category}/{name}.md`
 2. Add required frontmatter (see template above)
 3. Write Korean description with `MUST USE when:` trigger conditions
-4. Add delegation chain at the end
-5. No manifest edit needed — agents are auto-discovered from the directory
+4. No manifest edit needed — agents are auto-discovered from the directory
    (plugin.json has no agent/skill registry)
 
 ### Adding a New Skill

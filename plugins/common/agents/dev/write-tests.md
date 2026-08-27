@@ -3,8 +3,7 @@ name: write-tests
 description: |
   테스트 코드 작성 전문가.
   MUST USE when: "테스트", "TDD", "검증 코드", "테스트 작성" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: write-tests" 반환 시.
-  OUTPUT: 테스트 코드 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 테스트 코드
 model: sonnet
 effort: medium
 maxTurns: 20

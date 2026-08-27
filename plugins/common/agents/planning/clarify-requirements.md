@@ -4,8 +4,7 @@ description: |
   요구사항 명확화 전문가.
   MUST USE when: "~해줘", "~추가해줘", "~개선해줘", "~수정해줘" 패턴의 모호한 요청.
   MUST USE when: 구체적 스펙 없이 기능 추가/버그 수정/개선 요청.
-  MUST USE when: 다른 에이전트가 "NEED_CLARIFICATION" 신호를 반환했을 때.
-  OUTPUT: P0 질문 목록 + "NEED_USER_INPUT" 또는 "DELEGATE_TO: [다음 에이전트]"
+  OUTPUT: P0 질문 목록
 model: opus
 effort: max
 maxTurns: 10

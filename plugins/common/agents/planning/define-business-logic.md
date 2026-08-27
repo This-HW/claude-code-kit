@@ -3,9 +3,8 @@ name: define-business-logic
 description: |
   비즈니스 로직 정의 전문가.
   MUST USE when: "정책", "규칙", "계산", "할인", "포인트", "권한", "상태" 키워드 포함 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: define-business-logic" 반환 시.
   MUST USE when: 새 서비스/기능에 비즈니스 규칙 정의가 필요할 때.
-  OUTPUT: CALC/VAL/STATE/POL 규칙 + "DELEGATE_TO: [다음]" 또는 "PLANNING_COMPLETE"
+  OUTPUT: CALC/VAL/STATE/POL 규칙
 model: opus
 effort: max
 maxTurns: 10

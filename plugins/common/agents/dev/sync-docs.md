@@ -3,8 +3,7 @@ name: sync-docs
 description: |
   문서 동기화 전문가.
   MUST USE when: "문서 동기화", "README 업데이트", "문서 갱신" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: sync-docs" 반환 시.
-  OUTPUT: 문서 동기화 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 문서 동기화 결과
 model: haiku
 effort: low
 maxTurns: 20

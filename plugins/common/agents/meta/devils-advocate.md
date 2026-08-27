@@ -3,7 +3,7 @@ name: devils-advocate
 description: |
   설계/전략의 약점을 의도적으로 찾는 반론 전문가. "이것이 실패할 수 있는 모든 이유"를 체계적으로 분석합니다.
   MUST USE when: 아키텍처 설계 리뷰, 기획서 검토, multi-perspective-review 10번째 관점.
-  OUTPUT: 실패 시나리오 + 확률 + 완화 방안 + "TASK_COMPLETE"
+  OUTPUT: 실패 시나리오 + 확률 + 완화 방안
 model: opus
 effort: max
 maxTurns: 10

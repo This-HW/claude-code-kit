@@ -450,35 +450,6 @@ else
   red "scripts/check_eval_coverage.py 없음 (W-018 S1 산출물 누락)"
 fi
 
-hdr "12. 에이전트 출력 계약 위치 (W-017)"
-# CLAUDE.md는 "모든 에이전트는 구조화된 delegation signal로 **끝난다**"고 규정한다.
-# 그런데 3종에서 계약이 문서 중간에 있었고(뒤로 186~496줄), 뒤따르는 참고 자료가
-# 컨텍스트의 끝을 차지해 **리뷰 리포트가 실제로 유실됐다**(2026-08-23 실측 2회).
-# 산문 규정만 두면 또 밀린다 — 위치를 기계로 강제한다 (F-027: 규율에는 감지 장치를).
-if python3 - <<'PYEOF'
-import pathlib, sys
-BAD_TAIL = 50  # 계약 언급 뒤에 이만큼 넘게 남으면 끝이 아니다
-bad = []
-for f in sorted(pathlib.Path("plugins").glob("*/agents/**/*.md")):
-    lines = f.read_text(encoding="utf-8").splitlines()
-    idx = [i for i, l in enumerate(lines) if "DELEGATION_SIGNAL" in l or "출력 계약" in l]
-    if not idx:
-        bad.append(f"{f} (계약 없음)")
-        continue
-    tail = len(lines) - (idx[-1] + 1)
-    if tail > BAD_TAIL:
-        bad.append(f"{f} (뒤에 {tail}줄 남음)")
-if bad:
-    print("  " + "\n  ".join(bad))
-    sys.exit(1)
-print(f"에이전트 33종 모두 출력 계약이 문서 끝({BAD_TAIL}줄 이내)에 있음")
-PYEOF
-then
-  green "에이전트 출력 계약 위치 정상"
-else
-  red "출력 계약이 문서 끝에 없는 에이전트 — 뒤따르는 내용에 밀려 반환값이 유실된다"
-fi
-
 hdr "11. AGENTS.md 하네스 이식 드리프트 (W-017)"
 # rules/ 를 고치고 AGENTS.md를 재생성하지 않으면, Codex·OpenCode 등 다른 하네스에서
 # 도는 에이전트는 **옛 규범**을 읽는다. 같은 레포에서 하네스마다 규율이 갈리는 상태를

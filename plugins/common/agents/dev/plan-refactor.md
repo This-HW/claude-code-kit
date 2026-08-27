@@ -3,8 +3,7 @@ name: plan-refactor
 description: |
   리팩토링 전략 수립 전문가.
   MUST USE when: "리팩토링", "개선해줘", "정리해줘", "구조 변경" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: plan-refactor" 반환 시.
-  OUTPUT: 리팩토링 계획 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 리팩토링 계획
 model: opus
 effort: high
 maxTurns: 10

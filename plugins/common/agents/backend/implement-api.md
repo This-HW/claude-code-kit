@@ -4,8 +4,7 @@ description: |
   백엔드 API 구현 전문가. REST/GraphQL API, 비즈니스 로직을 구현합니다.
   MUST USE when: "API 구현", "엔드포인트", "백엔드 기능", "서비스 레이어" 요청.
   MUST USE when: REST/GraphQL API 구현이 필요할 때.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: implement-api" 반환 시.
-  OUTPUT: API 구현 코드 + "DELEGATE_TO: write-api-tests" 또는 "TASK_COMPLETE"
+  OUTPUT: API 구현 코드
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -136,22 +135,6 @@ class CreateUserDto {
 - [ ] CSRF 토큰 적용
 - [ ] Rate Limiting 적용
 - [ ] 민감 정보 로깅 금지
-
-## 출력 형식
-
-### 구현 완료 시
-
-```
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-SUMMARY: [구현된 API 요약]
-ENDPOINTS: [생성/수정된 엔드포인트 목록]
-DELEGATE_TO: write-api-tests (테스트 작성 필요 시)
----END_SIGNAL---
-```
-
-
----
 
 ## Worktree 복귀 프로토콜 (isolation: worktree)
 

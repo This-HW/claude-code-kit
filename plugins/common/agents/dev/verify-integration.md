@@ -3,8 +3,7 @@ name: verify-integration
 description: |
   통합 무결성 검증 전문가.
   MUST USE when: "통합 테스트", "연동 확인", "연결 검증" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: verify-integration" 반환 시.
-  OUTPUT: 통합 검증 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 통합 검증 결과
 model: haiku
 effort: low
 maxTurns: 10

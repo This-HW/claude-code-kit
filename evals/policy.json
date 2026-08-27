@@ -2,14 +2,14 @@
   "version": "1.2.0",
   "_comment": "eval 대상·임계값의 단일 소스. 산문(스크립트·문서)에 티어 목록이나 숫자를 중복 기재하지 말 것 — F-023(pytest.ini)에서 겪은 드리프트와 같은 실패다.",
   "baseline": {
-    "file": "2026-08-26.json",
+    "file": "2026-08-27.json",
     "_meta": {
       "dir": "evals/baseline/",
       "regenerateWith": "scripts/run-evals.sh --baseline (실제 CLI 플래그명 — regenerateWith에 --write-baseline로 적혀 있던 건 오기, 실행은 --baseline)",
       "policy": "명시적 포인터만 사용한다. '가장 최신 파일 자동 선택' 금지 — 조용히 틀린 기준선을 쓰게 된다.",
-      "archival": "과거 기준선 파일은 삭제하지 않는다. 추이가 회귀 탐지의 근거다. 2026-07-06.json은 evals/baseline/에 그대로 보존됨.",
+      "archival": "과거 기준선 파일은 삭제하지 않는다. 추이가 회귀 탐지의 근거다. 2026-07-06.json·2026-08-26.json은 evals/baseline/에 그대로 보존됨.",
       "approvedBy": null,
-      "source": "[confirmed] S3에서 재생성(같은 UTC 날짜라 파일명 동일, 내용 교체 — 구버전은 evals/baseline/2026-08-26.json.bak) — 21/21 pass (S2까지의 16건 status 전부 유지 + 신규 5건), evals/reports/20260826T201233592966Z.json. S2 시점 버전은 git 커밋 08f3b5c에 별도 보존됨",
+      "source": "[confirmed] W-022 R1(DELEGATION_SIGNAL 계약 폐기)로 5개 시나리오에서 delegation_signal 어서션 제거 + task.md 3건(implement-code)·fixture 1건(generate-boilerplate) 신호 재생산 제거 후 재생성 — 21/21 pass(회귀 0), evals/reports/20260827T052004006705Z.json. UTC 2026-08-27 실행(진짜 날짜 일치, 08-26분과는 별도 파일). 이전 재생성(050945Z)은 .bak으로 보존",
       "regenerationCadence": "시나리오를 추가한 Stage는 그 Stage 안에서 기준선을 재생성하고 포인터를 갱신한다. '기준선에 없는 시나리오'는 곧 '회귀 판정이 불가능한 시나리오'이므로, 미등재 상태로 커밋되면 게이트의 의미가 사라진다 [D2 판정, 2026-08-26]",
       "s2Note": "S1/S2에서 이 baseline.file 갱신은 daggertooth 로컬 evals/policy.json에만 반영했다 — 원본 policy.evals.json(torpedo)은 SSOT 이관 후 _SUPERSEDED 처리됐다(torpedo-c4 판정, S3 인계 메시지). 더 이상 동기화 대상 아님."
     }
@@ -96,6 +96,6 @@
   "_unresolved": {
     "judgeActivation": "judge 활성화 시 필요한 '고정 평가셋 + 임계값' 설계 미정. 별도 배치로 위임",
     "tier2Design": "대화형 에이전트(clarify-requirements 등)의 시나리오화 방법 미정",
-    "delegationSignalCompliance": "[해소 — 운영규칙 확정, 2026-08-27 / S4] 에이전트별 DELEGATION_SIGNAL 계약 준수율 실측(관측 8종, 표본 수는 종별 상이): implement-code 6/6, plan-implementation 2/2 — 안정. write-tests 1/2, sync-docs 2/3, optimize-logic 1/4, verify-code 1/2, implement-api 1/2, explore-codebase 1/2 — 불안정(8종 중 6종, 75%). implement-api는 개별 검증 1회 통과 후 풀스위트 재실행에서 재현돼, 'S2 시점 모델/effort가 높으면 안정적' 가설을 반증했다 — 모델·effort로 준수율을 예측할 수 없다. **운영 규칙(확정)**: 신규 시나리오에 delegation_signal을 기본 포함하지 않는다. 포함하려면 사전 1회 이상 관측이 필수다(explore-codebase는 이 규칙을 S3에서 선제 적용해 애초에 미포함). 존치된 2건(implement-code·plan-implementation)은 안정 통과하므로 유지한다. 체크 타입 자체는 삭제하지 않는다. 근본 수정(에이전트 정의)은 W-018 범위 밖 — 별도 스펙 W-021(torpedo/docs/specs/2026-08-27-delegation-signal-contract-review.md)로 분리됨."
+    "delegationSignalCompliance": "[폐기로 종결 — W-022 R1, 2026-08-27] 에이전트별 DELEGATION_SIGNAL 준수율 실측(관측 8종): implement-code 6/6, plan-implementation 2/2 — 안정. write-tests 1/2, sync-docs 2/3, optimize-logic 1/4, verify-code 1/2, implement-api 1/2, explore-codebase 1/2 — 불안정(8종 중 6종, 75%). **측정 교란 정정(W-022 R1)**: implement-code의 task.md 3건이 신호 보고를 직접 지시했고 나머지는 지시하지 않았다 — 6/6은 무지시 대조군이 아니다(무지시 준수는 plan-implementation 2/2뿐). 그럼에도 최종 판정은 폐기다 — 근거는 통계가 아니라 (1) 결정론적 파싱 코드가 hooks/skills/scripts/rules 어디에도 없음 (2) 오케스트레이션이 이미 스킬 주도 플랫 위임으로 이전. DELEGATION_SIGNAL 계약 자체를 에이전트 정의 33종·rules 2종·CLAUDE.md·스킬 4종에서 전부 제거했고, 5개 시나리오(implement-code x3·plan-implementation·write-api-tests)의 delegation_signal 어서션도 함께 제거했다(재부착 대상 없음 — 계약이 없다). 상세: ledger F-002, docs/specs/2026-08-27-delegation-signal-contract-review.md(W-021)."
   }
 }

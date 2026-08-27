@@ -3,7 +3,7 @@ name: synthesizer
 description: |
   Multi-perspective review 의견 종합자. Round 1/2 결과를 통합하고 충돌/중복을 식별합니다.
   MUST USE when: Round 1 완료 후 의견 종합, Round 2 완료 후 최종 리포트 작성.
-  OUTPUT: 종합 분석 + 충돌 목록 + 우선순위 분류 + "TASK_COMPLETE"
+  OUTPUT: 종합 분석 + 충돌 목록 + 우선순위 분류
 model: opus
 effort: high
 maxTurns: 10

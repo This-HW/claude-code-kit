@@ -3,8 +3,7 @@ name: enforce-structure
 description: |
   프로젝트 구조 강제 전문가.
   MUST USE when: "구조 검사", "규칙 준수", "파일 위치 검증" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: enforce-structure" 반환 시.
-  OUTPUT: 구조 검증 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 구조 검증 결과
 model: haiku
 effort: low
 maxTurns: 10

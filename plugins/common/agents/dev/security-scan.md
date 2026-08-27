@@ -3,8 +3,7 @@ name: security-scan
 description: |
   보안 스캔 전문가.
   MUST USE when: "보안", "취약점", "스캔", "시크릿", "OWASP" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: security-scan" 반환 시.
-  OUTPUT: 보안 스캔 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 보안 스캔 결과
 model: sonnet
 effort: max
 maxTurns: 10

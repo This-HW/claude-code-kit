@@ -122,30 +122,6 @@ jobs:
           if [ "$rc" -eq 5 ]; then echo "❌ No tests collected — 테스트 소실은 실패다"; exit 1; fi
           exit "$rc"
 
-      - name: Agent output-contract position (W-017)
-        # 로컬 verify-done.sh §12와 같은 판정. 계약이 문서 중간에 있으면 뒤따르는
-        # 참고 자료가 컨텍스트의 끝을 차지해 서브에이전트 반환값이 유실된다(실측 2회).
-        run: |
-          python3 - <<'PYEOF'
-          import pathlib, sys
-          BAD_TAIL = 50
-          bad = []
-          for f in sorted(pathlib.Path("plugins").glob("*/agents/**/*.md")):
-              lines = f.read_text(encoding="utf-8").splitlines()
-              idx = [i for i, l in enumerate(lines)
-                     if "DELEGATION_SIGNAL" in l or "출력 계약" in l]
-              if not idx:
-                  bad.append(f"{f} (계약 없음)")
-                  continue
-              tail = len(lines) - (idx[-1] + 1)
-              if tail > BAD_TAIL:
-                  bad.append(f"{f} (뒤에 {tail}줄 남음)")
-          if bad:
-              print("❌ 출력 계약이 문서 끝에 없음:\n  " + "\n  ".join(bad))
-              sys.exit(1)
-          print("✓ 에이전트 출력 계약 위치 정상")
-          PYEOF
-
       - name: AGENTS.md harness-export drift (W-017)
         # 로컬 verify-done.sh §11과 **같은 명령**. rules/ 변경 후 재생성하지 않으면
         # 다른 하네스(Codex·OpenCode)가 옛 규범을 읽는다.

@@ -3,8 +3,7 @@ name: implement-code
 description: |
   코드 구현 전문가.
   MUST USE when: "구현해줘", "코드 작성해줘", "기능 만들어줘" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: implement-code" 반환 시.
-  OUTPUT: 구현 결과 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 구현 결과
 model: sonnet
 effort: medium
 maxTurns: 20

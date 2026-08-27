@@ -63,13 +63,6 @@ disallowedTools:
 ---
 
 [시스템 프롬프트]
-
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE | DELEGATE_TO | NEED_USER_INPUT
-TARGET: [대상 에이전트]
-REASON: [이유]
-CONTEXT: [전달 컨텍스트]
----END_SIGNAL---
 ```
 
 ## 플러그인 구조 등록
@@ -116,11 +109,4 @@ When invoked:
 1. Identify changed files
 2. Run relevant tests
 3. Report results with fix suggestions if failed
-
----DELEGATION_SIGNAL---
-TYPE: TASK_COMPLETE
-TARGET: N/A
-REASON: Test execution complete
-CONTEXT: [test results summary]
----END_SIGNAL---
 ```

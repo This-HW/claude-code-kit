@@ -3,9 +3,8 @@ name: design-user-journey
 description: |
   사용자 여정 설계 전문가.
   MUST USE when: "UX", "흐름", "화면", "사용자 경험", "온보딩", "결제 과정" 키워드 포함 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: design-user-journey" 반환 시.
   MUST USE when: 새 기능에 사용자 인터랙션 흐름 설계가 필요할 때.
-  OUTPUT: 여정 플로우 + 상태 전이 + "DELEGATE_TO: [다음]" 또는 "PLANNING_COMPLETE"
+  OUTPUT: 여정 플로우 + 상태 전이
 model: opus
 effort: high
 maxTurns: 10

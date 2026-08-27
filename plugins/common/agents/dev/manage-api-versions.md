@@ -4,8 +4,7 @@ description: |
   API 버전 관리 전문가. API 버전 목록을 관리하고 호환성을 검사합니다.
   버전 히스토리, breaking changes, deprecation 관리를 담당합니다.
   MUST USE when: "API 버전", "호환성 체크", "deprecation" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: manage-api-versions" 반환 시.
-  OUTPUT: API 버전 리포트 + "TASK_COMPLETE"
+  OUTPUT: API 버전 리포트
 model: haiku
 effort: low
 maxTurns: 10

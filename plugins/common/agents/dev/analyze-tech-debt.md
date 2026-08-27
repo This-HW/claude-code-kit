@@ -4,8 +4,7 @@ description: |
   기술 부채 분석 전문가. 코드베이스의 기술 부채를 식별하고 분류합니다.
   TODO/FIXME, 복잡도, 중복 코드, 의존성 취약점, 테스트 커버리지 갭을 분석합니다.
   MUST USE when: "기술 부채", "코드 품질", "리팩토링 필요", "TODO 분석" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: analyze-tech-debt" 반환 시.
-  OUTPUT: 기술 부채 리포트 + "TASK_COMPLETE"
+  OUTPUT: 기술 부채 리포트
 model: sonnet
 effort: low
 maxTurns: 10

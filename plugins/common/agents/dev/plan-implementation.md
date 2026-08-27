@@ -3,8 +3,7 @@ name: plan-implementation
 description: |
   구현 계획 수립 전문가.
   MUST USE when: "구현 계획", "설계해줘", "어떻게 만들지" 요청.
-  MUST USE when: 다른 에이전트가 "DELEGATE_TO: plan-implementation" 반환 시.
-  OUTPUT: 상세 구현 계획 + "DELEGATE_TO: [다음]" 또는 "TASK_COMPLETE"
+  OUTPUT: 상세 구현 계획
 model: opus
 effort: high
 maxTurns: 20

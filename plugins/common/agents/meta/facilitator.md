@@ -3,7 +3,7 @@ name: facilitator
 description: |
   Multi-perspective review 조율자. 문서를 분석하고 필요한 관점의 전문가를 식별합니다.
   MUST USE when: 다관점 리뷰 시작 시, 복잡한 기획/디자인 문서 검토.
-  OUTPUT: 필요한 관점 목록 + focus_areas + "TASK_COMPLETE"
+  OUTPUT: 필요한 관점 목록 + focus_areas
 model: opus
 effort: high
 maxTurns: 10
