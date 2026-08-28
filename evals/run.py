@@ -673,7 +673,7 @@ def check_assertion(
         if not f.is_file():
             return False, f"file_contains — 파일 없음 {assertion['file']}"
         content = f.read_text(encoding="utf-8")
-        # MULTILINE 기본 적용 (F-003): 이게 없으면 '^'/'$'가 파일 전체의
+        # MULTILINE 기본 적용 (W-018 S3 실측): 이게 없으면 '^'/'$'가 파일 전체의
         # 시작/끝에만 매치해, frontmatter처럼 구분선 뒤에 오는 필드를 앵커링하는
         # 흔한 패턴이 실제로 false-fail을 냈다(2026-08-26 실측). 인라인 `(?m)`
         # 워크어라운드가 이미 있던 시나리오는 중복 지정이라도 무해하다.

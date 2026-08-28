@@ -280,7 +280,7 @@ def test_write_is_atomic_and_leaves_no_temp(tmp_path):
 
 
 def test_preserves_in_tree_symlink(tmp_path):
-    """트리 **안**을 가리키는 심링크는 보존한다 — 모노레포의 정상 사용 (F-008)."""
+    """트리 **안**을 가리키는 심링크는 보존한다 — 모노레포의 정상 사용."""
     root = _minimal(tmp_path)
     target = tmp_path / "proj"
     (target / "shared").mkdir(parents=True)

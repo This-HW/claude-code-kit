@@ -16,7 +16,7 @@ plan-task 호출, 코드 작성, 파일 생성 — 어떤 구현 행동도 사�
 진입 즉시 ToolSearch("select:TaskCreate,TaskUpdate,TaskList")로 Task 도구를 로드한 후,
 
 > **Task 도구가 없으면 멈추지 말고 대체 경로로 간다** — `ToolSearch`가 Task 계열을
-> 반환하지 않는 호스트/세션이 있다(F-030). 그때는 `./scripts/checklist.sh` 기반
+> 반환하지 않는 호스트/세션이 있다(F-038). 그때는 `./scripts/checklist.sh` 기반
 > durable checklist로 추적한다. 규율 SSOT: `skills/references/task-tools-fallback.md`.
 아래 항목 각각에 대해 TaskCreate를 실행하세요.
 

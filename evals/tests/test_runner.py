@@ -237,12 +237,12 @@ def test_check_assertion_file_contains_missing_file(tmp_path):
 
 
 def test_check_assertion_file_contains_multiline_anchor(tmp_path):
-    """F-003 회귀 테스트 — `^` 앵커가 파일 첫 줄이 아닌 줄에서도 매치해야 한다.
+    """`file_contains` MULTILINE 회귀 테스트 — `^` 앵커가 파일 첫 줄이 아닌 줄에서도 매치해야 한다.
 
     수정 전에는 re.search에 MULTILINE이 전달되지 않아 `^`가 문자열 전체의
     시작(=파일 첫 바이트)에만 매치했다. frontmatter처럼 구분선 뒤에 오는 필드
     (`---\nname: foo\n...`)를 앵커링하는 흔한 패턴이 항상 false-fail이었다
-    (실측: generate-boilerplate/agent-md-skeleton 1차 시도, ledger F-003).
+    (실측: generate-boilerplate/agent-md-skeleton 1차 시도, W-018 S3).
     """
     (tmp_path / "agent.md").write_text("---\nname: format-code\ndescription: x\n---\n")
     ok, _ = runner.check_assertion(

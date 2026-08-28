@@ -39,7 +39,8 @@ Claude에게 준 자연어 지시였다. 오케스트레이션도 이미 스킬 
 준수율(8종 중 6종)이었지만, 이 관측은 교란돼 있다 — `implement-code`의 안정적
 준수는 `task.md`가 신호 보고를 직접 지시한 조건의 결과였고, 무지시 준수 사례는
 `plan-implementation` 2/2뿐이다. 폐기 근거는 이 통계가 아니라 결정론적 파싱 부재와
-오케스트레이션 모델 이전이므로 판정은 그대로다. 상세: ledger F-002.
+오케스트레이션 모델 이전이므로 판정은 그대로다.
+상세: `docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021).
 
 **어디까지 걷어냈나**: 에이전트 정의 33종의 본문 블록 + frontmatter 신호 토큰(32종),
 스킬 4종의 예시 블록, `verify-done.sh` §12 + CI 동등 스텝, 주입 규칙 2종의 신호
@@ -51,14 +52,14 @@ Claude에게 준 자연어 지시였다. 오케스트레이션도 이미 스킬 
 ### Added — `/eval-forge` 어서션 타입 확장 (W-022 R2)
 
 `scripts/eval-forge.py`가 `evals/run.py`의 7개 어서션 타입 중 3개를 만들 방법이
-없었다(F-001) — 생성 후 `expect.json`을 손으로 보강해야 했다. `--output-regex
+없었다 — 생성 후 `expect.json`을 손으로 보강해야 했다. `--output-regex
 PATTERN FLAGS`(반복 지정, FLAGS 빈 문자열이면 flags 키 생략)와 `--file-unchanged
 FILE`(반복 지정)을 신설했고, 단일 값만 받던 `--file-contains`를 반복 지정으로
 바꿨다. `delegation_signal`은 계약이 폐기됐으므로(R1) opt-in 플래그조차 만들지
 않았다. 회귀 테스트 6건 추가(수정 전 5건 red 확인). 자기적용 검증: 확장된
 CLI로 신규 시나리오를 생성해 `--validate`를 손 편집 0으로 통과시켰다(증적 후
 롤백 — baseline 미등재로 인한 커버리지 게이트 파손과 R3 tier2 분류 선점을
-피하기 위함). 상세: ledger F-001.
+피하기 위함). 상세: `docs/specs/2026-08-27-remaining-debt-batch.md` §R2.
 
 **후속 수정(적대적 리뷰 High)**: `--output-regex`/`--file-contains`의 PATTERN을
 검증 없이 그대로 썼다 — 빈 패턴은 항상 매치하는 무의미한 어서션을 만들고,
@@ -347,7 +348,7 @@ Eval 커버리지가 33개 에이전트 중 4개뿐이었다. `/self-improve` �
 - **Cursor / OpenCode / Copilot** — `packaging/targets.json` 에서 비활성. Cursor 마켓플레이스는
   큐레이션 파트너 한정, OpenCode의 플러그인 단위는 매니페스트가 아니라 실행 가능한 JS/TS,
   Copilot은 매니페스트 기반 배포 단위 존재 여부 자체가 `[unresolved]`
-- **eval 티어2 20종**, **`/eval-forge` 어서션 미지원 개선(F-001)** — ledger에 추적 중, 후속 배치
+- **eval 티어2 20종**, **`/eval-forge` 어서션 미지원 개선** — 후속 배치
 
 ### Fixed — `build-targets.py` 의 경로 탈출 (교차 리뷰 High)
 
@@ -488,7 +489,7 @@ sanddab이 실측). 필수 섹션 부재를 명확한 실패(`PolicyError`)로 �
 
 ### Fixed
 
-- **스킬의 `[건너뛰기 금지]` 단계가 Task 도구 부재로 파이프라인을 멈추던 문제 (F-030)** —
+- **스킬의 `[건너뛰기 금지]` 단계가 Task 도구 부재로 파이프라인을 멈추던 문제 (F-038)** —
   `ToolSearch("select:TaskCreate,…")`가 아무것도 반환하지 않는 호스트/세션이 실재한다
   (2026-08-22 실측). brainstorming·plan-task·auto-dev가 이제 durable checklist로
   fail-open한다. 규율 SSOT: `skills/references/task-tools-fallback.md`.
@@ -499,7 +500,7 @@ sanddab이 실측). 필수 섹션 부재를 명확한 실패(`PolicyError`)로 �
 - **`AGENTS.md` 쓰기를 원자 교체로** — `write_text`는 truncate 후 write라 중단 시 대상이
   잘린 채 남는다. 소비자가 직접 쓴 규약이 함께 사는 파일이므로 부분 쓰기는 "마커 블록
   밖은 불가침"이라는 핵심 계약을 정면으로 깬다. `tmp + os.replace`(심링크는 realpath로
-  보존, F-008)로 `checklist.py`와 관례를 통일했다.
+  보존)로 `checklist.py`와 관례를 통일했다.
 - **마커 손상 시 거부** — `cck:begin`만 있고 `cck:end`가 없거나 블록이 여럿이면 덧붙이지
   않고 exit 1. 덧붙이면 begin이 둘이 되어 이후 `--check`가 옛 마커를 읽고, 재생성으로도
   고칠 수 없는 영구 red가 된다.
@@ -592,7 +593,7 @@ sanddab이 실측). 필수 섹션 부재를 명확한 실패(`PolicyError`)로 �
   정규식은 파싱 불가 파일의 2차 방어로 남겼다. `--validate`가 `--agent`/`--scenario` 필터를
   조용히 무시하던 것도 함께 고쳤다.
 - **`AGENTS.md` 심링크가 대상 트리 밖을 가리키면 기록 거부** — 심링크 보존은 kit 관례지만
-  (F-008), 공유 워크스페이스에 심긴 링크는 그 관례를 트리 밖 임의 파일 쓰기로 바꾼다.
+  , 공유 워크스페이스에 심긴 링크는 그 관례를 트리 밖 임의 파일 쓰기로 바꾼다.
 - **생성기 헤더의 마커 오염** — 헤더에 마커를 리터럴로 적으면 생성물의 마커가 둘이 되어
   이후 모든 실행이 손상으로 거부된다(**재생성으로도 못 고친다**). 실제로 한 번 발생했고,
   이제 룰 본문과 헤더 양쪽을 검사한다.

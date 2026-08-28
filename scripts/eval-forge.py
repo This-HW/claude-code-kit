@@ -186,7 +186,7 @@ def build_expect(
     if pytest_path:
         assertions.append({"type": "pytest_green", "path": pytest_path})
     # --file-contains는 --must-mention과 같은 이유로 **반복 지정**을 허용한다(ledger
-    # F-001) — 한 파일에 여러 패턴을 각각 요구하는 시나리오(예: 함수 존재 + 특정
+    # W-022 R2) — 한 파일에 여러 패턴을 각각 요구하는 시나리오(예: 함수 존재 + 특정
     # 구현 기법 사용)를 표현하려면 필요하다.
     for file_, pattern in file_contains:
         assertions.append({"type": "file_contains", "file": file_, "pattern": pattern})
@@ -357,7 +357,7 @@ def _validate_regex_args(args) -> str | None:
         if not pattern:
             return "--file-contains의 PATTERN이 빈 문자열이다 — 항상 매치하는 무의미한 어서션"
         try:
-            # run.py의 file_contains는 re.MULTILINE 기본 적용(F-003) — 동일 옵션으로 검증.
+            # run.py의 file_contains는 re.MULTILINE 기본 적용(W-018 S3) — 동일 옵션으로 검증.
             re.compile(pattern, re.MULTILINE)
         except re.error as e:
             return f"--file-contains 패턴 문법 오류: {pattern!r} ({e})"
@@ -483,7 +483,7 @@ def main(argv: list[str]) -> int:
         metavar=("FILE", "PATTERN"),
         action="append",
         default=[],
-        help="반복 지정 가능 — 한 파일에 여러 패턴을 각각 요구할 때(ledger F-001)",
+        help="반복 지정 가능 — 한 파일에 여러 패턴을 각각 요구할 때(W-022 R2)",
     )
     ap.add_argument(
         "--file-unchanged",
@@ -501,7 +501,7 @@ def main(argv: list[str]) -> int:
         help="FLAGS는 run.py의 문자별 플래그(예: 'i'). 없으면 빈 문자열 '' 전달",
     )
     ap.add_argument("--rubric", default="", help="opt-in LLM judge용 rubric")
-    ap.add_argument("--from-ledger", help="근거로 인용할 ledger 항목 ID (예: F-030)")
+    ap.add_argument("--from-ledger", help="근거로 인용할 ledger 항목 ID (예: F-038)")
     ap.add_argument(
         "--dry-run", action="store_true", help="어떤 파일도 쓰지 않고 계획만 출력"
     )

@@ -3,7 +3,7 @@
 > 이 문서는 `brainstorming` · `plan-task` · `auto-dev`가 **공통으로 참조**한다.
 > 같은 내용을 각 스킬에 복제하지 않는다 — 복제된 계약은 반드시 드리프트한다(F-023).
 
-## 문제 (F-030)
+## 문제 (F-038)
 
 세 스킬 모두 진입 직후 `ToolSearch("select:TaskCreate,TaskUpdate,TaskList")`로 네이티브
 Task 도구를 로드하고, 그 단계는 `[건너뛰기 금지]`로 표시돼 있다. 그런데 **Task 계열

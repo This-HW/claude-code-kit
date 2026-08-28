@@ -374,7 +374,7 @@ def test_rollback_survives_timeout(tmp_path, monkeypatch):
     assert not (root / "evals" / "scenarios" / "review-code").exists(), "빈 부모 잔존"
 
 
-# ── R2 (ledger F-001) — 누락 어서션 타입 생성 지원 ──────────────────
+# ── R2 — 누락 어서션 타입 생성 지원 ──────────────────
 
 
 def test_generates_output_regex(tmp_path, monkeypatch):

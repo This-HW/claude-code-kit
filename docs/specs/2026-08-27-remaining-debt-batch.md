@@ -24,7 +24,7 @@
 | ID | 부채 | 출처 |
 | --- | --- | --- |
 | **R1** | DELEGATION_SIGNAL 계약 실효성 미판정 | W-021 스펙 |
-| **R2** | `/eval-forge` 어서션 미지원 (F-001) | ledger |
+| **R2** | `/eval-forge` 어서션 미지원 | ledger |
 | **R3** | eval 티어2 20종 미커버 | W-018 §7 비목표 |
 | **R4** | Antigravity 훅 형식 미판정 | W-019 §5.3 |
 | **R5** | Codex 훅 문자열 형식 변환 미실시 | W-019 §5.3 |

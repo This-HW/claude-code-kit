@@ -155,7 +155,7 @@ Claude에게 다음 에이전트를 지목했다.
 결론(B: 사문화) 자체는 이 통계가 아니라 위 두 근거로 유지된다 — 비결정적 보조 경로는
 없는 것보다 나쁘다는 판단(이번 배치에서 evals `delegation_signal` 어서션을 분리한
 것과 같은 논리)에 따라 폐기를 실행했다. 상세 근거:
-`docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021), ledger F-002.
+`docs/specs/2026-08-27-delegation-signal-contract-review.md`(W-021).
 
 **어디까지 걷어냈나** (다음 사람이 잔재를 찾을 때 기준):
 

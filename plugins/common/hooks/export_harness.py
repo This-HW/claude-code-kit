@@ -626,7 +626,7 @@ def _existing_marker(text: str) -> tuple[str | None, int, int]:
 def _resolve_target(path: Path, root: Path) -> tuple[Path | None, Path | None]:
     """대상 경로를 **한 번만** 해석해 (실경로, 탈출경로)를 돌려준다.
 
-    심링크 **보존** 자체는 kit의 관례다(F-008 — os.replace가 링크를 파괴하지 않도록
+    심링크 **보존** 자체는 kit의 관례다(os.replace가 링크를 파괴하지 않도록
     realpath에 쓴다). 모노레포에서 AGENTS.md를 공용 파일로 링크하는 건 정상 사용이다.
     다만 공유 CI 워크스페이스나 신뢰 못 할 체크아웃에 `AGENTS.md -> ~/.ssh/…` 같은
     링크가 심겨 있으면, 그 관례가 **트리 밖 임의 파일 쓰기**로 바뀐다.
@@ -647,7 +647,7 @@ def _resolve_target(path: Path, root: Path) -> tuple[Path | None, Path | None]:
 
 
 def _atomic_write(real: Path, text: str) -> None:
-    """tmp + os.replace 원자 교체. `real`은 **이미 해석된** 경로여야 한다(F-008).
+    """tmp + os.replace 원자 교체. `real`은 **이미 해석된** 경로여야 한다.
 
     `write_text`는 truncate 후 write다. 중간에 죽으면 대상이 **잘린 채** 남는다.
     이 파일은 소비자가 직접 쓴 규약이 함께 사는 `AGENTS.md`이므로, 부분 쓰기는
