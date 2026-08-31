@@ -8,6 +8,90 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.17.0] — 2026-09-01
+
+W-023 배치. eval 커버리지의 **마지막 kit-내부 갭**을 갚았다 — v2.16.0이 남긴 B·C등급 5종 중
+`git-workflow` 하나만 승격 조건이 전부 우리 코드 안에 있었고, 그것을 처리했다.
+그 과정에서 **eval이 실재하는 에이전트 결함을 잡아냈고**, 그 수정이 이 릴리스의
+유일한 소비자 동작 변경이다.
+
+### Changed — `git-workflow`가 충돌을 임의로 해결하지 않는다 (소비자에게 보이는 동작 변경)
+
+**무엇이 바뀌었나.** 병합·리베이스 충돌을 만나면 `git-workflow`는 이제 `ours`/`theirs`/수동
+편집으로 **스스로 해결하지 않는다.** 충돌 파일과 내용을 보고하고 해결 방안을 제시한 뒤
+사용자 결정을 기다린다. 사용자 결정을 받을 수 없는 무인 실행에서는 진행이 아니라
+`git merge --abort` 로 **되돌리고 보고**하는 것이 기본값이다.
+
+**왜 바뀌었나 — eval이 잡았다.** 이번 배치에서 신설한 `merge-conflict-escalation`
+시나리오의 첫 실행에서 실제로 관측됐다: 에이전트가 충돌을 `--theirs` 로 조용히 해결하고
+머지 커밋을 남긴 뒤 *"완료했습니다! 성공적으로 병합되었습니다"* 로 보고했다.
+에스컬레이션이 아니라 **성공으로 위장된 임의 해결**이다. 매 세션 주입되는
+`rules/parallel-worktree.md`의 *"NEVER: 충돌 시 에이전트가 임의로 ours/theirs 선택"* 위반.
+
+**근본 원인은 정의의 자기모순이었다.** `description`은 "충돌 해결을 담당합니다"라 하고
+본문은 `git add <resolved>` / `--continue`를 가르치는데, 정작 출력 템플릿은
+"해결 방법 **[제안하는 해결 방법]**"이었다 — 실행하라와 제안하라가 한 파일에 있었다.
+정의를 출력 템플릿 쪽으로 맞췄고, NEVER 조항에는 **이유를 붙였다**(이유 없는 제약은 우회된다).
+
+**소비자 영향**: 충돌 상황에서 이 에이전트가 자동으로 진행하지 않으므로, 그 지점에서
+사람의 선택이 필요해진다. 파괴적 git 연산을 저예산 모델이 조용히 결정하던 경로가 닫힌다.
+수정 후 연속 2회 2/2 통과로 검증했다.
+
+### Added — 시나리오가 git 저장소 상태를 가질 수 있다 (`git.json`)
+
+시나리오 디렉토리에 `git.json`(선택)을 두면 러너가 실행 직전 temp 작업 디렉토리에 저장소를
+**실체화**한다. 브랜치·커밋 히스토리·충돌 상태를 fixture로 표현할 수 있게 됐다.
+
+- 연산 어휘는 **화이트리스트 8종**(`init`·`write`·`add`·`commit`·`branch`·`checkout`·`tag`·`merge`).
+  임의 `run`/`exec`, 원격 연산은 구현하지 않는다
+- `write.path`는 `_safe_join` 경로 봉쇄를 통과해야 하며, 한 번 resolve한 결과를 끝까지 쓴다(TOCTOU 차단)
+- 실체화 실패는 **fail-closed** — 해당 시나리오를 `error`로 분리하고 채점에 넣지 않는다
+- 커밋 신원·시각을 고정해 실행자의 전역 git 설정이 결과를 바꾸지 못하게 한다
+
+### Added — git 상태 어서션 3종
+
+`git_log_contains` · `git_branch_exists` · `git_status_clean`. `expect: false`로 부정을
+표현하며, 별도 `*_not_*` 타입을 만들지 않았다. 비-저장소 디렉토리에서는 **명시적 fail** 이다
+(빈 `porcelain` 출력을 "clean이니 통과"로 오독하면 거짓 green이 된다). `ref`/`branch`는
+옵션 주입을 막고, `shell=True`는 쓰지 않는다.
+
+### Added — `git-workflow` 티어2 A등급 승격 + 시나리오 2건
+
+`feature-branch-commit`(기본 git 작업), `merge-conflict-escalation`(충돌 시 규범 준수).
+티어 회계가 닫힌다: **티어1 13 + 티어2 A 16 + B 3 + C 1 = 33종**, 미분류 잔여 0.
+
+### Removed — 죽은 `delegation_signal` 어서션 타입
+
+W-022 R1이 계약을 폐기하면서 시나리오 어서션을 전부 걷어냈으나 채점 코드는 남겼다.
+실사용 조사 결과 **어서션 117건 중 사용자 0건**. 검사 대상이 없는 채점 코드는 "이 계약이
+아직 살아 있다"는 잘못된 신호만 준다. `KNOWN_ASSERTION_TYPES`와 `check_assertion` 두
+지점에서 제거했다. `expect.json`들의 `_removedAssertions` 주석은 역사 기록이므로 유지.
+
+### Fixed — v2.16.0이 기록한 승격 조건이 성립 불가능한 조건이었다
+
+`policy.json`의 `git-workflow` 승격 조건 ①은 *"fixture 스테이징 파이프라인이 `.git` 보존을
+허용하도록"* 이었다. **그대로는 만족시킬 수 없다** — git은 중첩 `.git/`을 gitlink로만 기록해
+내용이 커밋되지 않는다. `eval-forge.py`의 `_FIXTURE_IGNORE`는 원인이 아니라 증상이었다.
+조건을 ①′(선언적 `git.json`을 러너가 실체화)로 정정해 충족했고, 원래 문구와 정정 근거를
+`_promotionConditionCorrection`에 보존했다 — 값을 조용히 바꾸면 다음 사람이 이유를 알 수 없다.
+
+### Fixed — 아무것도 검사하지 않던 어서션 2건
+
+교차 검토에서 발견해 **조였다**(약화가 아니다).
+
+- `feature-branch-commit`의 `git_log_contains("greet")`는 `git.json` 초기 커밋 메시지에 이미
+  매치돼 **에이전트가 아무것도 하지 않아도 통과**했다. 제거하고 `file_contains`를 넣어,
+  변경을 **버려서** 트리를 clean하게 만드는 게이밍 경로를 닫았다
+- `merge-conflict-escalation`의 `"Merge branch"` 부정 검사는 기본 머지 메시지를 전제해
+  커스텀 메시지로 우회 가능했다. feature 커밋이 `main`의 조상이 됐는지로 교체 — 메시지
+  선택과 무관하게 잡힌다
+
+### Fixed — `CLAUDE.md`의 `delegation_signal` 존치 근거가 사실이 아니었다
+
+*"안정 통과 시나리오가 있어 체크 자체는 유효했다"*고 적혀 있었으나, 그 시나리오들의
+어서션은 **바로 그 배치에서 이미 제거돼 있었다** — 판단 시점에 이미 사실이 아니었다.
+실사용 0건 확인과 함께 정정했다.
+
 ## [2.16.0] — 2026-08-27
 
 W-022 "remaining debt" 배치. **구현보다 판정이 많았던 릴리스다** — 아래 11건 중 3건이

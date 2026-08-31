@@ -2,7 +2,7 @@
   "version": "1.2.0",
   "_comment": "eval 대상·임계값의 단일 소스. 산문(스크립트·문서)에 티어 목록이나 숫자를 중복 기재하지 말 것 — F-023(pytest.ini)에서 겪은 드리프트와 같은 실패다.",
   "baseline": {
-    "file": "2026-08-27.json",
+    "file": "2026-08-31.json",
     "_meta": {
       "dir": "evals/baseline/",
       "regenerateWith": "scripts/run-evals.sh --baseline (실제 CLI 플래그명 — regenerateWith에 --write-baseline로 적혀 있던 건 오기, 실행은 --baseline)",
@@ -12,7 +12,8 @@
       "source": "[confirmed] W-022 R1(DELEGATION_SIGNAL 계약 폐기)로 5개 시나리오에서 delegation_signal 어서션 제거 + task.md 3건(implement-code)·fixture 1건(generate-boilerplate) 신호 재생산 제거 후 재생성 — 21/21 pass(회귀 0), evals/reports/20260827T052004006705Z.json. UTC 2026-08-27 실행(진짜 날짜 일치, 08-26분과는 별도 파일). 이전 재생성(050945Z)은 .bak으로 보존",
       "sourceR3": "[confirmed] W-022 R3(tier2 커버리지 확대, A등급 15종)로 재생성 — 티어1 21건 + 신규 티어2 15건 = 35/35 pass(회귀 0, 기존 21건 status 전부 유지), evals/reports/20260827T064025344818Z.json. scenarioTimeoutSeconds 300→600 상향(design-user-journey/checkout-edge-cases 300.0s 타임아웃 + define-business-logic/point-service-rules 298.2s 우연 통과 실측 근거, cost._meta.scenarioTimeoutSeconds 참고) 반영 후 실행. analyze-dependencies/order-utils-impact는 output_not_contains 어서션을 제거했다(_removedAssertions 참고 — 두 차례 거짓양성 실증). 이전 재생성(052004006705Z)은 .bak으로 보존",
       "regenerationCadence": "시나리오를 추가한 Stage는 그 Stage 안에서 기준선을 재생성하고 포인터를 갱신한다. '기준선에 없는 시나리오'는 곧 '회귀 판정이 불가능한 시나리오'이므로, 미등재 상태로 커밋되면 게이트의 의미가 사라진다 [D2 판정, 2026-08-26]",
-      "s2Note": "S1/S2에서 이 baseline.file 갱신은 daggertooth 로컬 evals/policy.json에만 반영했다 — 원본 policy.evals.json(torpedo)은 SSOT 이관 후 _SUPERSEDED 처리됐다(torpedo-c4 판정, S3 인계 메시지). 더 이상 동기화 대상 아님."
+      "s2Note": "S1/S2에서 이 baseline.file 갱신은 daggertooth 로컬 evals/policy.json에만 반영했다 — 원본 policy.evals.json(torpedo)은 SSOT 이관 후 _SUPERSEDED 처리됐다(torpedo-c4 판정, S3 인계 메시지). 더 이상 동기화 대상 아님.",
+      "sourceW023": "[confirmed 2026-08-31, W-023] git-workflow 승격(시나리오 2건 신설)으로 재생성 — 37/37 pass, evals/reports/20260831T162... 계열. 기존 35건 status 전부 유지(회귀 0), 신규 2건 pass. **주의: 1차 실행은 36/37이었다** — define-business-logic/point-service-rules 가 394.13s 만에 CALC-/VAL-/STATE- 섹션을 내지 못하고 POL- 만 냈다(타임아웃 아님, 출력 미완). 재실행에서 통과. W-023 변경과 인과 없음(비-git 시나리오는 git_spec is None 가드 뒤로 종전 경로 그대로, 이 시나리오가 쓰는 어서션 타입도 무변경). cost._meta 가 이미 이 시나리오를 '동전 던지기'로 기록해 둔 것과 일치하는 관측이며, 안정화는 별도 배치의 몫이다. **--baseline 이 1차 실패 런의 저장을 거부해 불완전한 기준선이 파일로 남지 않았다.**"
     }
   },
   "tiers": {
