@@ -103,7 +103,7 @@ def test_load_agent_unknown_raises():
 
 
 def test_validate_expect_schema_valid():
-    expect = {"assertions": [{"type": "delegation_signal"}]}
+    expect = {"assertions": [{"type": "output_regex", "pattern": "x"}]}
     assert runner.validate_expect_schema(expect, "p") == []
 
 
@@ -125,7 +125,10 @@ def test_validate_expect_schema_missing_required_field():
 
 
 def test_validate_expect_schema_judge_enabled_without_rubric():
-    expect = {"assertions": [{"type": "delegation_signal"}], "judge": {"enabled": True}}
+    expect = {
+        "assertions": [{"type": "output_regex", "pattern": "x"}],
+        "judge": {"enabled": True},
+    }
     errors = runner.validate_expect_schema(expect, "p")
     assert any("rubric" in e for e in errors)
 
@@ -140,7 +143,7 @@ def test_validate_scenario_unknown_agent(tmp_path):
     (sc_dir / "fixture").mkdir(parents=True)
     (sc_dir / "task.md").write_text("task")
     (sc_dir / "expect.json").write_text(
-        json.dumps({"assertions": [{"type": "delegation_signal"}]})
+        json.dumps({"assertions": [{"type": "output_regex", "pattern": "x"}]})
     )
     errors = runner.validate_scenario(
         sc_dir, agents_root=tmp_path / "empty-agents-root"
@@ -205,20 +208,18 @@ def test_check_assertion_output_not_contains_fails_when_present():
     assert "발견됨" in detail
 
 
-def test_check_assertion_delegation_signal_present():
-    stdout = (
-        "결과 요약\n---DELEGATION_SIGNAL---\nTYPE: TASK_COMPLETE\n---END_SIGNAL---\n"
-    )
-    ok, _ = runner.check_assertion({"type": "delegation_signal"}, stdout, Path("."))
-    assert ok is True
+def test_validate_expect_schema_rejects_removed_delegation_signal():
+    """delegation_signal은 W-023 D-6에서 제거됐다 — 이제 알 수 없는 type으로
+    거부된다(사용자 0 확인 후 계약 폐기, CLAUDE.md 근거 정정과 함께)."""
+    expect = {"assertions": [{"type": "delegation_signal"}]}
+    errors = runner.validate_expect_schema(expect, "p")
+    assert any("알 수 없는 type" in e for e in errors)
 
 
-def test_check_assertion_delegation_signal_missing():
-    ok, detail = runner.check_assertion(
-        {"type": "delegation_signal"}, "그냥 완료했습니다", Path(".")
-    )
+def test_check_assertion_rejects_removed_delegation_signal():
+    ok, detail = runner.check_assertion({"type": "delegation_signal"}, "x", Path("."))
     assert ok is False
-    assert "마커" in detail
+    assert "알 수 없는" in detail
 
 
 def test_check_assertion_file_contains(tmp_path):
@@ -292,7 +293,7 @@ def test_run_all_skipped_when_claude_missing(tmp_path):
     (sc_dir / "fixture").mkdir(parents=True)
     (sc_dir / "task.md").write_text("do it")
     (sc_dir / "expect.json").write_text(
-        json.dumps({"assertions": [{"type": "delegation_signal"}]})
+        json.dumps({"assertions": [{"type": "output_regex", "pattern": "x"}]})
     )
 
     with (
@@ -321,7 +322,7 @@ def test_dry_run_does_not_invoke_subprocess(tmp_path):
     (sc_dir / "fixture").mkdir(parents=True)
     (sc_dir / "task.md").write_text("do it")
     (sc_dir / "expect.json").write_text(
-        json.dumps({"assertions": [{"type": "delegation_signal"}]})
+        json.dumps({"assertions": [{"type": "output_regex", "pattern": "x"}]})
     )
 
     with (
@@ -749,7 +750,7 @@ def _write_scenario(sc_dir: Path, git_spec: dict | None = None) -> None:
     (sc_dir / "fixture").mkdir(parents=True)
     (sc_dir / "task.md").write_text("task")
     (sc_dir / "expect.json").write_text(
-        json.dumps({"assertions": [{"type": "delegation_signal"}]})
+        json.dumps({"assertions": [{"type": "output_regex", "pattern": "x"}]})
     )
     if git_spec is not None:
         (sc_dir / "git.json").write_text(json.dumps(git_spec))
@@ -1017,3 +1018,172 @@ def test_run_scenario_without_git_spec_skips_materialize(tmp_path, monkeypatch):
     assert sc.git_spec is None
     res = runner.run_scenario(_agent(tmp_path), sc, timeout=5)
     assert res["status"] == "pass"
+
+
+# ---------------------------------------------------------------------------
+# 앞 단계 보완 (W-023 Stage 1 — decision-log D-1): config op 제거
+# ---------------------------------------------------------------------------
+
+
+def test_validate_git_spec_rejects_config_op():
+    """config는 화이트리스트 **안**의 연산만으로 임의 코드 실행이 성립함이
+    실증돼 제거됐다(decision-log D-1) — 이제 화이트리스트 밖 연산으로 거부된다."""
+    spec = {"version": 1, "ops": [{"op": "config", "key": "user.name", "value": "x"}]}
+    errors = runner.validate_git_spec(spec, "p")
+    assert any("화이트리스트" in e for e in errors)
+
+
+def test_materialize_git_repo_rejects_config_op(tmp_path):
+    import pytest as _pytest
+
+    work = tmp_path / "work"
+    work.mkdir()
+    spec = {
+        "version": 1,
+        "ops": [
+            {"op": "init"},
+            {"op": "config", "key": "user.name", "value": "x"},
+        ],
+    }
+    with _pytest.raises(RuntimeError):
+        runner.materialize_git_repo(work, spec)
+
+
+# ---------------------------------------------------------------------------
+# git 상태 어서션 3종 (W-023 Stage 1 — D-5)
+# ---------------------------------------------------------------------------
+
+
+def _git_repo(tmp_path, extra_ops=None):
+    """공용 fixture: materialize_git_repo로 최소 저장소(커밋 1개)를 만든다."""
+    work = tmp_path / "repo"
+    work.mkdir()
+    ops = [
+        {"op": "init", "defaultBranch": "main"},
+        {"op": "write", "path": "a.txt", "content": "hello\n"},
+        {"op": "add", "paths": ["."]},
+        {"op": "commit", "message": "feat: initial commit"},
+    ]
+    if extra_ops:
+        ops += extra_ops
+    runner.materialize_git_repo(work, {"version": 1, "ops": ops})
+    return work
+
+
+def test_check_assertion_git_log_contains_pass(tmp_path):
+    work = _git_repo(tmp_path)
+    ok, _ = runner.check_assertion(
+        {"type": "git_log_contains", "pattern": "initial commit"}, "", work
+    )
+    assert ok is True
+
+
+def test_check_assertion_git_log_contains_fail(tmp_path):
+    """red 실증 1: 존재하지 않는 패턴 → fail."""
+    work = _git_repo(tmp_path)
+    ok, detail = runner.check_assertion(
+        {"type": "git_log_contains", "pattern": "no-such-pattern-xyz"}, "", work
+    )
+    assert ok is False
+    assert "expect=True actual=False" in detail
+
+
+def test_check_assertion_git_log_contains_expect_false(tmp_path):
+    work = _git_repo(tmp_path)
+    ok, _ = runner.check_assertion(
+        {
+            "type": "git_log_contains",
+            "pattern": "no-such-pattern-xyz",
+            "expect": False,
+        },
+        "",
+        work,
+    )
+    assert ok is True
+
+
+def test_check_assertion_git_log_contains_rejects_option_injection_ref(tmp_path):
+    work = _git_repo(tmp_path)
+    ok, detail = runner.check_assertion(
+        {"type": "git_log_contains", "pattern": "x", "ref": "--upload-pack=x"},
+        "",
+        work,
+    )
+    assert ok is False
+    assert "옵션 주입" in detail
+
+
+def test_check_assertion_git_branch_exists_pass(tmp_path):
+    work = _git_repo(tmp_path, extra_ops=[{"op": "branch", "name": "feature/x"}])
+    ok, _ = runner.check_assertion(
+        {"type": "git_branch_exists", "branch": "feature/x"}, "", work
+    )
+    assert ok is True
+
+
+def test_check_assertion_git_branch_exists_fail(tmp_path):
+    """red 실증 2: 존재하지 않는 브랜치 → fail."""
+    work = _git_repo(tmp_path)
+    ok, detail = runner.check_assertion(
+        {"type": "git_branch_exists", "branch": "no-such-branch"}, "", work
+    )
+    assert ok is False
+    assert "expect=True actual=False" in detail
+
+
+def test_check_assertion_git_branch_exists_expect_false(tmp_path):
+    work = _git_repo(tmp_path)
+    ok, _ = runner.check_assertion(
+        {"type": "git_branch_exists", "branch": "no-such-branch", "expect": False},
+        "",
+        work,
+    )
+    assert ok is True
+
+
+def test_check_assertion_git_branch_exists_rejects_option_injection_branch(tmp_path):
+    work = _git_repo(tmp_path)
+    ok, detail = runner.check_assertion(
+        {"type": "git_branch_exists", "branch": "--list"}, "", work
+    )
+    assert ok is False
+    assert "옵션 주입" in detail
+
+
+def test_check_assertion_git_status_clean_pass(tmp_path):
+    work = _git_repo(tmp_path)
+    ok, _ = runner.check_assertion({"type": "git_status_clean"}, "", work)
+    assert ok is True
+
+
+def test_check_assertion_git_status_clean_fail(tmp_path):
+    """red 실증 3: 더러운 워킹트리 → fail."""
+    work = _git_repo(tmp_path)
+    (work / "dirty.txt").write_text("uncommitted\n")
+    ok, detail = runner.check_assertion({"type": "git_status_clean"}, "", work)
+    assert ok is False
+    assert "expect=True actual=False" in detail
+
+
+def test_check_assertion_git_status_clean_expect_false(tmp_path):
+    work = _git_repo(tmp_path)
+    (work / "dirty.txt").write_text("uncommitted\n")
+    ok, _ = runner.check_assertion(
+        {"type": "git_status_clean", "expect": False}, "", work
+    )
+    assert ok is True
+
+
+def test_check_assertion_git_assertions_fail_closed_on_non_repo(tmp_path):
+    """비-저장소 디렉토리에서 3종 전부 명시적 fail — 'porcelain 비었으니 clean'
+    오독으로 거짓 green이 나오는 것을 막는다."""
+    non_repo = tmp_path / "not-a-repo"
+    non_repo.mkdir()
+    for assertion in (
+        {"type": "git_log_contains", "pattern": "x"},
+        {"type": "git_branch_exists", "branch": "main"},
+        {"type": "git_status_clean"},
+    ):
+        ok, detail = runner.check_assertion(assertion, "", non_repo)
+        assert ok is False, assertion
+        assert "비-저장소" in detail

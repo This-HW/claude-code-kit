@@ -125,16 +125,22 @@ KNOWN_ASSERTION_TYPES: dict[str, set[str]] = {
     "pytest_green": {"path"},
     "file_contains": {"file", "pattern"},
     "file_unchanged": {"file"},
-    "delegation_signal": set(),
+    # git 상태 어서션 3종 (W-023 D-5). expect:false로 부정을 표현한다 —
+    # *_not_* 타입은 만들지 않는다(타입 표가 읽기 어려워지면 시나리오 작성자가
+    # 틀린 타입을 고른다).
+    "git_log_contains": {"pattern"},
+    "git_branch_exists": {"branch"},
+    "git_status_clean": set(),
 }
 
-# git.json 연산 어휘 -> 필수 필드 (W-023 D-1). 화이트리스트다 — 이 9종이 전부이고,
-# run/exec/clone/fetch/push/remote/submodule 등은 의도적으로 없다(임의 셸 실행 통로
-# 금지). validate_git_spec의 스키마 검증과 materialize_git_repo의 실행 분기가 이
+# git.json 연산 어휘 -> 필수 필드 (W-023 D-1, config 제거는 D-1 결정log — 화이트리스트
+# **안**의 연산만으로 임의 코드 실행이 성립함이 실증됨: filter.<n>.clean 같은 임의 git
+# config 값 + .gitattributes(write) + add 만으로 실행 비트 없이 발화한다). 이 8종이 전부다.
+# run/exec/clone/fetch/push/remote/submodule/config 등은 의도적으로 없다(임의 셸 실행
+# 통로 금지). validate_git_spec의 스키마 검증과 materialize_git_repo의 실행 분기가 이
 # SSOT를 공유한다.
 ALLOWED_GIT_OPS: dict[str, set[str]] = {
     "init": set(),
-    "config": set(),
     "write": {"path", "content"},
     "add": {"paths"},
     "commit": {"message"},
@@ -738,11 +744,6 @@ def materialize_git_repo(work_dir: Path, spec: dict) -> None:
         if op == "init":
             default_branch = op_entry.get("defaultBranch", "main")
             _run_git(work_dir, ["init", "-q", "-b", str(default_branch)])
-        elif op == "config":
-            key = op_entry.get("key")
-            value = op_entry.get("value")
-            if key is not None and value is not None:
-                _run_git(work_dir, ["config", str(key), str(value)])
         elif op == "write":
             raw_path = op_entry["path"]
             target = _safe_join(work_dir, raw_path)
@@ -865,11 +866,70 @@ def check_assertion(
             return False, f"file_unchanged — 실행 후 파일 삭제됨 {rel_f}"
         ok = cur.read_bytes() == orig.read_bytes()
         return ok, "file_unchanged" + ("" if ok else f" — {rel_f} 변조됨 (게이밍 의심)")
-    if t == "delegation_signal":
-        markers = ("---DELEGATION_SIGNAL---", "TYPE:", "---END_SIGNAL---")
-        ok = all(m in stdout for m in markers)
-        return ok, "delegation_signal" + ("" if ok else " — 형식 마커 없음")
+    if t in ("git_log_contains", "git_branch_exists", "git_status_clean"):
+        return _check_git_assertion(assertion, t, fixture_dir)
     return False, f"알 수 없는 assertion type: {t}"
+
+
+def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bool, str]:
+    """git 상태 어서션 3종 채점 (W-023 D-5). fixture_dir은 run_scenario가 넘기는
+    실행 후 temp work_dir — materialize_git_repo가 이미 저장소를 만들어 둔 상태다.
+
+    ref/branch는 author 제어 문자열이다. `-`로 시작하는 값은 git이 옵션으로
+    오인할 수 있어(옵션 주입) 거부한다 — shell=True는 쓰지 않지만 리스트 인자
+    자체가 신뢰 경계다.
+    """
+    expect_ok = bool(assertion.get("expect", True))
+    timeout_s = int(assertion.get("timeout", 30))
+
+    if t == "git_log_contains":
+        ref = assertion.get("ref", "HEAD")
+        if not isinstance(ref, str) or ref.startswith("-"):
+            return False, f"git_log_contains — 유효하지 않은 ref(옵션 주입 의심): {ref!r}"
+        args = ["log", "--format=%B", ref]
+    elif t == "git_branch_exists":
+        branch = assertion["branch"]
+        if not isinstance(branch, str) or branch.startswith("-"):
+            return (
+                False,
+                f"git_branch_exists — 유효하지 않은 branch(옵션 주입 의심): {branch!r}",
+            )
+        args = ["branch", "--list", "--format=%(refname:short)"]
+    else:  # git_status_clean
+        args = ["status", "--porcelain"]
+
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(fixture_dir), *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        # 무한대기 하나가 전체 런을 크래시시키지 않게 fail로 강등 (ATK-003 관례).
+        return False, f"{t} — git 명령 타임아웃"
+
+    if r.returncode != 0:
+        # 비-저장소(또는 다른 git 실패)는 항상 명시적 fail이다. "porcelain이 비어
+        # 있으니 clean"으로 오독하면 저장소 없는 상태가 통과로 위장되는 거짓
+        # green이 된다 — 이 분기가 그 오독을 막는다.
+        return (
+            False,
+            f"{t} — git 명령 실패(비-저장소 가능성, exit {r.returncode}): "
+            f"{r.stderr.strip()[:200]}",
+        )
+
+    if t == "git_log_contains":
+        matched = re.search(assertion["pattern"], r.stdout, re.MULTILINE) is not None
+    elif t == "git_branch_exists":
+        branches = {ln.strip() for ln in r.stdout.splitlines() if ln.strip()}
+        matched = assertion["branch"] in branches
+    else:  # git_status_clean
+        matched = r.stdout.strip() == ""
+
+    ok = matched == expect_ok
+    return ok, t + ("" if ok else f" — expect={expect_ok} actual={matched}")
 
 
 # ---------------------------------------------------------------------------

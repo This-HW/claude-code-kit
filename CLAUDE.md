@@ -175,9 +175,13 @@ Claude에게 다음 에이전트를 지목했다.
   Authorization, "서브에이전트는 서브에이전트를 호출하지 않는다")은 보존.
   `On Receiving Subagent Output` 절은 삭제가 아니라 스킬 주도 모델에 맞게 재작성.
   해설본(`docs/architecture/rules/`)도 같은 원칙으로 갱신, CHECKSUMS/MIRROR 재생성
-- eval `delegation_signal` 체크 타입 — **삭제하지 않음.** `implement-code`·
-  `plan-implementation` 등 안정 통과 시나리오가 있어 체크 자체는 유효했다
-  (`evals/run.py`). 계약이 폐기됐으므로 그 시나리오들의 어서션은 개별 판단 대상
+- eval `delegation_signal` 체크 타입 — 계약 폐기 시점에는 **삭제하지 않았다.**
+  `implement-code`·`plan-implementation` 등 안정 통과 시나리오가 있어 체크 자체는
+  유효하다고 판단했으나, 그 판단의 근거였던 시나리오 어서션은 **바로 그 배치에서
+  이미 제거돼 있었다** — 판단 시점에 이미 사실이 아니었다. W-023(2026-08-31)이
+  실사용 조사로 확인: 어서션 117건 중 `delegation_signal` 사용자 **0건**. 검사할
+  대상이 없는 채로 남은 채점 코드는 계약이 아직 살아 있다는 잘못된 신호만 주므로,
+  `KNOWN_ASSERTION_TYPES`·`check_assertion`(`evals/run.py`) 두 지점에서 제거했다
 - 유지: 본문 산문의 `DELEGATE_TO: X` 같은 에스컬레이션 서술(기계 계약 아님),
   역사 기록(CHANGELOG, decision-log, 과거 spec)
 
