@@ -32,7 +32,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 46.01
+      "duration_s": 38.76
     },
     {
       "agent": "analyze-tech-debt",
@@ -61,7 +61,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 64.83
+      "duration_s": 47.17
     },
     {
       "agent": "define-business-logic",
@@ -100,7 +100,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 307.41
+      "duration_s": 235.88
     },
     {
       "agent": "define-metrics",
@@ -129,7 +129,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 41.43
+      "duration_s": 35.3
     },
     {
       "agent": "design-services",
@@ -158,7 +158,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 149.41
+      "duration_s": 224.62
     },
     {
       "agent": "design-user-journey",
@@ -192,7 +192,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 237.75
+      "duration_s": 189.89
     },
     {
       "agent": "devils-advocate",
@@ -226,7 +226,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 172.58
+      "duration_s": 153.53
     },
     {
       "agent": "enforce-structure",
@@ -255,7 +255,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 25.69
+      "duration_s": 20.69
     },
     {
       "agent": "explore-codebase",
@@ -279,7 +279,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 39.46
+      "duration_s": 35.79
     },
     {
       "agent": "facilitator",
@@ -313,7 +313,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 80.99
+      "duration_s": 94.45
     },
     {
       "agent": "fix-bugs",
@@ -332,7 +332,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 23.1
+      "duration_s": 16.96
     },
     {
       "agent": "fix-bugs",
@@ -351,7 +351,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 24.55
+      "duration_s": 19.11
     },
     {
       "agent": "fix-bugs",
@@ -370,7 +370,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 21.28
+      "duration_s": 20.44
     },
     {
       "agent": "fix-bugs",
@@ -389,7 +389,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 37.06
+      "duration_s": 28.77
     },
     {
       "agent": "generate-boilerplate",
@@ -413,7 +413,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 18.1
+      "duration_s": 19.73
     },
     {
       "agent": "git-workflow",
@@ -437,7 +437,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 24.23
+      "duration_s": 26.56
     },
     {
       "agent": "git-workflow",
@@ -453,10 +453,15 @@
           "type": "git_log_contains",
           "ok": true,
           "detail": "git_log_contains"
+        },
+        {
+          "type": "git_status_clean",
+          "ok": true,
+          "detail": "git_status_clean"
         }
       ],
       "judge": null,
-      "duration_s": 25.74
+      "duration_s": 24.03
     },
     {
       "agent": "impact-analyzer",
@@ -485,7 +490,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 177.94
+      "duration_s": 143.93
     },
     {
       "agent": "implement-api",
@@ -504,7 +509,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 16.78
+      "duration_s": 19.6
     },
     {
       "agent": "implement-code",
@@ -518,7 +523,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 23.94
+      "duration_s": 18.44
     },
     {
       "agent": "implement-code",
@@ -532,7 +537,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 17.69
+      "duration_s": 27.69
     },
     {
       "agent": "implement-code",
@@ -546,7 +551,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 17.69
+      "duration_s": 19.97
     },
     {
       "agent": "manage-api-versions",
@@ -575,7 +580,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 47.87
+      "duration_s": 25.32
     },
     {
       "agent": "optimize-logic",
@@ -599,7 +604,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 19.88
+      "duration_s": 18.93
     },
     {
       "agent": "plan-implementation",
@@ -623,7 +628,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 111.43
+      "duration_s": 88.47
     },
     {
       "agent": "plan-refactor",
@@ -647,7 +652,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 132.2
+      "duration_s": 134.28
     },
     {
       "agent": "review-code",
@@ -671,7 +676,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 114.46
+      "duration_s": 139.99
     },
     {
       "agent": "review-code",
@@ -695,7 +700,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 58.15
+      "duration_s": 87.46
     },
     {
       "agent": "review-code",
@@ -719,7 +724,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 145.46
+      "duration_s": 151.68
     },
     {
       "agent": "review-code",
@@ -743,7 +748,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 92.58
+      "duration_s": 102.08
     },
     {
       "agent": "security-scan",
@@ -767,7 +772,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 44.44
+      "duration_s": 35.8
     },
     {
       "agent": "sync-docs",
@@ -786,7 +791,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 38.8
+      "duration_s": 42.22
     },
     {
       "agent": "synthesizer",
@@ -840,7 +845,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 62.41
+      "duration_s": 50.75
     },
     {
       "agent": "verify-code",
@@ -874,7 +879,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 27.87
+      "duration_s": 26.22
     },
     {
       "agent": "verify-integration",
@@ -903,7 +908,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 28.46
+      "duration_s": 26.79
     },
     {
       "agent": "write-api-tests",
@@ -922,7 +927,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 29.69
+      "duration_s": 27.95
     },
     {
       "agent": "write-tests",
@@ -941,7 +946,7 @@
         }
       ],
       "judge": null,
-      "duration_s": 22.17
+      "duration_s": 21.93
     }
   ],
   "summary": {

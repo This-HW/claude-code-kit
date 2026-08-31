@@ -36,6 +36,7 @@ import ast
 import concurrent.futures
 import json
 import os
+import pathlib
 import re
 import shlex
 import shutil
@@ -374,6 +375,21 @@ def validate_expect_schema(expect: dict, prefix: str) -> list[str]:
     return errors
 
 
+def _is_git_internal(rel: str) -> bool:
+    """경로가 저장소 메타디렉토리(`.git/`) 안을 가리키는가.
+
+    **왜 _safe_join 으로 부족한가 (W-023 리뷰, Critical).** `_safe_join` 은 "base 밖으로
+    나가는가"만 본다 — `.git/config` 는 base **안**이므로 통과한다. 그런데 거기에 쓰면
+    `[filter "x"] clean = <셸 명령>` 을 심을 수 있고, `.gitattributes`(write) + `add` 로
+    **실행 비트 없이** 발화한다. 즉 화이트리스트에서 `config` op 을 제거한 조치(D-1)가
+    `write` 경유로 무효화된다. 실증: 임시 저장소에서 마커 파일 생성 확인.
+
+    대소문자를 접어 비교한다 — macOS 기본 파일시스템은 대소문자를 구분하지 않아
+    `.GIT/config` 가 같은 파일에 도달한다.
+    """
+    return any(part.casefold() == ".git" for part in pathlib.PurePosixPath(rel).parts)
+
+
 def validate_git_spec(spec: dict, prefix: str) -> list[str]:
     """git.json 오프라인 스키마 검증 (W-023 D-1/D-2). 실체화(materialize_git_repo) 전에
     구조·화이트리스트·경로 탈출을 잡는다 — `--validate`/게이트 §10이 이 함수로 커버된다.
@@ -417,6 +433,11 @@ def validate_git_spec(spec: dict, prefix: str) -> list[str]:
                     errors.append(
                         f"{prefix}: git.json ops[{i}] write.path 경로 탈출/절대경로 "
                         f"금지: {path!r}"
+                    )
+                elif _is_git_internal(path):
+                    errors.append(
+                        f"{prefix}: git.json ops[{i}] write.path 가 저장소 메타디렉토리"
+                        f"(.git/)를 가리킴 — 금지: {path!r}"
                     )
     return errors
 
@@ -659,6 +680,24 @@ def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str
             errors.append(f"{prefix}: git.json 파싱 실패 ({e})")
         else:
             errors += validate_git_spec(git_spec, prefix)
+            # file_unchanged는 실행 후 파일을 **원본 fixture**와 바이트 비교한다.
+            # 그런데 git.json의 write는 실체화 단계에서 같은 파일을 덮어쓰므로,
+            # 둘이 겹치면 에이전트가 아무것도 하지 않아도 영구 fail이고 실패
+            # 메시지는 "변조됨 (게이밍 의심)"이라 원인을 정반대로 오도한다
+            # (W-023 리뷰 W-5). 조합 자체를 스키마 오류로 막는다.
+            written = {
+                str(op.get("path"))
+                for op in git_spec.get("ops", [])
+                if isinstance(op, dict) and op.get("op") == "write"
+            }
+            for a in expect.get("assertions", []):
+                if isinstance(a, dict) and a.get("type") == "file_unchanged":
+                    f = str(a.get("file"))
+                    if f in written:
+                        errors.append(
+                            f"{prefix}: file_unchanged '{f}' 가 git.json write 대상과 "
+                            f"겹침 — 실체화가 원본을 덮어써 영구 fail이 된다"
+                        )
 
     if not list(agents_root.rglob(f"{agent_name}.md")):
         errors.append(
@@ -706,19 +745,83 @@ def _git_env() -> dict[str, str]:
     return env
 
 
+# git 실체화 한 명령의 상한. 없으면 자격증명 프롬프트·파일 잠금에서 **스위트가 무한
+# 대기한다** — run_scenario의 timeout은 claude 호출에만 걸려 있어 여기를 덮지 않는다
+# (W-023 리뷰 W-6).
+_GIT_OP_TIMEOUT_SECONDS = 60
+
+
+def _reject_option_like(value: str, where: str) -> None:
+    """`-`로 시작하는 author-제어 값을 거부한다 (W-023 리뷰 C-2).
+
+    화이트리스트가 "연산 8종"을 제한해도 **전달 인자가 무제한이면 보안 주장이
+    성립하지 않는다**. `_check_git_assertion`은 ref/branch에 이미 이 경계를 세웠는데
+    실체화 경로에는 없었다 — 같은 파일 안의 방어 비대칭이었다.
+
+    `--` 종결자와 병행한다(종결자만으로는 `git branch <name>`처럼 종결자를 받지 않는
+    서브커맨드를 못 막는다).
+    """
+    if not isinstance(value, str) or value.startswith("-"):
+        raise RuntimeError(f"git.json {where} 옵션 주입 의심 값 거부: {value!r}")
+
+
+def _git_args_for(op_entry: dict) -> list[str] | None:
+    """op 하나를 git 인자 리스트로 조립한다 — **순수 함수, 부수효과 없음**.
+
+    실행(_run_git)과 조립을 분리해 새니타이즈를 단위 테스트할 수 있게 한다
+    (W-023 리뷰 S-4). `write`는 git 명령이 아니므로 None을 반환한다.
+    """
+    op = op_entry["op"]
+    if op == "init":
+        branch = str(op_entry.get("defaultBranch", "main"))
+        _reject_option_like(branch, "init.defaultBranch")
+        return ["init", "-q", "-b", branch]
+    if op == "add":
+        paths = [str(x) for x in op_entry["paths"]]
+        for x in paths:
+            _reject_option_like(x, "add.paths[]")
+        return ["add", "--", *paths]
+    if op == "commit":
+        # -m 뒤 값은 위치상 옵션으로 해석되지 않으므로 종결자 불필요.
+        return ["commit", "-q", "-m", str(op_entry["message"])]
+    if op == "branch":
+        name = str(op_entry["name"])
+        _reject_option_like(name, "branch.name")
+        return ["branch", name]
+    if op == "checkout":
+        ref = str(op_entry["ref"])
+        _reject_option_like(ref, "checkout.ref")
+        return ["checkout", "-q", ref, "--"]
+    if op == "tag":
+        name = str(op_entry["name"])
+        _reject_option_like(name, "tag.name")
+        return ["tag", name]
+    if op == "merge":
+        ref = str(op_entry["ref"])
+        _reject_option_like(ref, "merge.ref")
+        return ["merge", "--no-edit", ref]
+    return None
+
+
 def _run_git(work_dir: Path, args: list[str]) -> None:
     """`git -C work_dir` 고정 — cwd 상대경로에 의존하지 않는다 (D-2).
 
     gpgsign은 명령별로 끈다(-c commit.gpgsign=false) — 사용자 전역 설정이
     commit.gpgsign=true면 서명 프롬프트로 실체화가 멈춘다 (D-4).
     """
-    r = subprocess.run(
-        ["git", "-C", str(work_dir), "-c", "commit.gpgsign=false", *args],
-        capture_output=True,
-        text=True,
-        env=_git_env(),
-        check=False,
-    )
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(work_dir), "-c", "commit.gpgsign=false", *args],
+            capture_output=True,
+            text=True,
+            env=_git_env(),
+            timeout=_GIT_OP_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(
+            f"git {' '.join(args)} 타임아웃 ({_GIT_OP_TIMEOUT_SECONDS}s)"
+        ) from e
     if r.returncode != 0:
         raise RuntimeError(
             f"git {' '.join(args)} 실패 (exit {r.returncode}): {r.stderr.strip()[:300]}"
@@ -741,30 +844,26 @@ def materialize_git_repo(work_dir: Path, spec: dict) -> None:
     """
     for op_entry in spec.get("ops", []):
         op = op_entry.get("op")
-        if op == "init":
-            default_branch = op_entry.get("defaultBranch", "main")
-            _run_git(work_dir, ["init", "-q", "-b", str(default_branch)])
-        elif op == "write":
+        if op not in ALLOWED_GIT_OPS:
+            raise RuntimeError(f"git.json 알 수 없는 op '{op}' (화이트리스트 밖)")
+        if op == "write":
             raw_path = op_entry["path"]
+            # `.git/` 봉쇄가 _safe_join 보다 **먼저**다 — _safe_join 은 base 밖으로
+            # 나가는 것만 막고 `.git/config` 는 base 안이라 통과시킨다 (리뷰 C-1).
+            if _is_git_internal(raw_path):
+                raise RuntimeError(
+                    f"git.json write.path 저장소 메타디렉토리(.git/) 쓰기 차단: {raw_path!r}"
+                )
             target = _safe_join(work_dir, raw_path)
             if target is None:
                 raise RuntimeError(f"git.json write.path 경로 탈출 차단: {raw_path!r}")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(op_entry["content"], encoding="utf-8")
-        elif op == "add":
-            _run_git(work_dir, ["add", *[str(p) for p in op_entry["paths"]]])
-        elif op == "commit":
-            _run_git(work_dir, ["commit", "-q", "-m", str(op_entry["message"])])
-        elif op == "branch":
-            _run_git(work_dir, ["branch", str(op_entry["name"])])
-        elif op == "checkout":
-            _run_git(work_dir, ["checkout", "-q", str(op_entry["ref"])])
-        elif op == "tag":
-            _run_git(work_dir, ["tag", str(op_entry["name"])])
-        elif op == "merge":
-            _run_git(work_dir, ["merge", "--no-edit", str(op_entry["ref"])])
-        else:
-            raise RuntimeError(f"git.json 알 수 없는 op '{op}' (화이트리스트 밖)")
+            continue
+        args = _git_args_for(op_entry)
+        if args is None:  # pragma: no cover - 화이트리스트와 조립기가 어긋난 경우
+            raise RuntimeError(f"git.json op '{op}' 인자 조립기 없음 (러너 버그)")
+        _run_git(work_dir, args)
 
 
 # ---------------------------------------------------------------------------

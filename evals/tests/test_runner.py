@@ -1187,3 +1187,163 @@ def test_check_assertion_git_assertions_fail_closed_on_non_repo(tmp_path):
         ok, detail = runner.check_assertion(assertion, "", non_repo)
         assert ok is False, assertion
         assert "비-저장소" in detail
+
+
+# ---------------------------------------------------------------------------
+# W-023 리뷰 Critical — `write` 로 `.git/` 에 쓰면 제거한 config op 이 되살아난다
+#
+# _safe_join 은 "base 밖으로 나가는가"만 본다. `.git/config` 는 base **안**이라
+# 통과하는데, 거기에 `[filter "x"] clean = <셸 명령>` 을 심고 `.gitattributes`(write)
+# + `add` 하면 **실행 비트 없이** 발화한다 — 화이트리스트에서 config 를 뺀 조치가
+# write 경유로 무효화된다. 아래 테스트가 그 경로를 고정한다.
+# ---------------------------------------------------------------------------
+
+_GIT_INTERNAL_PATHS = [
+    ".git/config",
+    ".GIT/config",  # macOS 기본 FS는 대소문자 비구분
+    "sub/.git/config",
+    ".git/hooks/pre-commit",
+]
+
+
+def _git_internal_spec(bad_path: str) -> dict:
+    return {
+        "version": 1,
+        "ops": [
+            {"op": "init"},
+            {"op": "write", "path": bad_path, "content": "x"},
+        ],
+    }
+
+
+def test_validate_git_spec_rejects_git_internal_write():
+    for bad_path in _GIT_INTERNAL_PATHS:
+        errors = runner.validate_git_spec(_git_internal_spec(bad_path), "sc")
+        assert any(".git/" in e for e in errors), (
+            f"{bad_path} 가 오프라인 검증에서 거부되지 않았다: {errors}"
+        )
+
+
+def test_materialize_git_repo_blocks_git_internal_write(tmp_path):
+    """검증을 거치지 않고 직접 호출되는 경로에서도 막혀야 한다 (fail-closed)."""
+    import pytest as _pytest
+
+    for i, bad_path in enumerate(_GIT_INTERNAL_PATHS):
+        work = tmp_path / f"w{i}"
+        work.mkdir()
+        with _pytest.raises(RuntimeError, match=r"\.git/"):
+            runner.materialize_git_repo(work, _git_internal_spec(bad_path))
+
+
+def test_git_internal_block_does_not_break_dotfiles(tmp_path):
+    """`.gitattributes`·`.gitignore` 같은 정상 dotfile 은 계속 허용된다 —
+    위험한 것은 저장소 메타디렉토리(.git/)이지 점으로 시작하는 이름이 아니다."""
+    spec = {
+        "version": 1,
+        "ops": [
+            {"op": "init"},
+            {"op": "write", "path": ".gitignore", "content": "*.pyc\n"},
+            {"op": "write", "path": ".gitattributes", "content": "* text=auto\n"},
+            {"op": "add", "paths": ["."]},
+            {"op": "commit", "message": "chore: dotfiles"},
+        ],
+    }
+    assert runner.validate_git_spec(spec, "sc") == []
+    runner.materialize_git_repo(tmp_path, spec)
+    assert (tmp_path / ".gitignore").is_file()
+    assert (tmp_path / ".gitattributes").is_file()
+
+
+# ---------------------------------------------------------------------------
+# W-023 리뷰 C-2 — 실체화 경로에 옵션 주입 가드가 없었다
+#
+# 화이트리스트가 "연산 8종"을 제한해도 전달 인자가 무제한이면 보안 주장이 성립하지
+# 않는다. _check_git_assertion 은 ref/branch 에 이미 이 경계를 세웠는데 실체화
+# 경로에는 없었다 — 같은 파일 안의 방어 비대칭이었다.
+# ---------------------------------------------------------------------------
+
+_OPTION_INJECTION_OPS = [
+    {"op": "add", "paths": ["--renormalize", "."]},
+    {"op": "checkout", "ref": "--orphan"},
+    {"op": "branch", "name": "--force"},
+    {"op": "merge", "ref": "--strategy-option=theirs"},
+    {"op": "tag", "name": "--delete"},
+    {"op": "init", "defaultBranch": "--bare"},
+]
+
+
+def test_git_args_for_rejects_option_like_values():
+    import pytest as _pytest
+
+    for op_entry in _OPTION_INJECTION_OPS:
+        with _pytest.raises(RuntimeError, match="옵션 주입"):
+            runner._git_args_for(op_entry)
+
+
+def test_git_args_for_uses_argument_terminator():
+    """`--` 종결자가 붙는지 — 값이 옵션으로 재해석되는 것을 막는 두 번째 층."""
+    assert runner._git_args_for({"op": "add", "paths": ["."]}) == ["add", "--", "."]
+    assert runner._git_args_for({"op": "checkout", "ref": "feature/x"}) == [
+        "checkout",
+        "-q",
+        "feature/x",
+        "--",
+    ]
+
+
+def test_git_args_for_accepts_normal_values():
+    assert runner._git_args_for({"op": "branch", "name": "feature/x"}) == [
+        "branch",
+        "feature/x",
+    ]
+    assert runner._git_args_for({"op": "merge", "ref": "feature/x"}) == [
+        "merge",
+        "--no-edit",
+        "feature/x",
+    ]
+    # write 는 git 명령이 아니다 — 조립기는 None 을 돌려주고 호출부가 파일로 처리한다.
+    assert runner._git_args_for({"op": "write", "path": "a", "content": "b"}) is None
+
+
+# ---------------------------------------------------------------------------
+# W-023 리뷰 W-5 — file_unchanged 와 git.json write 가 겹치면 영구 fail
+#
+# file_unchanged 는 실행 후 파일을 **원본 fixture** 와 바이트 비교하는데, git.json 의
+# write 는 실체화 단계에서 같은 파일을 덮어쓴다. 겹치면 에이전트가 아무것도 하지
+# 않아도 fail 이고, 메시지는 "변조됨 (게이밍 의심)" 이라 원인을 정반대로 오도한다.
+# ---------------------------------------------------------------------------
+
+
+def _write_overlap_scenario(root: Path, *, git_ops: list, assertions: list) -> Path:
+    sc = root / "fix-bugs" / "sc"
+    (sc / "fixture").mkdir(parents=True)
+    (sc / "fixture" / "a.txt").write_text("x\n", encoding="utf-8")
+    (sc / "task.md").write_text("t", encoding="utf-8")
+    (sc / "git.json").write_text(
+        json.dumps({"version": 1, "ops": git_ops}), encoding="utf-8"
+    )
+    (sc / "expect.json").write_text(
+        json.dumps({"assertions": assertions}), encoding="utf-8"
+    )
+    return sc
+
+
+def test_validate_scenario_rejects_file_unchanged_overlapping_git_write(tmp_path):
+    sc = _write_overlap_scenario(
+        tmp_path,
+        git_ops=[{"op": "init"}, {"op": "write", "path": "a.txt", "content": "y\n"}],
+        assertions=[{"type": "file_unchanged", "file": "a.txt"}],
+    )
+    errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
+    assert any("겹침" in e for e in errors), errors
+
+
+def test_validate_scenario_allows_file_unchanged_without_overlap(tmp_path):
+    """겹치지 않으면 통과해야 한다 — 과잉 차단이 아님을 고정한다."""
+    sc = _write_overlap_scenario(
+        tmp_path,
+        git_ops=[{"op": "init"}, {"op": "write", "path": "b.txt", "content": "y\n"}],
+        assertions=[{"type": "file_unchanged", "file": "a.txt"}],
+    )
+    errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
+    assert not any("겹침" in e for e in errors), errors

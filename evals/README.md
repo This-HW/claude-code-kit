@@ -63,7 +63,7 @@ evals/
 
 | 변수 | 설명 | 기본값 |
 | --- | --- | --- |
-| `CKKIT_EVAL_TIMEOUT` | 시나리오당 타임아웃(초) | 300 |
+| `CKKIT_EVAL_TIMEOUT` | 시나리오당 타임아웃(초) — override 전용 | `evals/policy.json`의 `cost.scenarioTimeoutSeconds` (현재 600) |
 | `CKKIT_EVAL_JUDGE` | `1`이면 deterministic 전부 통과 시 LLM-judge 실행 | (미실행) |
 
 ## exit code
@@ -84,7 +84,10 @@ evals/
     { "type": "output_not_contains", "values": ["secret-key"] },
     { "type": "pytest_green", "path": "." },
     { "type": "file_contains", "file": "stats.py", "pattern": "range\\(len" },
-    { "type": "delegation_signal" }
+    { "type": "file_unchanged", "file": "test_stats.py" },
+    { "type": "git_log_contains", "pattern": "^fix:", "ref": "main" },
+    { "type": "git_branch_exists", "branch": "main" },
+    { "type": "git_status_clean" }
   ],
   "judge": {
     "enabled": false,
@@ -96,13 +99,84 @@ evals/
 
 - `output_contains_any`/`output_not_contains`는 대소문자 무시 부분 문자열 매칭이다
   — 동의어를 넉넉히 나열해 brittleness를 낮춘다.
+- **`output_not_contains`의 값은 '판정'이어야 하고 '일반 어구'여서는 안 된다.** 이 가드는
+  거짓 green(에이전트가 결함을 못 찾고 "깨끗하다"고 선언하는 것)을 잡으려는 것인데,
+  부분 문자열 매칭이라 **일반 어구를 넣으면 정반대 상황에서 발화한다.** 실측 3건:
+  - `analyze-dependencies/order-utils-impact` — 두 차례 거짓양성 후 어서션 제거(W-022 R3)
+  - `security-scan/shared-tmp-and-hardcoded-token` — Critical 1·High 2·Medium 2·Low 1 을
+    보고하고도 **수정안 코드 주석** `# 원자적 rename, 심볼릭 링크 문제 없음` 때문에 fail
+    (W-023). 이를 계기로 18개 시나리오에서 `문제 없음`·`문제가 없`·`이상 없음`·
+    `looks fine`·`looks good` 5종을 제거했다 — 판정이 아니라 어구다.
+  - 남긴 값은 결함 부재를 **선언**하는 형태뿐이다: `취약점 없음`류·`버그 없음`류·
+    `no vulnerabilities`·`no issues found`.
+  - 판단 기준: **그 문자열이 "여기는 괜찮다"는 부분 서술이나 수정안 설명에 등장할 수
+    있는가?** 있으면 넣지 마라. 어차피 진짜 거짓 green 은 positive 어서션이 함께 잡는다
+    (이 가드를 가진 모든 시나리오가 positive 어서션을 함께 갖고 있다).
 - `pytest_green`은 fixture의 임시 복사본에서 `python3 -m pytest <path>`를 실행해
   exit 0인지 확인한다.
-- `delegation_signal`은 표준 3-마커(`---DELEGATION_SIGNAL---` / `TYPE:` /
-  `---END_SIGNAL---`) 존재 여부만 확인한다.
+- `file_unchanged`는 실행 후 파일이 **원본 fixture와 바이트 동일**한지 본다 — 에이전트가
+  테스트 파일을 고쳐 green을 만드는 우회를 막는다. **`git.json`의 `write` 대상과 겹치면
+  안 된다** (실체화가 원본을 덮어써 영구 fail이 된다 — `--validate`가 거부한다).
+- **git 상태 어서션 3종** (`git.json`이 있는 시나리오용):
+  - `git_log_contains` — `git log --format=%B <ref>` 출력에 정규식 매치. `ref` 기본값은
+    `HEAD`이며 그 경우 **조상 전체의 커밋 메시지**를 본다. `git.json`이 만든 커밋 메시지에
+    매치하면 에이전트가 아무것도 하지 않아도 통과하므로, **패턴이 `git.json`의 어떤 커밋
+    메시지에도 매치하지 않는지 반드시 확인하라** (실제로 밟은 함정이다).
+  - `git_branch_exists` — `git branch --list` 결과에 해당 브랜치가 있는가.
+  - `git_status_clean` — `git status --porcelain`이 빈 출력인가. 충돌(unmerged) 상태는
+    `UU` 항목으로 잡힌다. **한계: detached HEAD는 작업 트리만 깨끗하면 clean으로 판정된다**
+    — 브랜치 도달성까지 보려면 `git_branch_exists`와 조합하라.
+  - 셋 다 `expect: false`로 부정을 표현한다(별도 `*_not_*` 타입은 없다). 저장소가 아닌
+    디렉토리에서는 **명시적 fail**이다(빈 출력을 clean으로 오독하지 않는다).
 - `judge`는 opt-in이다. `enabled: true`면 `rubric` 필수. deterministic이 전부
   통과하고 `CKKIT_EVAL_JUDGE=1`일 때만 실행되며, judge 실패는 경고로만 기록된다
   (deterministic 통과 시 최종 판정은 pass 유지).
+
+## `git.json` — 저장소 상태를 가진 시나리오 (선택)
+
+시나리오 디렉토리에 `git.json`을 두면 러너가 실행 직전 temp 작업 디렉토리에 git 저장소를
+**실체화**한다(`fixture/` 복사 직후, 에이전트 dispatch 전). 브랜치·커밋 히스토리·충돌
+상태를 fixture로 표현할 수 있다.
+
+```json
+{
+  "version": 1,
+  "ops": [
+    { "op": "init", "defaultBranch": "main" },
+    { "op": "add", "paths": ["."] },
+    { "op": "commit", "message": "feat: initial" },
+    { "op": "branch", "name": "feature/x" },
+    { "op": "checkout", "ref": "feature/x" },
+    { "op": "write", "path": "src/app.py", "content": "VALUE = 2\n" },
+    { "op": "add", "paths": ["."] },
+    { "op": "commit", "message": "feat: change value" },
+    { "op": "checkout", "ref": "main" }
+  ]
+}
+```
+
+**허용 연산은 8종뿐이다** — `init` · `write` · `add` · `commit` · `branch` · `checkout` ·
+`tag` · `merge`. 화이트리스트이지 블랙리스트가 아니다. `run`/`exec`/`clone`/`fetch`/
+`push`/`remote`/`submodule`/`config`는 **의도적으로 없다**.
+
+**왜 이렇게 좁은가.** 러너는 fixture의 임의 코드 실행을 막아 왔고(conftest.py 금지,
+모듈 스코프 위험 호출 AST 차단), 실측 실행은 `--permission-bypassPermissions`다. git은
+설정 하나로 코드를 실행시킬 수 있어서 — `config` op은 `filter.<n>.clean`으로, `write`는
+`.git/config` 직접 쓰기로 각각 임의 코드 실행이 성립함이 **실증됐다**. 그래서:
+
+- `config` op은 존재하지 않는다.
+- `write.path`는 `.git/`을 어느 위치에서도 포함할 수 없다(대소문자 무관). 절대경로·`..`도 금지.
+- 모든 op의 인자는 `-`로 시작할 수 없다(옵션 주입 차단). `add`/`checkout`은 `--` 종결자를 쓴다.
+- 위반은 `--validate`(오프라인)와 실체화(실행) **양쪽에서** 거부된다.
+
+**그 밖에 알아 둘 것**:
+
+- 커밋 작성자·시각은 고정된다 — 실행자의 전역 git 설정이 결과를 바꾸지 않는다.
+- 실체화 실패는 시나리오를 `error`로 만들고 어서션 채점에 들어가지 않는다(fail-closed).
+- git 명령 하나당 60초 상한이 있다.
+- **git 2.28+ 필요** (`init -b`). 그 이전 버전에서는 실체화가 실패한다.
+- `git.json`이 있어도 `fixture/`는 여전히 필요하다(빈 디렉토리는 git이 추적하지 않으므로
+  최소 1개 파일을 두어라).
 
 ## 시나리오 추가 가이드
 
