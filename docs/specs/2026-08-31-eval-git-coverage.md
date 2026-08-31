@@ -116,8 +116,21 @@ temp work_dir 에서 실체화한다.
 }
 ```
 
-**허용 연산 (이 목록이 전부다)**: `init` · `config` · `write` · `add` · `commit` ·
-`branch` · `checkout` · `tag` · `merge`.
+**허용 연산 (이 목록이 전부다)**: `init` · `write` · `add` · `commit` ·
+`branch` · `checkout` · `tag` · `merge`. **8종이다.**
+
+> **정정 (2026-08-31, Stage 0 검토 / decision-log D-1)** — 최초 목록에 있던 `config` 를
+> **제거했다.** 임의 `key`/`value` 를 `git config` 에 넘기면 화이트리스트 **안의 연산만으로**
+> 임의 코드 실행이 성립한다. 실증 2건: ① `core.hooksPath` → `commit` (훅에 실행 비트 필요)
+> ② `filter.<n>.clean` + `.gitattributes` → `add` (**실행 비트 불필요** — 값 자체가 셸 명령).
+> ②는 `init`·`write`·`config`·`add` 만으로 완성되며, `write` 가 `_safe_join` 으로 봉쇄돼 있어도
+> 무관하다. 이는 `run.py` 가 fixture 에 대해 세운 임의 코드 실행 차단을 다른 문으로 무력화한다.
+>
+> `config` 는 애초에 잉여였다 — 신원은 `_GIT_FIXED_IDENTITY` 환경변수가, 서명 비활성화는
+> `-c commit.gpgsign=false` 가 이미 처리한다. **나쁜 키 블랙리스트로 막지 않는다**
+> (`core.hooksPath`·`filter.*`·`core.fsmonitor`·`diff.external`·`core.sshCommand`·`alias.*` …
+> 열거가 끝나지 않고, 이 레포는 블랙리스트가 뚫린 전례가 있다). 필요가 실제로 생기면
+> 그때 좁은 키 화이트리스트로 되살린다.
 
 **금지 — 구현하지 말 것**: 임의 `run`/`exec`/`sh`, 원격 연산(`clone`·`fetch`·`push`·
 `remote`·`submodule`), 훅 설치, `filter-branch` 계열.
