@@ -128,6 +128,33 @@ KNOWN_ASSERTION_TYPES: dict[str, set[str]] = {
     "delegation_signal": set(),
 }
 
+# git.json 연산 어휘 -> 필수 필드 (W-023 D-1). 화이트리스트다 — 이 9종이 전부이고,
+# run/exec/clone/fetch/push/remote/submodule 등은 의도적으로 없다(임의 셸 실행 통로
+# 금지). validate_git_spec의 스키마 검증과 materialize_git_repo의 실행 분기가 이
+# SSOT를 공유한다.
+ALLOWED_GIT_OPS: dict[str, set[str]] = {
+    "init": set(),
+    "config": set(),
+    "write": {"path", "content"},
+    "add": {"paths"},
+    "commit": {"message"},
+    "branch": {"name"},
+    "checkout": {"ref"},
+    "tag": {"name"},
+    "merge": {"ref"},
+}
+
+# 재현성 고정값 (D-4) — 사용자 전역 git 설정(user.name 미설정, init.defaultBranch 등)이
+# 실체화 결과를 실행자마다 다르게 만들지 않도록 매 git 호출에 고정 환경을 준다.
+_GIT_FIXED_IDENTITY = {
+    "GIT_AUTHOR_NAME": "eval",
+    "GIT_AUTHOR_EMAIL": "eval@example.invalid",
+    "GIT_COMMITTER_NAME": "eval",
+    "GIT_COMMITTER_EMAIL": "eval@example.invalid",
+    "GIT_AUTHOR_DATE": "2026-01-01T00:00:00+00:00",
+    "GIT_COMMITTER_DATE": "2026-01-01T00:00:00+00:00",
+}
+
 
 # ---------------------------------------------------------------------------
 # 에이전트 정의 파싱 (frontmatter + 본문 시스템 프롬프트)
@@ -236,6 +263,8 @@ class Scenario:
     task: str
     fixture_dir: Path
     expect: dict[str, Any] = field(default_factory=dict)
+    # git.json 선언적 명세 (W-023 Stage 0). 없으면 None — 기존 시나리오는 회귀 없이 동작한다.
+    git_spec: dict[str, Any] | None = None
 
 
 def discover_scenario_dirs(
@@ -281,11 +310,17 @@ def load_scenario(sc_dir: Path) -> Scenario:
     task_path = sc_dir / "task.md"
     expect_path = sc_dir / "expect.json"
     fixture_dir = sc_dir / "fixture"
+    git_spec_path = sc_dir / "git.json"
     task = task_path.read_text(encoding="utf-8") if task_path.is_file() else ""
     expect = (
         json.loads(expect_path.read_text(encoding="utf-8"))
         if expect_path.is_file()
         else {}
+    )
+    git_spec = (
+        json.loads(git_spec_path.read_text(encoding="utf-8"))
+        if git_spec_path.is_file()
+        else None
     )
     return Scenario(
         agent=agent,
@@ -294,6 +329,7 @@ def load_scenario(sc_dir: Path) -> Scenario:
         task=task,
         fixture_dir=fixture_dir,
         expect=expect,
+        git_spec=git_spec,
     )
 
 
@@ -329,6 +365,53 @@ def validate_expect_schema(expect: dict, prefix: str) -> list[str]:
             errors.append(f"{prefix}: 'judge'는 object여야 함")
         elif judge.get("enabled") and "rubric" not in judge:
             errors.append(f"{prefix}: judge.enabled=true인데 'rubric' 없음")
+    return errors
+
+
+def validate_git_spec(spec: dict, prefix: str) -> list[str]:
+    """git.json 오프라인 스키마 검증 (W-023 D-1/D-2). 실체화(materialize_git_repo) 전에
+    구조·화이트리스트·경로 탈출을 잡는다 — `--validate`/게이트 §10이 이 함수로 커버된다.
+
+    `write.path`의 경로 탈출 차단은 여기서도 구조적으로(절대경로·`..`) 걸지만, 유일한
+    영구 봉쇄는 materialize_git_repo가 쓰는 _safe_join이다 — 이 함수는 실행 전 조기
+    거부일 뿐, 대체하지 않는다 (D-2: 한 번 resolve하고 그 결과를 끝까지 쓴다).
+    """
+    errors: list[str] = []
+    if not isinstance(spec, dict):
+        return [f"{prefix}: git.json은 object여야 함"]
+    if spec.get("version") != 1:
+        errors.append(
+            f"{prefix}: git.json 'version'은 1이어야 함 (got {spec.get('version')!r})"
+        )
+    ops = spec.get("ops")
+    if not isinstance(ops, list) or not ops:
+        errors.append(f"{prefix}: git.json 'ops'는 비어있지 않은 배열이어야 함")
+        ops = []
+    for i, op_entry in enumerate(ops):
+        if not isinstance(op_entry, dict) or "op" not in op_entry:
+            errors.append(f"{prefix}: git.json ops[{i}]에 'op' 없음")
+            continue
+        op = op_entry["op"]
+        if op not in ALLOWED_GIT_OPS:
+            errors.append(
+                f"{prefix}: git.json ops[{i}] 알 수 없는 op '{op}' (화이트리스트 밖 — "
+                f"허용: {sorted(ALLOWED_GIT_OPS)})"
+            )
+            continue
+        for req_field in ALLOWED_GIT_OPS[op]:
+            if req_field not in op_entry:
+                errors.append(
+                    f"{prefix}: git.json ops[{i}] ({op})에 '{req_field}' 없음"
+                )
+        if op == "write":
+            path = op_entry.get("path")
+            if isinstance(path, str):
+                p = Path(path)
+                if p.is_absolute() or ".." in p.parts:
+                    errors.append(
+                        f"{prefix}: git.json ops[{i}] write.path 경로 탈출/절대경로 "
+                        f"금지: {path!r}"
+                    )
     return errors
 
 
@@ -562,6 +645,15 @@ def validate_scenario(sc_dir: Path, agents_root: Path = AGENTS_ROOT) -> list[str
 
     errors += validate_expect_schema(expect, prefix)
 
+    git_spec_path = sc_dir / "git.json"
+    if git_spec_path.is_file():
+        try:
+            git_spec = json.loads(git_spec_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            errors.append(f"{prefix}: git.json 파싱 실패 ({e})")
+        else:
+            errors += validate_git_spec(git_spec, prefix)
+
     if not list(agents_root.rglob(f"{agent_name}.md")):
         errors.append(
             f"{prefix}: 알 수 없는 agent '{agent_name}' ({agents_root} 하위에 대응 .md 없음)"
@@ -594,6 +686,84 @@ def validate_all(
     for sc_dir in dirs:
         errors += validate_scenario(sc_dir, agents_root)
     return errors
+
+
+# ---------------------------------------------------------------------------
+# git.json 실체화 (W-023 Stage 0 — D-1~D-4)
+# ---------------------------------------------------------------------------
+
+
+def _git_env() -> dict[str, str]:
+    """고정 커밋 작성자/시각(D-4) — 사용자 전역 git 설정에 결과가 좌우되지 않는다."""
+    env = os.environ.copy()
+    env.update(_GIT_FIXED_IDENTITY)
+    return env
+
+
+def _run_git(work_dir: Path, args: list[str]) -> None:
+    """`git -C work_dir` 고정 — cwd 상대경로에 의존하지 않는다 (D-2).
+
+    gpgsign은 명령별로 끈다(-c commit.gpgsign=false) — 사용자 전역 설정이
+    commit.gpgsign=true면 서명 프롬프트로 실체화가 멈춘다 (D-4).
+    """
+    r = subprocess.run(
+        ["git", "-C", str(work_dir), "-c", "commit.gpgsign=false", *args],
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+        check=False,
+    )
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"git {' '.join(args)} 실패 (exit {r.returncode}): {r.stderr.strip()[:300]}"
+        )
+
+
+def materialize_git_repo(work_dir: Path, spec: dict) -> None:
+    """git.json 선언적 명세를 work_dir(temp fixture 작업 디렉토리)에 실체화한다.
+
+    화이트리스트(ALLOWED_GIT_OPS) 밖의 op는 이 함수가 아니라 validate_git_spec이
+    먼저 걸러야 정상이지만, 방어적으로 여기서도 거부한다(fail-closed, D-3) —
+    검증을 거치지 않고 이 함수를 직접 호출하는 경로(단위 테스트 등)가 있을 수 있다.
+
+    `write.path`는 반드시 _safe_join(work_dir, path)을 통과해야 한다 — 한 번
+    resolve하고 그 결과(target)를 끝까지 쓴다. 검사와 사용이 각각 resolve하면
+    그 틈이 TOCTOU다 (D-2, CLAUDE.md "설정값으로 경로를 만들면 반드시 봉쇄한다").
+
+    실패하면 예외를 던진다 — 호출부(run_scenario)가 'error'로 분리해 어서션
+    채점에 들어가지 않게 한다 (D-3 fail-closed).
+    """
+    for op_entry in spec.get("ops", []):
+        op = op_entry.get("op")
+        if op == "init":
+            default_branch = op_entry.get("defaultBranch", "main")
+            _run_git(work_dir, ["init", "-q", "-b", str(default_branch)])
+        elif op == "config":
+            key = op_entry.get("key")
+            value = op_entry.get("value")
+            if key is not None and value is not None:
+                _run_git(work_dir, ["config", str(key), str(value)])
+        elif op == "write":
+            raw_path = op_entry["path"]
+            target = _safe_join(work_dir, raw_path)
+            if target is None:
+                raise RuntimeError(f"git.json write.path 경로 탈출 차단: {raw_path!r}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(op_entry["content"], encoding="utf-8")
+        elif op == "add":
+            _run_git(work_dir, ["add", *[str(p) for p in op_entry["paths"]]])
+        elif op == "commit":
+            _run_git(work_dir, ["commit", "-q", "-m", str(op_entry["message"])])
+        elif op == "branch":
+            _run_git(work_dir, ["branch", str(op_entry["name"])])
+        elif op == "checkout":
+            _run_git(work_dir, ["checkout", "-q", str(op_entry["ref"])])
+        elif op == "tag":
+            _run_git(work_dir, ["tag", str(op_entry["name"])])
+        elif op == "merge":
+            _run_git(work_dir, ["merge", "--no-edit", str(op_entry["ref"])])
+        else:
+            raise RuntimeError(f"git.json 알 수 없는 op '{op}' (화이트리스트 밖)")
 
 
 # ---------------------------------------------------------------------------
@@ -813,6 +983,26 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
             )
         else:
             work_dir.mkdir(parents=True)
+
+        if scenario.git_spec is not None:
+            try:
+                materialize_git_repo(work_dir, scenario.git_spec)
+            # 실체화 실패 = error, 어서션 채점에 들어가지 않는다 (D-3 fail-closed).
+            # 저장소 없는 상태로 조용히 넘어가 "검사했는데 통과"가 나오는 것이 최악이다.
+            except Exception as e:  # noqa: BLE001
+                return _result(
+                    agent.name,
+                    scenario,
+                    "error",
+                    [
+                        {
+                            "type": "git_materialize",
+                            "ok": False,
+                            "detail": f"git.json 실체화 실패: {e!r}",
+                        }
+                    ],
+                    0.0,
+                )
 
         cmd = build_claude_command(agent, scenario.task)
         start = time.time()

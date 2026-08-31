@@ -10,7 +10,10 @@ evals/run.py 단위 테스트 — claude CLI 호출은 전부 mock/서브프로�
   - dry-run이 실제 subprocess를 호출하지 않음
 """
 
+from __future__ import annotations
+
 import json
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -735,3 +738,282 @@ def test_module_scope_danger_has_no_false_positives():
 def test_unparseable_source_is_never_silently_passed():
     """검사 불가를 통과로 삼지 않는다 (false-green 금지)."""
     assert runner._module_scope_danger("def f(:\n") != []
+
+
+# ---------------------------------------------------------------------------
+# git.json 실체화 (W-023 Stage 0 — 러너 골격, D-1~D-4)
+# ---------------------------------------------------------------------------
+
+
+def _write_scenario(sc_dir: Path, git_spec: dict | None = None) -> None:
+    (sc_dir / "fixture").mkdir(parents=True)
+    (sc_dir / "task.md").write_text("task")
+    (sc_dir / "expect.json").write_text(
+        json.dumps({"assertions": [{"type": "delegation_signal"}]})
+    )
+    if git_spec is not None:
+        (sc_dir / "git.json").write_text(json.dumps(git_spec))
+
+
+def test_load_scenario_without_git_json_sets_none(tmp_path):
+    """git.json 없는 시나리오는 종전대로 동작한다 (회귀 없음 — 최소 테스트 1)."""
+    sc_dir = tmp_path / "fix-bugs" / "no-git"
+    _write_scenario(sc_dir)
+    sc = runner.load_scenario(sc_dir)
+    assert sc.git_spec is None
+
+
+def test_load_scenario_with_git_json_parses_spec(tmp_path):
+    sc_dir = tmp_path / "git-workflow" / "with-git"
+    spec = {"version": 1, "ops": [{"op": "init"}]}
+    _write_scenario(sc_dir, git_spec=spec)
+    sc = runner.load_scenario(sc_dir)
+    assert sc.git_spec == spec
+
+
+def test_validate_git_spec_valid_spec_is_clean():
+    spec = {
+        "version": 1,
+        "ops": [
+            {"op": "init", "defaultBranch": "main"},
+            {"op": "write", "path": "a.txt", "content": "x"},
+            {"op": "add", "paths": ["."]},
+            {"op": "commit", "message": "m"},
+        ],
+    }
+    assert runner.validate_git_spec(spec, "p") == []
+
+
+def test_validate_git_spec_rejects_bad_version():
+    """최소 테스트 7: version != 1 은 거부."""
+    errors = runner.validate_git_spec({"version": 2, "ops": [{"op": "init"}]}, "p")
+    assert any("version" in e for e in errors)
+
+
+def test_validate_git_spec_rejects_missing_version():
+    errors = runner.validate_git_spec({"ops": [{"op": "init"}]}, "p")
+    assert any("version" in e for e in errors)
+
+
+def test_validate_git_spec_rejects_empty_ops():
+    errors = runner.validate_git_spec({"version": 1, "ops": []}, "p")
+    assert any("ops" in e for e in errors)
+
+
+def test_validate_git_spec_rejects_absolute_write_path():
+    """최소 테스트 3: 절대경로 write.path 는 거부."""
+    spec = {
+        "version": 1,
+        "ops": [{"op": "write", "path": "/etc/passwd", "content": "x"}],
+    }
+    errors = runner.validate_git_spec(spec, "p")
+    assert errors and any("write.path" in e for e in errors)
+
+
+def test_validate_git_spec_rejects_parent_traversal_write_path():
+    """최소 테스트 4: `..` 포함 write.path 는 거부."""
+    spec = {
+        "version": 1,
+        "ops": [{"op": "write", "path": "../escape.txt", "content": "x"}],
+    }
+    errors = runner.validate_git_spec(spec, "p")
+    assert errors and any("write.path" in e for e in errors)
+
+
+def test_validate_git_spec_rejects_op_outside_whitelist():
+    """최소 테스트 5: 화이트리스트 밖 연산(`run`)은 거부."""
+    spec = {"version": 1, "ops": [{"op": "run", "cmd": "id"}]}
+    errors = runner.validate_git_spec(spec, "p")
+    assert any("화이트리스트" in e for e in errors)
+
+
+def test_validate_git_spec_rejects_missing_required_field():
+    errors = runner.validate_git_spec({"version": 1, "ops": [{"op": "commit"}]}, "p")
+    assert any("message" in e for e in errors)
+
+
+def test_validate_git_spec_not_object_is_rejected():
+    errors = runner.validate_git_spec([], "p")
+    assert errors
+
+
+def test_validate_scenario_catches_git_json_path_escape(tmp_path):
+    """validate_scenario가 git.json 스키마 위반을 --validate 경로에서 잡는다."""
+    sc_dir = tmp_path / "git-workflow" / "bad-git"
+    _write_scenario(
+        sc_dir,
+        git_spec={
+            "version": 1,
+            "ops": [{"op": "write", "path": "/etc/passwd", "content": "x"}],
+        },
+    )
+    errors = runner.validate_scenario(sc_dir, agents_root=runner.AGENTS_ROOT)
+    assert any("write.path" in e for e in errors)
+
+
+def test_validate_scenario_catches_git_json_malformed_json(tmp_path):
+    sc_dir = tmp_path / "git-workflow" / "malformed-git"
+    _write_scenario(sc_dir)
+    (sc_dir / "git.json").write_text("{not json")
+    errors = runner.validate_scenario(sc_dir, agents_root=runner.AGENTS_ROOT)
+    assert any("git.json 파싱 실패" in e for e in errors)
+
+
+def test_validate_scenario_clean_git_json_has_no_errors(tmp_path):
+    sc_dir = tmp_path / "git-workflow" / "clean-git"
+    _write_scenario(
+        sc_dir,
+        git_spec={
+            "version": 1,
+            "ops": [
+                {"op": "init", "defaultBranch": "main"},
+                {"op": "write", "path": "a.txt", "content": "x"},
+                {"op": "add", "paths": ["."]},
+                {"op": "commit", "message": "m"},
+            ],
+        },
+    )
+    errors = runner.validate_scenario(sc_dir, agents_root=runner.AGENTS_ROOT)
+    assert errors == []
+
+
+def test_materialize_git_repo_creates_log_and_branch(tmp_path):
+    """최소 테스트 2: 정상 git.json → 실체화 후 git log/git branch가 기대대로 나온다."""
+    work = tmp_path / "work"
+    work.mkdir()
+    spec = {
+        "version": 1,
+        "ops": [
+            {"op": "init", "defaultBranch": "main"},
+            {
+                "op": "write",
+                "path": "src/app.py",
+                "content": "def f():\n    return 1\n",
+            },
+            {"op": "add", "paths": ["."]},
+            {"op": "commit", "message": "feat: initial"},
+            {"op": "branch", "name": "feature/x"},
+            {"op": "checkout", "ref": "feature/x"},
+            {
+                "op": "write",
+                "path": "src/app.py",
+                "content": "def f():\n    return 2\n",
+            },
+            {"op": "add", "paths": ["."]},
+            {"op": "commit", "message": "feat: change to 2"},
+            {"op": "checkout", "ref": "main"},
+        ],
+    }
+    runner.materialize_git_repo(work, spec)
+
+    log = subprocess.run(
+        ["git", "-C", str(work), "log", "--all", "--format=%B"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "feat: initial" in log
+    assert "feat: change to 2" in log
+
+    branches = subprocess.run(
+        ["git", "-C", str(work), "branch", "--list"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "feature/x" in branches
+
+    status = subprocess.run(
+        ["git", "-C", str(work), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert status.strip() == ""
+
+    current = subprocess.run(
+        ["git", "-C", str(work), "branch", "--show-current"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert current == "main"
+
+
+def test_materialize_git_repo_write_path_escape_raises(tmp_path):
+    """실체화 자체도 방어적으로 경로 탈출을 거부한다 (검증 우회 경로 대비, D-2)."""
+    import pytest as _pytest
+
+    work = tmp_path / "work"
+    work.mkdir()
+    spec = {
+        "version": 1,
+        "ops": [
+            {"op": "init"},
+            {"op": "write", "path": "../escape.txt", "content": "x"},
+        ],
+    }
+    with _pytest.raises(RuntimeError):
+        runner.materialize_git_repo(work, spec)
+    # 탈출 대상 파일이 실제로 생성되지 않았는지 확인 — 거부가 부작용 없이 일어난다.
+    assert not (tmp_path / "escape.txt").exists()
+
+
+def test_materialize_git_repo_unknown_op_raises(tmp_path):
+    import pytest as _pytest
+
+    work = tmp_path / "work"
+    work.mkdir()
+    with _pytest.raises(RuntimeError):
+        runner.materialize_git_repo(work, {"version": 1, "ops": [{"op": "run"}]})
+
+
+def test_materialize_git_repo_failed_git_command_raises(tmp_path):
+    """최소 테스트 6 전제: 실패하는 git 명령(존재하지 않는 ref로 checkout)은 예외를 던진다."""
+    import pytest as _pytest
+
+    work = tmp_path / "work"
+    work.mkdir()
+    spec = {
+        "version": 1,
+        "ops": [{"op": "init"}, {"op": "checkout", "ref": "no-such-branch"}],
+    }
+    with _pytest.raises(RuntimeError):
+        runner.materialize_git_repo(work, spec)
+
+
+def test_run_scenario_git_materialize_failure_is_error(tmp_path):
+    """최소 테스트 6: 실체화 중 git 명령 실패 → run_scenario가 error를 반환하고
+    pass가 아니다. claude 호출 전에 실패하므로 claude 부재와 무관하게 검증 가능."""
+    sc = _scenario(
+        tmp_path,
+        {"assertions": [{"type": "output_regex", "pattern": "x"}]},
+    )
+    sc.git_spec = {
+        "version": 1,
+        "ops": [{"op": "init"}, {"op": "checkout", "ref": "no-such-branch"}],
+    }
+    res = runner.run_scenario(_agent(tmp_path), sc, timeout=5)
+    assert res["status"] == "error"
+    assert res["checks"][0]["type"] == "git_materialize"
+    assert "git.json 실체화 실패" in res["checks"][0]["detail"]
+
+
+def test_run_scenario_without_git_spec_skips_materialize(tmp_path, monkeypatch):
+    """git_spec=None인 시나리오는 실체화를 아예 시도하지 않는다 (회귀 없음)."""
+
+    def boom(*a, **k):
+        raise AssertionError("git_spec이 None인데 materialize_git_repo가 호출됨")
+
+    monkeypatch.setattr(runner, "materialize_git_repo", boom)
+
+    class R:
+        returncode = 0
+        stdout = "x"
+        stderr = ""
+
+    monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: R())
+    sc = _scenario(tmp_path, {"assertions": [{"type": "output_regex", "pattern": "x"}]})
+    assert sc.git_spec is None
+    res = runner.run_scenario(_agent(tmp_path), sc, timeout=5)
+    assert res["status"] == "pass"
