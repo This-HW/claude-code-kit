@@ -796,7 +796,7 @@ def test_validate_git_spec_rejects_missing_version():
     assert any("version" in e for e in errors)
 
 
-def test_validate_git_spec_rejects_empty_ops():
+def test_validate_git_spec_rejects_empty_op_list():
     errors = runner.validate_git_spec({"version": 1, "ops": []}, "p")
     assert any("ops" in e for e in errors)
 
@@ -1054,7 +1054,7 @@ def test_materialize_git_repo_rejects_config_op(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _git_repo(tmp_path, extra_ops=None):
+def _git_repo(tmp_path, extra_op_list=None):
     """공용 fixture: materialize_git_repo로 최소 저장소(커밋 1개)를 만든다."""
     work = tmp_path / "repo"
     work.mkdir()
@@ -1064,8 +1064,8 @@ def _git_repo(tmp_path, extra_ops=None):
         {"op": "add", "paths": ["."]},
         {"op": "commit", "message": "feat: initial commit"},
     ]
-    if extra_ops:
-        ops += extra_ops
+    if extra_op_list:
+        ops += extra_op_list
     runner.materialize_git_repo(work, {"version": 1, "ops": ops})
     return work
 
@@ -1114,7 +1114,7 @@ def test_check_assertion_git_log_contains_rejects_option_injection_ref(tmp_path)
 
 
 def test_check_assertion_git_branch_exists_pass(tmp_path):
-    work = _git_repo(tmp_path, extra_ops=[{"op": "branch", "name": "feature/x"}])
+    work = _git_repo(tmp_path, extra_op_list=[{"op": "branch", "name": "feature/x"}])
     ok, _ = runner.check_assertion(
         {"type": "git_branch_exists", "branch": "feature/x"}, "", work
     )
@@ -1314,13 +1314,13 @@ def test_git_args_for_accepts_normal_values():
 # ---------------------------------------------------------------------------
 
 
-def _write_overlap_scenario(root: Path, *, git_ops: list, assertions: list) -> Path:
+def _write_overlap_scenario(root: Path, *, git_op_list: list, assertions: list) -> Path:
     sc = root / "fix-bugs" / "sc"
     (sc / "fixture").mkdir(parents=True)
     (sc / "fixture" / "a.txt").write_text("x\n", encoding="utf-8")
     (sc / "task.md").write_text("t", encoding="utf-8")
     (sc / "git.json").write_text(
-        json.dumps({"version": 1, "ops": git_ops}), encoding="utf-8"
+        json.dumps({"version": 1, "ops": git_op_list}), encoding="utf-8"
     )
     (sc / "expect.json").write_text(
         json.dumps({"assertions": assertions}), encoding="utf-8"
@@ -1331,7 +1331,7 @@ def _write_overlap_scenario(root: Path, *, git_ops: list, assertions: list) -> P
 def test_validate_scenario_rejects_file_unchanged_overlapping_git_write(tmp_path):
     sc = _write_overlap_scenario(
         tmp_path,
-        git_ops=[{"op": "init"}, {"op": "write", "path": "a.txt", "content": "y\n"}],
+        git_op_list=[{"op": "init"}, {"op": "write", "path": "a.txt", "content": "y\n"}],
         assertions=[{"type": "file_unchanged", "file": "a.txt"}],
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
@@ -1342,7 +1342,7 @@ def test_validate_scenario_allows_file_unchanged_without_overlap(tmp_path):
     """겹치지 않으면 통과해야 한다 — 과잉 차단이 아님을 고정한다."""
     sc = _write_overlap_scenario(
         tmp_path,
-        git_ops=[{"op": "init"}, {"op": "write", "path": "b.txt", "content": "y\n"}],
+        git_op_list=[{"op": "init"}, {"op": "write", "path": "b.txt", "content": "y\n"}],
         assertions=[{"type": "file_unchanged", "file": "a.txt"}],
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
