@@ -36,12 +36,23 @@ def _base_policy(**gate_overrides) -> dict:
         "requireBaselineCoversAllScenarios": True,
         "requireScenariosCoverBaseline": True,
         "tier1CoverageEnforceFail": False,
+        "tier2CoverageEnforceFail": False,
+        "classificationCompleteEnforceFail": False,
     }
     gate.update(gate_overrides)
     return {
         "baseline": {"file": "baseline.json"},
-        "tiers": {"tier1": ["fix-bugs", "review-code"]},
-        "coverage": {"tier1MinScenariosPerAgent": 1},
+        "tiers": {
+            "tier1": ["fix-bugs", "review-code"],
+            # 기본은 시나리오 없는 tier2 에이전트 1종 — enforce_fail 기본 False라
+            # 기존 테스트들의 rc는 그대로 유지되고, tier2 관련 신규 테스트만 이 값을
+            # 오버라이드한다.
+            "tier2": ["analyze-tech-debt"],
+        },
+        "coverage": {
+            "tier1MinScenariosPerAgent": 1,
+            "tier2MinScenariosPerAgent": 1,
+        },
         "gate": gate,
     }
 
@@ -72,6 +83,18 @@ def _make_repo(
 
     (root / "evals" / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
     return root
+
+
+def _add_agent_files(root: Path, names: list[str]) -> None:
+    """가짜 레포에 `plugins/common/agents/dev/<name>.md` 파일을 심는다 — 실물
+    레포의 하위 카테고리 재귀 구조(backend/dev/meta/planning)를 대표해 dev/ 하나만
+    써도 _discover_all_agents의 rglob 경로가 동일하게 동작한다."""
+    agents_dir = root / "plugins" / "common" / "agents" / "dev"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        (agents_dir / f"{name}.md").write_text(
+            f"---\nname: {name}\n---\n", encoding="utf-8"
+        )
 
 
 # ── 4개 필수 케이스 (STAGE1_LLM.md 완료조건 2) ─────────────────────────────
@@ -368,3 +391,123 @@ def test_baseline_file_within_baseline_dir_still_works(tmp_path):
     )
     rc = cec.main(["--root", str(root)])
     assert rc == 0
+
+
+# ── tier2 커버리지 (W-024, docs/specs/2026-09-04-eval-tier2-coverage-gate.md D-3) ──
+
+
+def test_tier2_gap_fails_when_enforce_fail_true(tmp_path):
+    """tier2 에이전트 1종에 시나리오 없음 + enforce_fail:true → exit 1."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=_base_policy(tier2CoverageEnforceFail=True),
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_tier2_gap_warns_only_when_enforce_fail_false(tmp_path, capsys):
+    """같은 상황에서 플래그 false → exit 0 + 경고 출력."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=_base_policy(tier2CoverageEnforceFail=False),
+    )
+    rc = cec.main(["--root", str(root)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert cec.WARN in captured.out
+    assert "analyze-tech-debt" in captured.out
+
+
+def test_tier2_missing_key_fails_regardless_of_flag(tmp_path):
+    """tiers.tier2 자체가 없으면 gate 플래그와 무관하게 거짓 green 방지를 위해
+    exit 1 — enforce_fail:false 여도 마찬가지다."""
+    policy = _base_policy(tier2CoverageEnforceFail=False)
+    del policy["tiers"]["tier2"]
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=policy,
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_tier2_empty_list_fails_regardless_of_flag(tmp_path):
+    """tiers.tier2가 빈 배열이어도(섹션은 있으나 내용 없음) 거짓 green 방지를
+    위해 exit 1 — enforce_fail:false 여도 마찬가지다."""
+    policy = _base_policy(tier2CoverageEnforceFail=False)
+    policy["tiers"]["tier2"] = []
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=policy,
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+# ── 분류 완전성 (W-024, 같은 스펙 D-3) ──────────────────────────────────────
+
+
+def test_classification_missing_agent_warns_by_default(tmp_path, capsys):
+    """분류 미등재 에이전트 존재 + 기본(warn) → exit 0 + 경고 출력."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=_base_policy(),
+    )
+    _add_agent_files(
+        root, ["fix-bugs", "review-code", "analyze-tech-debt", "mystery-agent"]
+    )
+    rc = cec.main(["--root", str(root)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert cec.WARN in captured.out
+    assert "mystery-agent" in captured.out
+
+
+def test_classification_missing_agent_fails_when_enforced(tmp_path):
+    """같은 상황에서 플래그 승격(classificationCompleteEnforceFail:true) → exit 1."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=_base_policy(classificationCompleteEnforceFail=True),
+    )
+    _add_agent_files(
+        root, ["fix-bugs", "review-code", "analyze-tech-debt", "mystery-agent"]
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_all_aligned_pass_clean_no_warnings(tmp_path, capsys):
+    """tier1·tier2·baseline·분류·에이전트 파일이 전부 정합 → exit 0, 경고 없음."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[
+            ("fix-bugs", "a"),
+            ("review-code", "b"),
+            ("analyze-tech-debt", "c"),
+        ],
+        baseline_pairs=[
+            ("fix-bugs", "a"),
+            ("review-code", "b"),
+            ("analyze-tech-debt", "c"),
+        ],
+        policy=_base_policy(),
+    )
+    _add_agent_files(root, ["fix-bugs", "review-code", "analyze-tech-debt"])
+    rc = cec.main(["--root", str(root)])
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert cec.WARN not in captured.out
+    assert cec.NG not in captured.out
