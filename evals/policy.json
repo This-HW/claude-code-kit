@@ -2,7 +2,7 @@
   "version": "1.2.0",
   "_comment": "eval 대상·임계값의 단일 소스. 산문(스크립트·문서)에 티어 목록이나 숫자를 중복 기재하지 말 것 — F-023(pytest.ini)에서 겪은 드리프트와 같은 실패다.",
   "baseline": {
-    "file": "2026-08-31.json",
+    "file": "2026-09-04.json",
     "_meta": {
       "dir": "evals/baseline/",
       "regenerateWith": "scripts/run-evals.sh --baseline (실제 CLI 플래그명 — regenerateWith에 --write-baseline로 적혀 있던 건 오기, 실행은 --baseline)",
@@ -14,7 +14,8 @@
       "regenerationCadence": "시나리오를 추가한 Stage는 그 Stage 안에서 기준선을 재생성하고 포인터를 갱신한다. '기준선에 없는 시나리오'는 곧 '회귀 판정이 불가능한 시나리오'이므로, 미등재 상태로 커밋되면 게이트의 의미가 사라진다 [D2 판정, 2026-08-26]",
       "s2Note": "S1/S2에서 이 baseline.file 갱신은 daggertooth 로컬 evals/policy.json에만 반영했다 — 원본 policy.evals.json(torpedo)은 SSOT 이관 후 _SUPERSEDED 처리됐다(torpedo-c4 판정, S3 인계 메시지). 더 이상 동기화 대상 아님.",
       "sourceW023": "[confirmed 2026-08-31, W-023] git-workflow 승격(시나리오 2건 신설)으로 재생성 — 37/37 pass, evals/reports/20260831T162... 계열. 기존 35건 status 전부 유지(회귀 0), 신규 2건 pass. **주의: 1차 실행은 36/37이었다** — define-business-logic/point-service-rules 가 394.13s 만에 CALC-/VAL-/STATE- 섹션을 내지 못하고 POL- 만 냈다(타임아웃 아님, 출력 미완). 재실행에서 통과. W-023 변경과 인과 없음(비-git 시나리오는 git_spec is None 가드 뒤로 종전 경로 그대로, 이 시나리오가 쓰는 어서션 타입도 무변경). cost._meta 가 이미 이 시나리오를 '동전 던지기'로 기록해 둔 것과 일치하는 관측이며, 안정화는 별도 배치의 몫이다. **--baseline 이 1차 실패 런의 저장을 거부해 불완전한 기준선이 파일로 남지 않았다.**",
-      "falseGreenGuardPrecision": "[W-023, 2026-09-01] output_not_contains 거짓양성 3번째 인스턴스. security-scan/shared-tmp-and-hardcoded-token 이 취약점 2종을 정확히 보고(positive 어서션 2개 통과)하고도 fail — 원인은 에이전트가 제시한 **수정안 코드 주석** '# 원자적 rename, 심볼릭 링크 문제 없음'. 실제 판정은 '보안 상태: Critical'이었다. 부분 문자열 매칭 가드에 일반 어구를 넣으면 정반대 상황에서 발화한다. 조치: 18개 시나리오에서 '문제 없음'·'문제가 없'·'이상 없음'·'looks fine'·'looks good' 5종 제거(판정 형태의 값만 유지). **약화가 아니라 정밀도 조정이다** — 진짜 거짓 green 은 '취약점 없음'류로 선언되고, 그마저도 각 시나리오의 positive 어서션이 함께 잡는다. 근거는 evals/README.md §output_not_contains 작성 지침에 규율로 명문화."
+      "falseGreenGuardPrecision": "[W-023, 2026-09-01] output_not_contains 거짓양성 3번째 인스턴스. security-scan/shared-tmp-and-hardcoded-token 이 취약점 2종을 정확히 보고(positive 어서션 2개 통과)하고도 fail — 원인은 에이전트가 제시한 **수정안 코드 주석** '# 원자적 rename, 심볼릭 링크 문제 없음'. 실제 판정은 '보안 상태: Critical'이었다. 부분 문자열 매칭 가드에 일반 어구를 넣으면 정반대 상황에서 발화한다. 조치: 18개 시나리오에서 '문제 없음'·'문제가 없'·'이상 없음'·'looks fine'·'looks good' 5종 제거(판정 형태의 값만 유지). **약화가 아니라 정밀도 조정이다** — 진짜 거짓 green 은 '취약점 없음'류로 선언되고, 그마저도 각 시나리오의 positive 어서션이 함께 잡는다. 근거는 evals/README.md §output_not_contains 작성 지침에 규율로 명문화.",
+      "sourceW024": "[confirmed 2026-09-04, W-024] 티어2 커버리지 갭 봉쇄 배치로 재생성 — consensus-builder/hard-constraint-standoff 신설(시나리오 37 → 38건)에 따라 requireBaselineCoversAllScenarios 가 red 를 냈고, regenerationCadence 규정대로 같은 배치 안에서 전량 재실행했다. 결과 38/38 pass, 기존 37건 status 전부 유지(회귀 0), 신규 1건 pass(6개 어서션 전부 true, 96.2s). evals/reports/20260904T102414633817Z.json. --parallel 2 로 실행했다(직전 W-023 재생성과 달리 병렬 — 경합으로 인한 타임아웃 없이 완주했고, 알려진 '동전 던지기' 시나리오 define-business-logic/point-service-rules 도 1차 실행에서 통과했다). 이전 기준선 2026-08-31.json 은 archival 규정대로 보존."
     }
   },
   "tiers": {
