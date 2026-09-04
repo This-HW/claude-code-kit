@@ -62,7 +62,14 @@ def _make_repo(
     scenario_pairs: list[tuple[str, str]],
     baseline_pairs: list[tuple[str, str]] | None,
     policy: dict,
+    populate_agents: bool = True,
 ) -> Path:
+    """`populate_agents`(기본 True)는 policy의 tier1+tier2 목록을 그대로
+    `plugins/common/agents/dev/*.md`로 심어준다 — check_classification_complete가
+    "에이전트 0종"으로 무조건 fail하는 새 가드(코디네이터 실증, W-024 후속) 때문에,
+    분류를 직접 검사하지 않는 다른 테스트(baseline/tier1/tier2 케이스들)까지
+    영향받지 않게 하기 위함이다. 0종 가드 자체를 검사하는 테스트만
+    `populate_agents=False`로 이 기본을 끈다."""
     root = tmp_path / "repo"
     scenarios_root = root / "evals" / "scenarios"
     for agent, scenario in scenario_pairs:
@@ -82,6 +89,14 @@ def _make_repo(
         )
 
     (root / "evals" / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
+
+    if populate_agents:
+        tiers = policy.get("tiers", {})
+        default_agents = sorted(
+            set(tiers.get("tier1", [])) | set(tiers.get("tier2", []))
+        )
+        _add_agent_files(root, default_agents)
+
     return root
 
 
@@ -511,3 +526,41 @@ def test_all_aligned_pass_clean_no_warnings(tmp_path, capsys):
     assert rc == 0
     assert cec.WARN not in captured.out
     assert cec.NG not in captured.out
+
+
+# ── 분류 완전성의 "0종 발견" 거짓 green 봉쇄 (코디네이터 실증, W-024 후속) ──
+#
+# _discover_all_agents가 에이전트를 0종 발견하면 missing도 공집합이 되어
+# "전체 에이전트(0종) 분류 완전 — 일치"로 오판했다 — check_tier2의 tiers.tier2
+# 부재·빈 배열 처리, validate_policy_schema의 tier1 처리와 같은 급의 거짓 green.
+# classificationCompleteEnforceFail 플래그와 무관하게(False여도) 즉시 fail이어야
+# 한다.
+
+
+def test_classification_zero_agents_dir_missing_fails_regardless_of_flag(tmp_path):
+    """plugins/common/agents 디렉토리 자체가 없으면 플래그 false여도 exit 1."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=_base_policy(classificationCompleteEnforceFail=False),
+        populate_agents=False,  # plugins/ 디렉토리 자체를 만들지 않는다
+    )
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1
+
+
+def test_classification_zero_agents_dir_empty_fails_regardless_of_flag(tmp_path):
+    """plugins/common/agents 디렉토리는 있으나 .md가 0건이면 플래그 false여도 exit 1."""
+    root = _make_repo(
+        tmp_path,
+        scenario_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        baseline_pairs=[("fix-bugs", "a"), ("review-code", "b")],
+        policy=_base_policy(classificationCompleteEnforceFail=False),
+        populate_agents=False,
+    )
+    # 디렉토리는 존재하되 .md 파일은 하나도 없다 — "부재"가 아니라 "빈 디렉토리"
+    # 경로까지 막는지 별도로 확인한다.
+    (root / "plugins" / "common" / "agents" / "dev").mkdir(parents=True)
+    rc = cec.main(["--root", str(root)])
+    assert rc == 1

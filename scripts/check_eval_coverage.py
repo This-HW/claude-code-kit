@@ -312,12 +312,28 @@ def _discover_all_agents(root: Path) -> set[str]:
 def check_classification_complete(root: Path, policy: dict) -> tuple[bool, list[str]]:
     """전체 에이전트 = tier1 + tier2 + `_tier2Classification`(B·C 등급) 합집합인지 검사.
 
-    기본은 warn이다(`gate.classificationCompleteEnforceFail`, 부재 시 False) — 새
-    에이전트를 추가하는 무관한 작업이 분류 등재 전까지 게이트를 막으면 오작동이다
-    (D-3). 경고는 매 실행에 출력되므로 침묵하지 않고, 필요해지면 플래그만 올린다
-    (코드 변경 불필요).
+    미분류 에이전트가 있을 때의 warn/fail 전환은 `gate.classificationCompleteEnforceFail`
+    (부재 시 False)이 관여한다 — 새 에이전트를 추가하는 무관한 작업이 분류 등재
+    전까지 게이트를 막으면 오작동이다(D-3). 경고는 매 실행에 출력되므로 침묵하지
+    않고, 필요해지면 플래그만 올린다(코드 변경 불필요).
+
+    **이 플래그가 관여하지 않는 별도의 실패 단계가 있다**: `_discover_all_agents`가
+    에이전트를 0종 발견하면(디렉토리 부재·`.md` 0건 둘 다) `missing`도 공집합이 되어
+    "전체 에이전트(0종) 분류 완전 — 일치"로 오판한다 — `check_tier2`의
+    `tiers.tier2` 부재·빈 배열 처리, `validate_policy_schema`의 tier1 처리와 같은
+    급의 거짓 green이다("검사 대상 0개"는 정합이 아니라 정책/레포 손상). 이 실패는
+    플래그와 무관하게 즉시 fail이다 — enforce_fail이 False여도 통과시키지 않는다.
     """
     lines: list[str] = []
+    all_agents = _discover_all_agents(root)
+    if not all_agents:
+        lines.append(
+            f"{NG} plugins/common/agents 아래에서 에이전트를 0종 발견했다 "
+            "(디렉토리 부재 또는 .md 0건) — 검사 대상 0개를 전부 통과로 오인하는 "
+            "거짓 green을 막기 위해 거부한다"
+        )
+        return False, lines
+
     tiers = policy.get("tiers", {})
     tier1 = set(tiers.get("tier1", []))
     tier2 = set(tiers.get("tier2", []))
@@ -326,7 +342,6 @@ def check_classification_complete(root: Path, policy: dict) -> tuple[bool, list[
         set(classification.keys()) if isinstance(classification, dict) else set()
     )
 
-    all_agents = _discover_all_agents(root)
     covered = tier1 | tier2 | classified
     missing = sorted(all_agents - covered)
 
