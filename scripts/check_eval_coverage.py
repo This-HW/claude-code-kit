@@ -14,9 +14,17 @@
 시나리오 발견 로직(디렉토리 스킵 규칙 포함)은 `evals/run.py::discover_scenario_dirs`를
 그대로 재사용한다 — 여기서 별도로 재구현하면 스킵 목록이 갈라질 수 있다.
 
-exit 0 = 커버리지 정합 (tier1 경고는 있을 수 있음, policy로 fail 승격 전까지)
+exit 0 = 커버리지 정합 (tier1/tier2 경고, 분류 미등재 경고는 있을 수 있음, policy로
+         fail 승격 전까지)
 exit 1 = 시나리오⊄기준선 / 기준선⊄시나리오 / baseline.file 부재·파싱 실패 /
-         policy.json 부재·파싱 실패 / (승격 시) tier1 미달
+         policy.json 부재·파싱 실패 / (승격 시) tier1 미달 / tiers.tier2 부재·빈 배열 /
+         (승격 시) tier2 미달 / (승격 시) 분류 완전성 미달
+
+W-024(티어2 커버리지 갭 봉쇄): `evals/policy.json`의 `_tier2Rationale`이 "티어2는
+경고 수준으로 다룬다"고 주장했으나 이 스크립트에 문자열 'tier2'가 한 번도 나오지
+않아 경고조차 구현돼 있지 않았다 — `consensus-builder`가 tiers.tier2(A등급)에
+등재된 채 시나리오 없이 조용히 통과한 원인. check_tier2/check_classification_complete
+두 검사로 메운다. 상세: docs/specs/2026-09-04-eval-tier2-coverage-gate.md (D-3).
 """
 
 from __future__ import annotations
@@ -241,6 +249,124 @@ def check_tier1(root: Path, policy: dict) -> tuple[bool, list[str]]:
     return True, lines
 
 
+def check_tier2(root: Path, policy: dict) -> tuple[bool, list[str]]:
+    """티어2(A등급) 각 에이전트가 최소 시나리오를 보유하는지 검사.
+
+    tier1과 달리 미달을 처음부터 fail로 승격해 둘 수 있다(policy 플래그
+    `gate.tier2CoverageEnforceFail`) — W-024에서 유일한 갭(consensus-builder)을
+    같은 배치에서 메우므로 tier1처럼 경고 단계를 거칠 이유가 없다(decision D-3,
+    docs/specs/2026-09-04-eval-tier2-coverage-gate.md). 플래그 부재 시 기본값은
+    안전한 쪽(False = 경고만)이며, 이는 check_tier1과 동일한 관례다.
+
+    `tiers.tier2`가 없거나 빈 배열이면 gate 플래그와 무관하게 즉시 fail이다 —
+    "검사 대상 0개"를 통과로 오인하는 거짓 green이 이 배치가 잡은 결함 그 자체이므로
+    (consensus-builder가 등재됐으나 시나리오 없이 통과한 경로), validate_policy_schema가
+    tier1에 대해 하는 검사와 같은 급으로 다룬다.
+    """
+    lines: list[str] = []
+    tier2 = policy.get("tiers", {}).get("tier2")
+    if not isinstance(tier2, list) or not tier2:
+        lines.append(
+            f"{NG} policy.json: 'tiers.tier2'가 없거나 빈 배열이다 — "
+            "검사 대상 0개를 전부 통과로 오인하는 거짓 green을 막기 위해 거부한다"
+        )
+        return False, lines
+
+    min_n = policy.get("coverage", {}).get("tier2MinScenariosPerAgent", 1)
+    enforce_fail = policy.get("gate", {}).get("tier2CoverageEnforceFail", False)
+
+    counts: dict[str, int] = {}
+    for agent, _scenario in current_scenarios(root):
+        counts[agent] = counts.get(agent, 0) + 1
+
+    missing = [a for a in tier2 if counts.get(a, 0) < min_n]
+    if not missing:
+        lines.append(
+            f"{OK} tier2(A등급) 전 에이전트({len(tier2)}종) 최소 시나리오 보유"
+        )
+        return True, lines
+
+    if enforce_fail:
+        lines.append(
+            f"{NG} tier2 커버리지 미달 ({len(missing)}/{len(tier2)}): {missing}"
+        )
+        return False, lines
+    lines.append(
+        f"{WARN} tier2 커버리지 미달, 경고만"
+        f"(gate.tier2CoverageEnforceFail 승격 시 fail) "
+        f"({len(missing)}/{len(tier2)}): {missing}"
+    )
+    return True, lines
+
+
+def _discover_all_agents(root: Path) -> set[str]:
+    """`plugins/common/agents/**/*.md` 파일명(확장자 제외)에서 전체 에이전트
+    목록을 얻는다 — 하드코딩 금지, 하위 카테고리(backend/dev/meta/planning 등)
+    재귀 포함."""
+    agents_dir = root / "plugins" / "common" / "agents"
+    if not agents_dir.is_dir():
+        return set()
+    return {p.stem for p in agents_dir.rglob("*.md")}
+
+
+def check_classification_complete(root: Path, policy: dict) -> tuple[bool, list[str]]:
+    """전체 에이전트 = tier1 + tier2 + `_tier2Classification`(B·C 등급) 합집합인지 검사.
+
+    미분류 에이전트가 있을 때의 warn/fail 전환은 `gate.classificationCompleteEnforceFail`
+    (부재 시 False)이 관여한다 — 새 에이전트를 추가하는 무관한 작업이 분류 등재
+    전까지 게이트를 막으면 오작동이다(D-3). 경고는 매 실행에 출력되므로 침묵하지
+    않고, 필요해지면 플래그만 올린다(코드 변경 불필요).
+
+    **이 플래그가 관여하지 않는 별도의 실패 단계가 있다**: `_discover_all_agents`가
+    에이전트를 0종 발견하면(디렉토리 부재·`.md` 0건 둘 다) `missing`도 공집합이 되어
+    "전체 에이전트(0종) 분류 완전 — 일치"로 오판한다 — `check_tier2`의
+    `tiers.tier2` 부재·빈 배열 처리, `validate_policy_schema`의 tier1 처리와 같은
+    급의 거짓 green이다("검사 대상 0개"는 정합이 아니라 정책/레포 손상). 이 실패는
+    플래그와 무관하게 즉시 fail이다 — enforce_fail이 False여도 통과시키지 않는다.
+    """
+    lines: list[str] = []
+    all_agents = _discover_all_agents(root)
+    if not all_agents:
+        lines.append(
+            f"{NG} plugins/common/agents 아래에서 에이전트를 0종 발견했다 "
+            "(디렉토리 부재 또는 .md 0건) — 검사 대상 0개를 전부 통과로 오인하는 "
+            "거짓 green을 막기 위해 거부한다"
+        )
+        return False, lines
+
+    tiers = policy.get("tiers", {})
+    tier1 = set(tiers.get("tier1", []))
+    tier2 = set(tiers.get("tier2", []))
+    classification = tiers.get("_tier2Classification", {})
+    classified = (
+        set(classification.keys()) if isinstance(classification, dict) else set()
+    )
+
+    covered = tier1 | tier2 | classified
+    missing = sorted(all_agents - covered)
+
+    enforce_fail = policy.get("gate", {}).get(
+        "classificationCompleteEnforceFail", False
+    )
+
+    if not missing:
+        lines.append(
+            f"{OK} 전체 에이전트({len(all_agents)}종) 분류 완전 — "
+            "tier1+tier2+_tier2Classification 합집합과 일치"
+        )
+        return True, lines
+
+    if enforce_fail:
+        lines.append(f"{NG} 미분류 에이전트 존재 ({len(missing)}종): {missing}")
+        return False, lines
+    lines.append(
+        f"{WARN} 미분류 에이전트 존재, 경고만"
+        f"(gate.classificationCompleteEnforceFail 승격 시 fail) "
+        f"({len(missing)}종): {missing}"
+    )
+    return True, lines
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, default=Path("."), help="repo root (테스트용)")
@@ -272,6 +398,16 @@ def main(argv: list[str] | None = None) -> int:
     tier_ok, tier_lines = check_tier1(root, policy)
     ok &= tier_ok
     for line in tier_lines:
+        print(line)
+
+    tier2_ok, tier2_lines = check_tier2(root, policy)
+    ok &= tier2_ok
+    for line in tier2_lines:
+        print(line)
+
+    class_ok, class_lines = check_classification_complete(root, policy)
+    ok &= class_ok
+    for line in class_lines:
         print(line)
 
     return 0 if ok else 1
