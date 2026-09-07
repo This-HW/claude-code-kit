@@ -421,9 +421,18 @@ Two install channels propagate a pushed `main` differently — know which one a 
   (직전 커밋의 *"원인은 판정할 수 없다"* 를 여기서 **특정으로 갱신**한다 — 판정 수단이
   있었다: 워크플로 상태·실행 이력 API.)
 
+  **정지 범위도 실측했다** `[researched: GitHub API, n=60 무작위 표본]`: 업스트림이
+  8/14 이후 움직인 항목 **11건 중 bump 0건**, 신규 등재도 8/21 이 마지막, 레포 전체 커밋이
+  8/24 이후 0건, `Add referodesign` PR 이 8/11부터 열린 채다. 반면
+  `claude-plugins-official`·`knowledge-work-plugins` 는 9/04 에도 bump 를 머지했다 —
+  **community 카탈로그만** 멈췄다. 전수 근거·재현 명령:
+  `docs/research/2026-09-08-plugin-directory-status.md`.
+
   이 상태에서 통제 가능한 것은 **재개되는 순간 green 인가** 하나뿐이다. 상류가 bump 시
   실행하는 `claude plugin validate` 를 §19 게이트·CI 로 앞당겨 건다 — 실패하면 그 항목은
   red PR 로 남거나 `freeze-shas.txt` 에 올라 **자동 전진이 영구히 멈춘다.**
+  (공식 문서가 *"리뷰 파이프라인이 제출마다 같은 검사를 돌린다"* 고 명시하므로 이 게이트는
+  추론이 아니라 **문서화된 요구사항**이다.)
 - **Implication**: 릴리스 직후 직접 마켓플레이스에는 즉시 반영되지만, 커뮤니티 카탈로그는
   **몇 주~한 달 뒤처져 있을 수 있다.** 릴리스 노트·안내에서 "하루면 전파된다"고 쓰지 마라 —
   전파 시점을 약속할 근거가 없다. 즉시성이 필요한 사용자는 직접 마켓플레이스로 보낸다.

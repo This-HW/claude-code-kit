@@ -8,6 +8,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### 카탈로그 실태 전수 조사 (2026-09-08, 문서만 — 버전 무변경)
+
+`docs/research/2026-09-08-plugin-directory-status.md` 신설 — 사실 3분류 태그 + 재현 명령.
+
+- **정지 범위 실측** `[researched: GitHub API, n=60]`: 업스트림이 8/14 이후 움직인 항목
+  **11건 중 bump 0건**. 신규 등재도 정지(일괄 등재 8/07 마지막, `Add referodesign` PR 이
+  8/11부터 열린 채). 레포 전체 커밋 8/24 이후 0건
+- **표본의 "핀=HEAD 44건" 은 정상 작동의 증거가 아니다** — 업스트림 휴면 항목이라 따라갈
+  것이 없어서 최신인 것이다. 이 구분을 하지 않으면 표본이 정반대로 읽힌다
+- **자매 카탈로그 대조**: `claude-plugins-official`·`knowledge-work-plugins` 는 9/04 에도
+  bump 머지 — 조직 전체 중단이 아니라 **community 카탈로그만** 멈췄다. 왜인지는 `[unresolved]`
+- **제출 폼이 둘로 갈렸다**: Console(개인 저자) / claude.ai(Team·Enterprise + 디렉토리 관리
+  권한). 이 문서는 Console 만 알고 있었다
+- 공식 문서가 제출 전 `claude plugin validate` 를 지시하고 *"리뷰 파이프라인이 제출마다
+  같은 검사를 돌린다"* 고 명시 — 게이트 §19 가 추론이 아니라 **문서화된 요구사항**임이 확인
+
 ### 카탈로그 pin 정지의 근본 원인 특정 + 배포 관문 게이트 (2026-09-08, 버전 무변경)
 
 `plugins/` 의 **에이전트·스킬·룰·훅은 무변경**이다. 바뀐 것은 마켓플레이스 매니페스트의

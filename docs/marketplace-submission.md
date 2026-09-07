@@ -41,9 +41,28 @@ Submit at: https://platform.claude.com/plugins/submit
 **두 가지가 겹쳐 있다.** 8/9~8/24 사이 카탈로그는 다른 항목(`qodo`·`inkbox` 등)을 bump
 하고 있었으므로 **그 구간엔 우리만 누락**됐고, 8/24 이후로는 **미러 전체가 멈췄다.**
 
-**원인은 이 레포에서 판정할 수 없다** — 스크리닝 실패인지, 큐 지연인지, 파이프라인
-중단인지 밖에서는 구분이 안 된다. `docs/conventions/warning-signal.md` 원칙대로,
-관측할 수단이 없는 것을 추측으로 채우지 않고 **관측된 것만 적는다.**
+**근본 원인을 특정했다.** pin 전진 워크플로 `Bump Plugin SHAs` 가
+**`disabled_manually`** 이고 **2026-08-13 이후 0회 실행**됐다. 이 레포 항목은
+`freeze-shas.txt` 에 없고 막힌 bump PR 도 없다.
+
+**정지 범위는 카탈로그 전체다** `[researched: GitHub API, n=60 무작위 표본]`:
+업스트림이 2026-08-14 이후 움직인 항목 **11건 중 bump 0건**(`tavily` 3개월·
+`email-assistant` 5개월 뒤처짐). 신규 등재도 8/21 이 마지막이고 `Add referodesign`
+PR(#2355)이 **8/11부터 열린 채**다. 레포 전체 커밋이 8/24 이후 0건.
+
+**자매 카탈로그는 정상이다** — `claude-plugins-official`·`knowledge-work-plugins` 는
+2026-09-04 에도 bump 를 머지했다. **community 카탈로그만 멈췄다.** 왜인지는
+`[unresolved]`. 전수 근거·재현 명령: `docs/research/2026-09-08-plugin-directory-status.md`
+
+**제출 폼이 둘로 갈렸다** `[researched: code.claude.com/docs/en/plugins, 2026-09-08]`:
+
+| 경로 | URL | 자격 |
+| --- | --- | --- |
+| Console | `platform.claude.com/plugins/submit` | **조직에 속하지 않은 개인 저자** ← 우리 경우 |
+| claude.ai | `claude.ai/admin-settings/directory/submissions/plugins/new` | Team/Enterprise 조직 + 디렉토리 관리 권한 |
+
+또한 공식 문서가 **제출 전 `claude plugin validate` 실행을 지시**하고
+*"리뷰 파이프라인이 제출마다 같은 검사를 돌린다"* 고 명시한다 — 게이트 §19 가 그것이다.
 
 **실무 결론**: 릴리스 안내에 **"하루면 전파된다"고 쓰지 마라.** 전파 시점을 약속할 근거가
 없다. 즉시성이 필요한 사용자는 **직접 마켓플레이스**로 보낸다.
