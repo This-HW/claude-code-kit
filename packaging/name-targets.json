@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "purpose": "scripts/derive-name.py 가 plugins/common/.claude-plugin/plugin.json 의 name 필드(SSOT)에서 문서·사이트에 박힌 프로젝트 이름을 파생시키는 정책 — packaging/targets.json + build-targets.py 와 같은 모델(D-3, docs/specs/2026-09-07-hiway-program-design.md).",
+    "why_not_full_regeneration": "build-targets.py 의 매니페스트는 손으로 편집되지 않는 순수 생성물이라 바이트 단위 재생성이 안전하다. README.md·CLAUDE.md·site/ 콘텐츠는 반대로 사람이 상시 편집하는 산문이다 — 전체를 템플릿에서 재생성하면 이름과 무관한 편집마다 템플릿도 함께 고쳐야 하는 이중 SSOT가 생긴다(이 킷이 반복해서 잡아온 결함 클래스, docs/conventions 참고). 그래서 이 정책은 '직전 적용 이름(lastAppliedName) → 현재 SSOT 이름'의 리터럴 치환만 수행하고, 그 외의 산문은 그대로 둔다.",
+    "known_limitation": "리터럴 치환은 위치·문맥을 모른다 — 대상 파일에 SSOT 와 다른 이름이 수기로 잘못 박히는 사고(오타 등)는 이 정책이 탐지하지 못한다. 탐지 가능한 것은 정확히 하나: 'SSOT 이름이 바뀌었는데 --write 를 안 돌린' 상태(정책의 lastAppliedName ≠ SSOT 이름, 또는 그 상태에서 대상 파일에 구 이름이 잔존). 탐지할 수 없는 것은 탐지한다고 주장하지 않는다(docs/conventions/warning-signal.md).",
+    "directories_note": "directories 는 재귀적으로 *.md 전체를 실측 스캔한다 — 대상 파일을 손으로 나열하지 않는다(D-23 원칙: 검사 대상이 아닌 것은 결코 red 가 되지 않는다). 새 site/content 문서가 추가되면 자동으로 파생 대상에 포함된다."
+  },
+  "source": {
+    "manifest": "plugins/common/.claude-plugin/plugin.json",
+    "field": "name"
+  },
+  "lastAppliedName": "claude-code-kit",
+  "files": [
+    "README.md",
+    "plugins/common/README.md",
+    "CLAUDE.md"
+  ],
+  "directories": [
+    "site/content"
+  ]
+}
