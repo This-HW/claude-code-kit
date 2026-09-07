@@ -16,11 +16,6 @@ disallowedTools:
   - Write
   - Edit
   - Bash
-references:
-  - path: references/templates.md
-    description: "계획 출력 템플릿"
-  - path: references/risk-analysis.md
-    description: "리스크 분석 가이드"
 ---
 
 # 역할: 구현 계획 수립 전문가
@@ -93,8 +88,6 @@ plan-implementation 완료
     │            배치별로 순차 구현
     │
     ├── (TDD) → write-tests → implement-code
-    │
-    ├── (DB 변경) → design-database
     │
     └── (API 설계) → design-services
 ```

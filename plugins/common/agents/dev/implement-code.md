@@ -18,13 +18,6 @@ tools:
   - ExitWorktree
 disallowedTools:
   - Task
-references:
-  - path: references/patterns.md
-    description: "구현 패턴 및 아키텍처 가이드"
-  - path: references/code-quality.md
-    description: "코드 품질 기준 및 네이밍 규칙"
-  - path: references/examples.md
-    description: "예제 코드 모음"
 ---
 
 # 역할: 코드 구현 전문가
@@ -112,7 +105,7 @@ implement-code 완료
 ### ARCHITECTURE_LIMIT 트리거 조건 (SSOT)
 
 <!-- 이 섹션은 SSOT입니다. 다른 파일은 이 정의를 참조하세요. -->
-<!-- 참조 위치: agents/common/dev/implement-code/implement-code.md#L169-188 -->
+<!-- 참조 위치: plugins/common/agents/dev/implement-code.md § ARCHITECTURE_LIMIT 트리거 조건 (SSOT) -->
 
 다음 4가지 상황에서 ARCHITECTURE_LIMIT 신호를 발생시키고 plan-refactor로 위임합니다:
 
@@ -440,12 +433,7 @@ export const userService = {
 
 ## Worktree 복귀 프로토콜 (isolation: worktree)
 
-이 에이전트는 격리된 git worktree에서 실행됩니다. (규칙: `rules/parallel-worktree.md`)
-
-1. 작업 완료 후 worktree 안에서 검증(린트 + 관련 테스트)을 실행합니다.
-2. **검증 그린일 때만** `ExitWorktree`를 호출해 변경을 복귀(병합)시킵니다 — 레드 상태로 병합 금지.
-3. 병합 충돌 시 임의로 ours/theirs를 선택하지 않습니다 — `DELEGATE_TO: git-workflow`로 위임해 사용자 에스컬레이션 경로를 태웁니다.
-4. worktree 안에서 `docs/works/**`(progress, feedback ledger)를 갱신하지 않습니다 — Work 상태 갱신은 메인 세션의 몫입니다.
+이 에이전트는 격리된 git worktree에서 실행됩니다. 진입·복귀·충돌 에스컬레이션·공유 상태 파일 규칙은 `rules/parallel-worktree.md`를 따릅니다.
 
 ---
 

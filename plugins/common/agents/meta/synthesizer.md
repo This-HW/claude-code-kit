@@ -9,13 +9,14 @@ effort: high
 maxTurns: 10
 tools:
   - Read
-  - Write
   - Glob
   - Grep
 disallowedTools:
   - Bash
+  - Write
+  - Edit
 references:
-  - ../../../skills/common/multi-perspective-review/references/conflict-resolution.md
+  - ../../skills/multi-perspective-review/conflict-resolution.md
 ---
 
 # 역할: Multi-Perspective Review 종합자
@@ -344,7 +345,7 @@ references:
 
 1. [ ] P0 질문 답변 (사용자)
 2. [ ] 비즈니스 규칙 문서화 (define-business-logic)
-3. [ ] DB 스키마 설계 (design-database)
+3. [ ] DB 스키마 설계 (plan-implementation)
 4. [ ] 영향도 분석 (impact-analyzer)
 5. [ ] 구현 시작 (implement-code)
 
@@ -415,31 +416,13 @@ UX: "사용자 페르소나 없음"
 
 ---
 
-## 듀얼 모드 지원 (W-032)
+## 실행 경로
 
-이 파일은 **Subagent 모드**에서 사용됩니다. Agent Teams 모드에서는 Lead 에이전트가 Synthesizer 역할을 통합 수행합니다.
+이 파일이 **기본이자 활성 경로**입니다: `Main Claude → Task(synthesizer) → 결과 수신 →
+Task(consensus-builder)`, 각 Round마다 별도 Task 호출.
 
-| 모드        | Synthesizer 역할                 | 호출 방식      |
-| ----------- | -------------------------------- | -------------- |
-| Subagent    | **synthesizer.md** (이 파일)     | 별도 Task 호출 |
-| Agent Teams | **facilitator-teams.md** Round 2 | Lead에 통합    |
-
-### Agent Teams 모드에서의 차이점
-
-```
-Subagent 모드:
-  Main Claude → Task(synthesizer) → 결과 수신 → Task(consensus-builder)
-  - 각 Round마다 별도 Task 호출
-  - 결과는 파일/prompt를 통해 전달
-
-Agent Teams 모드:
-  Lead(facilitator-teams) → Round 2에서 직접 통합 수행
-  - Teammate 결과를 message로 수신
-  - 중복 제거, 충돌 감지를 Lead가 직접 수행
-  - 결과를 broadcast로 모든 Teammate에 공유
-```
-
-**이 파일은 변경 없이 유지됩니다.** Agent Teams 모드의 통합 로직은 `facilitator-teams.md`에 정의됩니다.
+`facilitator-teams.md`(Agent Teams 모드 Lead)는 이 역할을 Round 2에서 흡수 수행하는
+**레거시 폴백**이며 자동 선택되지 않습니다. 폐기 일정은 D-7을 따릅니다.
 
 ---
 

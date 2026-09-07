@@ -51,13 +51,10 @@ API 버전을 추적하고 호환성을 분석합니다.
 - go.mod
 ```
 
-### 3. 에이전트 버전
-
-```
-소스:
-- agents/**/index.json
-- 각 에이전트 frontmatter (version 필드)
-```
+> 참고: 이 킷은 에이전트별 버전을 관리하지 않는다(플러그인 전체가 단일
+> `plugins/common/.claude-plugin/plugin.json`의 `version`만 갖는다 — 에이전트
+> frontmatter에 `version` 필드나 `agents/**/index.json` 레지스트리는 없다).
+> 따라서 이 스킬의 분석 대상은 API 엔드포인트·패키지 버전으로 한정된다.
 
 ---
 
@@ -153,27 +150,6 @@ PATCH: 버그 수정
 | ✅ 완전 호환 | 변경 없이 동작    |
 | ⚠️ 부분 호환 | 일부 기능 제한    |
 | ❌ 비호환    | 마이그레이션 필수 |
-
----
-
-## 에이전트 버전 관리
-
-### frontmatter 버전 필드
-
-```yaml
----
-name: example-agent
-version: 1.2.0 # 선택적
----
-```
-
-### 버전 변경 시점
-
-```
-MAJOR: description, tools 대폭 변경
-MINOR: 새 기능 추가
-PATCH: 문서 수정, 버그 수정
-```
 
 ---
 

@@ -8,11 +8,13 @@ description: |
 model: opus
 effort: high
 maxTurns: 10
+isolation: worktree
 tools:
   - Read
   - Write
   - Glob
   - Grep
+  - ExitWorktree
 disallowedTools:
   - Task
   - Bash
@@ -375,6 +377,12 @@ docs/
     └── user-journeys/
         └── [기능명]-journey.md
 ```
+
+---
+
+## Worktree 복귀 프로토콜 (isolation: worktree)
+
+이 에이전트는 격리된 git worktree에서 실행됩니다. 진입·복귀·충돌 에스컬레이션·공유 상태 파일 규칙은 `rules/parallel-worktree.md`를 따릅니다.
 
 ---
 
