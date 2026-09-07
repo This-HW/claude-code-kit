@@ -352,6 +352,10 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 
 @docs/conventions/shell-lint.md
 
+### 경고는 상시 참이 되면 죽는다
+
+@docs/conventions/warning-signal.md
+
 ## Release Checklist
 
 **CRITICAL: Every commit that changes plugin behavior MUST bump the version in `plugins/common/.claude-plugin/plugin.json`.**
