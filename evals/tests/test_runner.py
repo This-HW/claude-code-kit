@@ -357,6 +357,29 @@ def test_compare_baseline_no_regression_when_improved(tmp_path):
     assert regressions == []
 
 
+def test_claude_json_projects_count_reads_projects(tmp_path, monkeypatch):
+    """D-10: ~/.claude.json 의 projects 딕셔너리 개수를 센다."""
+    fake_home = tmp_path
+    (fake_home / ".claude.json").write_text(
+        json.dumps({"projects": {"a": {}, "b": {}, "c": {}}})
+    )
+    monkeypatch.setattr(runner.Path, "home", lambda: fake_home)
+    assert runner._claude_json_projects_count() == 3
+
+
+def test_claude_json_projects_count_fail_open_when_missing(tmp_path, monkeypatch):
+    """D-10 fail-open: 파일이 없으면 None (경고를 강제하지 않는다)."""
+    monkeypatch.setattr(runner.Path, "home", lambda: tmp_path)
+    assert runner._claude_json_projects_count() is None
+
+
+def test_claude_json_projects_count_fail_open_on_malformed_json(tmp_path, monkeypatch):
+    """D-10 fail-open: 파싱 실패해도 None — 크래시 금지."""
+    (tmp_path / ".claude.json").write_text("{not valid json")
+    monkeypatch.setattr(runner.Path, "home", lambda: tmp_path)
+    assert runner._claude_json_projects_count() is None
+
+
 def test_summarize_pass_rate():
     results = [
         {"agent": "fix-bugs", "status": "pass"},
@@ -478,6 +501,36 @@ def test_run_scenario_claude_nonzero_exit_is_error(tmp_path, monkeypatch):
     assert "claude exit 1" in res["checks"][0]["detail"]
 
 
+def test_run_scenario_work_dir_does_not_leak_agent_or_scenario(tmp_path, monkeypatch):
+    """D-39/25-30: 실행 cwd 이름에 에이전트명·시나리오 id가 나타나면 안 된다.
+
+    되돌려-FAIL: prefix를 f"ckkit-eval-{agent.name}-{scenario.scenario_id}-"로
+    되돌리면 이 테스트가 red가 된다. 매핑 자체는 리포트의 work_dir 필드로 남는다
+    (디버깅 편의 유지).
+    """
+    captured_cwd = {}
+
+    class R:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(*a, **k):
+        captured_cwd["cwd"] = k["cwd"]
+        return R()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    agent = _agent(tmp_path)
+    sc = _scenario(
+        tmp_path, {"assertions": [{"type": "output_regex", "pattern": "ok"}]}
+    )
+    res = runner.run_scenario(agent, sc, timeout=5)
+
+    assert agent.name not in captured_cwd["cwd"]
+    assert sc.scenario_id not in captured_cwd["cwd"]
+    assert res["work_dir"] == captured_cwd["cwd"]
+
+
 def test_run_scenario_assertion_exception_degrades_to_fail(tmp_path, monkeypatch):
     """채점기 예외는 크래시가 아니라 해당 assertion fail로 강등."""
 
@@ -531,9 +584,9 @@ def test_file_unchanged_detects_test_tampering(tmp_path):
     assert ok is True
 
 
-def test_safe_join_blocks_traversal(tmp_path):
-    assert runner._safe_join(tmp_path, "../../etc/passwd") is None
-    assert runner._safe_join(tmp_path, "sub/file.py") is not None
+def test_resolve_in_repo_blocks_traversal(tmp_path):
+    assert runner._resolve_in_repo(tmp_path, "../../etc/passwd") is None
+    assert runner._resolve_in_repo(tmp_path, "sub/file.py") is not None
 
 
 def test_compare_baseline_flags_coverage_loss(tmp_path):
@@ -1192,7 +1245,7 @@ def test_check_assertion_git_assertions_fail_closed_on_non_repo(tmp_path):
 # ---------------------------------------------------------------------------
 # W-023 리뷰 Critical — `write` 로 `.git/` 에 쓰면 제거한 config op 이 되살아난다
 #
-# _safe_join 은 "base 밖으로 나가는가"만 본다. `.git/config` 는 base **안**이라
+# _resolve_in_repo 는 "base 밖으로 나가는가"만 본다. `.git/config` 는 base **안**이라
 # 통과하는데, 거기에 `[filter "x"] clean = <셸 명령>` 을 심고 `.gitattributes`(write)
 # + `add` 하면 **실행 비트 없이** 발화한다 — 화이트리스트에서 config 를 뺀 조치가
 # write 경유로 무효화된다. 아래 테스트가 그 경로를 고정한다.
@@ -1331,7 +1384,10 @@ def _write_overlap_scenario(root: Path, *, git_op_list: list, assertions: list) 
 def test_validate_scenario_rejects_file_unchanged_overlapping_git_write(tmp_path):
     sc = _write_overlap_scenario(
         tmp_path,
-        git_op_list=[{"op": "init"}, {"op": "write", "path": "a.txt", "content": "y\n"}],
+        git_op_list=[
+            {"op": "init"},
+            {"op": "write", "path": "a.txt", "content": "y\n"},
+        ],
         assertions=[{"type": "file_unchanged", "file": "a.txt"}],
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
@@ -1342,7 +1398,10 @@ def test_validate_scenario_allows_file_unchanged_without_overlap(tmp_path):
     """겹치지 않으면 통과해야 한다 — 과잉 차단이 아님을 고정한다."""
     sc = _write_overlap_scenario(
         tmp_path,
-        git_op_list=[{"op": "init"}, {"op": "write", "path": "b.txt", "content": "y\n"}],
+        git_op_list=[
+            {"op": "init"},
+            {"op": "write", "path": "b.txt", "content": "y\n"},
+        ],
         assertions=[{"type": "file_unchanged", "file": "a.txt"}],
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)

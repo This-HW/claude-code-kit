@@ -364,7 +364,7 @@ def validate_expect_schema(expect: dict, prefix: str) -> list[str]:
 def _is_git_internal(rel: str) -> bool:
     """경로가 저장소 메타디렉토리(`.git/`) 안을 가리키는가.
 
-    **왜 _safe_join 으로 부족한가 (W-023 리뷰, Critical).** `_safe_join` 은 "base 밖으로
+    **왜 _resolve_in_repo 로 부족한가 (W-023 리뷰, Critical).** `_resolve_in_repo` 는 "base 밖으로
     나가는가"만 본다 — `.git/config` 는 base **안**이므로 통과한다. 그런데 거기에 쓰면
     `[filter "x"] clean = <셸 명령>` 을 심을 수 있고, `.gitattributes`(write) + `add` 로
     **실행 비트 없이** 발화한다. 즉 화이트리스트에서 `config` op 을 제거한 조치(D-1)가
@@ -381,7 +381,7 @@ def validate_git_spec(spec: dict, prefix: str) -> list[str]:
     구조·화이트리스트·경로 탈출을 잡는다 — `--validate`/게이트 §10이 이 함수로 커버된다.
 
     `write.path`의 경로 탈출 차단은 여기서도 구조적으로(절대경로·`..`) 걸지만, 유일한
-    영구 봉쇄는 materialize_git_repo가 쓰는 _safe_join이다 — 이 함수는 실행 전 조기
+    영구 봉쇄는 materialize_git_repo가 쓰는 _resolve_in_repo이다 — 이 함수는 실행 전 조기
     거부일 뿐, 대체하지 않는다 (D-2: 한 번 resolve하고 그 결과를 끝까지 쓴다).
     """
     errors: list[str] = []
@@ -821,7 +821,7 @@ def materialize_git_repo(work_dir: Path, spec: dict) -> None:
     먼저 걸러야 정상이지만, 방어적으로 여기서도 거부한다(fail-closed, D-3) —
     검증을 거치지 않고 이 함수를 직접 호출하는 경로(단위 테스트 등)가 있을 수 있다.
 
-    `write.path`는 반드시 _safe_join(work_dir, path)을 통과해야 한다 — 한 번
+    `write.path`는 반드시 _resolve_in_repo(work_dir, path)을 통과해야 한다 — 한 번
     resolve하고 그 결과(target)를 끝까지 쓴다. 검사와 사용이 각각 resolve하면
     그 틈이 TOCTOU다 (D-2, CLAUDE.md "설정값으로 경로를 만들면 반드시 봉쇄한다").
 
@@ -834,13 +834,13 @@ def materialize_git_repo(work_dir: Path, spec: dict) -> None:
             raise RuntimeError(f"git.json 알 수 없는 op '{op}' (화이트리스트 밖)")
         if op == "write":
             raw_path = op_entry["path"]
-            # `.git/` 봉쇄가 _safe_join 보다 **먼저**다 — _safe_join 은 base 밖으로
+            # `.git/` 봉쇄가 _resolve_in_repo 보다 **먼저**다 — _resolve_in_repo 는 base 밖으로
             # 나가는 것만 막고 `.git/config` 는 base 안이라 통과시킨다 (리뷰 C-1).
             if _is_git_internal(raw_path):
                 raise RuntimeError(
                     f"git.json write.path 저장소 메타디렉토리(.git/) 쓰기 차단: {raw_path!r}"
                 )
-            target = _safe_join(work_dir, raw_path)
+            target = _resolve_in_repo(work_dir, raw_path)
             if target is None:
                 raise RuntimeError(f"git.json write.path 경로 탈출 차단: {raw_path!r}")
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -863,13 +863,15 @@ def _norm(s: str) -> str:
     return unicodedata.normalize("NFC", s).lower()
 
 
-def _safe_join(base: Path, rel: str) -> Path | None:
+def _resolve_in_repo(base: Path, rel: str) -> Path | None:
     """author-제어 상대경로를 base 밖으로 못 나가게 정규화 (ATK-012 경로 탈출 가드)."""
     p = (base / rel).resolve()
     return p if p.is_relative_to(base.resolve()) else None
 
 
-def _check_output_regex(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+def _check_output_regex(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     flags = 0
     for ch in a.get("flags", ""):
         flags |= {"i": re.IGNORECASE, "s": re.DOTALL, "m": re.MULTILINE}.get(ch, 0)
@@ -877,22 +879,31 @@ def _check_output_regex(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> 
     ok = re.search(pattern, stdout, flags) is not None
     return ok, f"output_regex '{pattern}'" + ("" if ok else " — 매치 없음")
 
-def _check_output_contains_any(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_output_contains_any(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     values = a.get("values", [])
     low = _norm(stdout)
     ok = any(_norm(v) in low for v in values)
     return ok, f"output_contains_any {values}" + ("" if ok else " — 하나도 없음")
 
-def _check_output_not_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_output_not_contains(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     values = a.get("values", [])
     low = _norm(stdout)
     hit = [v for v in values if _norm(v) in low]
     ok = not hit
     return ok, "output_not_contains" + ("" if ok else f" — 발견됨 {hit}")
 
-def _check_pytest_green(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_pytest_green(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     rel = a.get("path", ".")
-    target = _safe_join(fx, rel)
+    target = _resolve_in_repo(fx, rel)
     if target is None:
         return False, f"pytest_green — 경로 탈출 차단: {rel}"
     py = resolve_pytest_python()
@@ -919,8 +930,11 @@ def _check_pytest_green(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> 
         "" if ok else f" — exit {r.returncode}: {r.stdout[-400:]} {r.stderr[-200:]}"
     )
 
-def _check_file_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
-    f = _safe_join(fx, a["file"])
+
+def _check_file_contains(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
+    f = _resolve_in_repo(fx, a["file"])
     if f is None:
         return False, f"file_contains — 경로 탈출 차단: {a['file']}"
     if not f.is_file():
@@ -933,16 +947,19 @@ def _check_file_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) ->
     ok = re.search(a["pattern"], content, re.MULTILINE) is not None
     return ok, "file_contains" + ("" if ok else " — 패턴 없음")
 
-def _check_file_unchanged(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_file_unchanged(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     # 채점 게이밍 방지(ATK-006): 에이전트가 테스트 파일을 고쳐 green을 만드는
     # 우회를 차단 — 실행 후 파일이 원본 fixture와 byte-동일해야 통과.
     rel_f = a["file"]
-    cur = _safe_join(fx, rel_f)
+    cur = _resolve_in_repo(fx, rel_f)
     if cur is None:
         return False, f"file_unchanged — 경로 탈출 차단: {rel_f}"
     if src_fx is None:
         return False, "file_unchanged — 원본 fixture 참조 없음 (러너 버그)"
-    orig = _safe_join(src_fx, rel_f)
+    orig = _resolve_in_repo(src_fx, rel_f)
     if orig is None or not orig.is_file():
         return False, f"file_unchanged — 원본에 없는 파일 {rel_f}"
     if not cur.is_file():
@@ -950,7 +967,10 @@ def _check_file_unchanged(a: dict, stdout: str, fx: Path, src_fx: Path | None) -
     ok = cur.read_bytes() == orig.read_bytes()
     return ok, "file_unchanged" + ("" if ok else f" — {rel_f} 변조됨 (게이밍 의심)")
 
-def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bool, str]:
+
+def _check_git_assertion(
+    assertion: dict, t: str, fixture_dir: Path
+) -> tuple[bool, str]:
     """git 상태 어서션 3종 채점 (W-023 D-5). fixture_dir은 run_scenario가 넘기는
     실행 후 temp work_dir — materialize_git_repo가 이미 저장소를 만들어 둔 상태다.
 
@@ -964,7 +984,10 @@ def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bo
     if t == "git_log_contains":
         ref = assertion.get("ref", "HEAD")
         if not isinstance(ref, str) or ref.startswith("-"):
-            return False, f"git_log_contains — 유효하지 않은 ref(옵션 주입 의심): {ref!r}"
+            return (
+                False,
+                f"git_log_contains — 유효하지 않은 ref(옵션 주입 의심): {ref!r}",
+            )
         args = ["log", "--format=%B", ref]
     elif t == "git_branch_exists":
         branch = assertion["branch"]
@@ -1009,8 +1032,6 @@ def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bo
 
     ok = matched == expect_ok
     return ok, t + ("" if ok else f" — expect={expect_ok} actual={matched}")
-
-
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1058,6 +1079,8 @@ def check_assertion(
     if entry is None:
         return False, f"알 수 없는 assertion type: {assertion.get('type')}"
     return entry[1](assertion, stdout, fixture_dir, source_fixture)
+
+
 # ---------------------------------------------------------------------------
 # LLM-judge (opt-in, deterministic 전부 통과 시에만)
 # ---------------------------------------------------------------------------
@@ -1127,6 +1150,7 @@ def _result(
     checks: list[dict],
     duration: float,
     judge=None,
+    work_dir: str | None = None,
 ) -> dict:
     return {
         "agent": agent,
@@ -1135,6 +1159,9 @@ def _result(
         "checks": checks,
         "judge": judge,
         "duration_s": round(duration, 2),
+        # 작업 디렉토리 이름 자체는 중립(에이전트명·시나리오 id 미노출, D-39) —
+        # 디버깅용 매핑은 여기 리포트에만 남긴다.
+        "work_dir": work_dir,
     }
 
 
@@ -1157,9 +1184,10 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
             0.0,
         )
 
-    with tempfile.TemporaryDirectory(
-        prefix=f"ckkit-eval-{agent.name}-{scenario.scenario_id}-"
-    ) as td:
+    # prefix는 중립이어야 한다(D-39) — 에이전트명·시나리오 id를 넣으면 `pwd` 한 번으로
+    # 평가 대상 에이전트가 "나는 지금 평가받는 중"임을 알 수 있다. 디버깅용
+    # (디렉토리 → 에이전트/시나리오) 매핑은 _result()의 work_dir 필드로 리포트에만 남긴다.
+    with tempfile.TemporaryDirectory(prefix="ckkit-eval-") as td:
         work_dir = Path(td) / "fixture"
         if scenario.fixture_dir.is_dir():
             shutil.copytree(
@@ -1188,6 +1216,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                         }
                     ],
                     0.0,
+                    work_dir=str(work_dir),
                 )
 
         cmd = build_claude_command(agent, scenario.task)
@@ -1209,6 +1238,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                 "fail",
                 [{"type": "timeout", "ok": False, "detail": f"{timeout}s 초과"}],
                 time.time() - start,
+                work_dir=str(work_dir),
             )
 
         # 인프라 실패(비정상 exit)는 품질 fail과 구분해 'error'로 기록하되,
@@ -1226,6 +1256,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                     }
                 ],
                 time.time() - start,
+                work_dir=str(work_dir),
             )
 
         checks = []
@@ -1261,6 +1292,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
             checks,
             time.time() - start,
             judge=judge_result,
+            work_dir=str(work_dir),
         )
 
 
@@ -1281,6 +1313,22 @@ def _shdisplay(cmd: list[str]) -> str:
         shown = c if len(c) < 60 else c[:57] + "..."
         parts.append(shlex.quote(shown))
     return " ".join(parts)
+
+
+def _claude_json_projects_count() -> int | None:
+    """`~/.claude.json` 의 projects 키 개수. 없거나 파싱 실패면 None (fail-open, D-10).
+
+    유령 프로젝트 항목이 몇 달간 아무도 모르게 쌓인 적이 있다 — run_all 전후로 이 수를
+    비교해 증가하면 그날 바로 경고한다. 하네스가 이 파일을 다시 등록하기 시작해도 조용히
+    넘어가지 않게 하는 것이 목적이다.
+    """
+    path = Path.home() / ".claude.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    projects = data.get("projects")
+    return len(projects) if isinstance(projects, dict) else None
 
 
 def run_all(
@@ -1332,11 +1380,25 @@ def run_all(
         print("[eval] SKIPPED — claude CLI를 PATH에서 찾을 수 없음", file=sys.stderr)
         return {"results": [], "summary": {}}, EXIT_SKIPPED
 
+    projects_before = _claude_json_projects_count()
+
     results: list[dict] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, parallel)) as ex:
         futs = [ex.submit(run_scenario, agent, sc, timeout) for agent, sc in plan]
         for fut in concurrent.futures.as_completed(futs):
             results.append(fut.result())
+
+    projects_after = _claude_json_projects_count()
+    if (
+        projects_before is not None
+        and projects_after is not None
+        and projects_after > projects_before
+    ):
+        print(
+            f"[eval] 경고: ~/.claude.json projects {projects_before} → {projects_after} "
+            f"(+{projects_after - projects_before}) — 유령 등록 의심",
+            file=sys.stderr,
+        )
 
     summary = summarize(results)
     exit_code = EXIT_PASS if all(r["status"] == "pass" for r in results) else EXIT_FAIL
