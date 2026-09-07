@@ -304,7 +304,7 @@ portable_reason: 비신뢰 텍스트 취급 — 호스트 무관 공통 규율
 훅이 없는 하네스에서는 **이 규율이 지침으로만 작동한다** — 강제가 없다는 사실을 알고 지켜라.
 <!-- cck:end -->
 
-<!-- cck2:begin conventions-v1.0.0 sha256:fdd35efc46f8fb9d019bcf266860c4b85de04ea02cde44ca5f16a8db9991eac3 -->
+<!-- cck2:begin conventions-v1.0.0 sha256:e0cb4679d21f4d6703b74b38fe251d11eb808ae8ca84434856ddd10be80db2a9 -->
 
 ## claude-code-kit — Project Conventions (요약 발췌)
 
@@ -356,6 +356,18 @@ above, followed the same way in every place a config value becomes a file path, 
 A fourth "does the generated thing match its source" gate is the point to reconsider this — not
 before. Rule-of-three isn't "merge at the third instance," it's "the third instance is still not
 necessarily a pattern."
+
+## 새 드리프트 게이트가 필요한지 판별하는 법 (2026-09-07, 27-3)
+
+> **생성물이 사본이면 게이트가 필요하고, 참조면 필요 없다.**
+
+`CLAUDE.md` 가 규약 절들을 `@docs/conventions/*.md` **import** 로 바꿨을 때 게이트를 신설하지
+않았다 — import 는 참조이지 사본이 아니므로 **드리프트할 대상이 없다**. 반대로 `AGENTS.md`(§11)·
+타겟 매니페스트(§14)·이름 파생(§18)은 전부 **사본을 만든다**. 그래서 각각 게이트가 있다.
+
+그리고 게이트가 넷이 돼도 **통합하지 않는다**. 판정 방식이 넷 다 다르고(sha256 대조 · 집합
+양방향 대조 · 파일 존재+내용 대조 · 문자열 파생 대조), 통합으로 줄어드는 것은 이미 공유 중인
+`hdr`/`green`/`red` 껍데기뿐이다. rule of three 는 세 번째에 묶으라는 뜻이 아니다.
 
 ### 그 밖의 host-neutral 관례 (경로 참조만 — 이 파일엔 인라인하지 않음)
 
