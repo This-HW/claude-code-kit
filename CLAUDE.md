@@ -302,26 +302,7 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 
 ### 설정값으로 경로를 만들면 반드시 봉쇄한다 (2026-08-27 확정)
 
-**같은 결함이 세 번 반복됐다.** 정책·설정 파일에서 읽은 값으로 파일 경로를 조립하는 코드가
-그 값을 검증하지 않으면 레포 밖을 읽거나 쓴다. `pathlib` 의 `a / b` 는 **`b` 가 절대경로면 `a` 를
-통째로 버린다** — 이 한 줄이 세 번 모두의 원인이었다.
-
-| 인스턴스 | 발견 | 증상 |
-| --- | --- | --- |
-| `export_harness.py` | 2.14.1 적대적 리뷰 | 심링크 탈출 + 검사/쓰기가 각각 resolve (TOCTOU) |
-| `build-targets.py` | 2.15.0 교차 리뷰 | `manifestPath` 절대경로·`..`·심링크 3종 전부 레포 밖에 **씀** |
-| `check_eval_coverage.py` | 2.15.0 기획 세션 전수조사 | `baseline.file` 절대경로로 레포 밖 파일을 기준선으로 **신뢰하고 green** |
-
-**규칙**:
-
-1. 설정에서 온 경로는 **한 번만 resolve** 하고 그 결과를 끝까지 쓴다. 검사와 사용이 각각
-   resolve하면 그 틈이 TOCTOU다 (`_resolve_target()` / `_resolve_in_repo()` 관례)
-2. resolve 결과가 **레포 루트(또는 정해진 하위 디렉토리) 안**이 아니면 **exit 1**. 절대경로·`..`·심링크 전부
-3. **읽기 경로도 봉쇄한다.** 세 번째 인스턴스는 읽기 전용인데도 게이트가 거짓 green을 냈다
-4. `--check` 같은 **검사 전용 모드에도 같은 봉쇄를 건다.** 2.14.1은 쓰기에만 걸어 구멍이 남았다
-
-새 코드가 설정값으로 경로를 만든다면 위 두 파일의 헬퍼를 **그대로 따라라.** 관례를 새로
-발명하는 것이 이 결함이 반복된 이유다.
+@docs/conventions/path-containment.md
 
 ## Security
 
@@ -361,67 +342,15 @@ actually loads every hook under 3.9). Four hooks were silently dead on 3.9 until
 
 ### Lint is one ruleset, everywhere
 
-`ruff.toml` at the repo root is the **single source** for both the rule set and
-the lint scope; `ruff check .` is the only command (CI, `verify-done.sh §3`, and
-the `auto-format` hook all resolve to it). Two traps it exists to close:
-
-- **No project config → ruff falls back to the developer's global
-  `~/.config/ruff/ruff.toml`** (which this kit itself installs). That masked a
-  real CI failure once: local green, CI red.
-- **Ruff's *default* rule set changes between releases** (0.15 enables E402, 0.16
-  does not), so relying on defaults makes two machines disagree. The rules are
-  therefore listed explicitly, and the version is pinned in `.ruff-version`
-  (CI installs exactly that; `verify-done.sh` warns when the local ruff differs).
-
-Raising the ruff pin is a deliberate act: bump `.ruff-version`, fix what the new
-version flags, land both together.
-
-**The test runner is pinned the same way.** `.pytest-version` is the pin; CI
-installs exactly it, and `verify-done.sh §4` warns when the local pytest differs.
-pytest changes collection, fixture, and deprecation behavior across majors, so an
-unpinned runner means CI silently floats to the newest release and can go red with
-no code change — the same failure `.ruff-version` exists to prevent. Both pins are
-also what makes a dev venv reproducible:
-
-```bash
-python3 -m venv .venv
-./.venv/bin/python -m pip install "pytest==$(cat .pytest-version)" "ruff==$(cat .ruff-version)"
-```
+@docs/conventions/lint-single-ruleset.md
 
 ### Rules have a long-form mirror — and it is checksum-guarded
 
-`plugins/common/rules/` (13) is what gets **injected every session**, so it is compressed.
-`docs/architecture/rules/` (9) is the long-form human explanation of nine of those rules,
-created in W-004 — tables, worked examples, anti-patterns. The remaining four
-(`definition-of-done`, `feedback-loop`, `loop-engineering`, `parallel-worktree`) have no
-mirror by design; the injected rule is the whole story for them.
-
-Nothing linked the two, so they drifted silently — a 2026-08-17 audit found three behind,
-and the `planning-check` mirror still told readers to search Notion/Figma MCP in order,
-**assuming those MCPs are installed**, which contradicts the consumer-first north-star.
-`docs/architecture/rules/MIRROR.sha256` now records, per mirrored rule, the sha256 of the
-injected rule the explanation last reflected. `verify-done.sh §7` fails when they diverge;
-`scripts/sync-rule-mirror.sh --regenerate` updates it. Regeneration is deliberate on
-purpose — auto-updating the manifest would make the check meaningless.
-
-Normative statements live in the injected rule. The mirror explains and points at it; it
-must not redefine anything, or the drift comes back through the front door.
+@docs/conventions/rules-mirror.md
 
 ### Shell is linted too
 
-The completion gate (`verify-done.sh`) and the installer (`setup.sh`) *are* shell —
-linting Python rigorously while leaving them unchecked means the code that decides
-"done" is the code nobody checks. `scripts/lint-shell.sh` is the single command
-(CI and `verify-done.sh §3b` both call it); it owns the target list and the
-severity threshold, so neither side can drift. Targets are resolved from
-`git ls-files` by extension **and** shebang, so extensionless scripts like
-`plugins/common/setup/pre-commit` are covered and new scripts need no registration.
-shellcheck is pinned in `.shellcheck-version` and CI verifies the release tarball's
-sha256 — bump both together or the step fails loudly.
-
-One deliberate asymmetry with ruff: a *missing* shellcheck is a yellow note locally,
-not a red. CI (pinned version) is the authoritative verdict; the local run is fast
-feedback. It never reports green when it could not check.
+@docs/conventions/shell-lint.md
 
 ## Release Checklist
 
