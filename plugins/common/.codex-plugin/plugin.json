@@ -29,5 +29,5 @@
   "name": "hiway-kit",
   "repository": "https://github.com/This-HW/claude-code-kit",
   "skills": "./skills/",
-  "version": "3.1.0"
+  "version": "3.2.0"
 }

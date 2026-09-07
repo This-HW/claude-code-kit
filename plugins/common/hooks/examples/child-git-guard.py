@@ -73,10 +73,37 @@ def is_child_session() -> bool:
     # 마커의 내용을 쓰는 순간(기준 커밋 대조 등) 오판이 된다.
     if not isinstance(data, dict) or data.get("schema") != 1:
         return False  # 모르는 스키마 버전 = 판정 불가 = 보호하지 않는다(fail-open)
-    return all(
+    if not all(
         isinstance(data.get(k), str) and data[k]
         for k in ("parent", "role", "base_commit")
-    )
+    ):
+        return False
+
+    # 낡은 마커 경고 — 값을 대조하지 않으면 치환 규율이 집행되지 않는다.
+    # 차단하지 않는 이유: 자식이 정당하게 기준보다 앞선 커밋 위에 있을 수 있다(작업 커밋).
+    # 목적은 "브리프가 바뀌었는데 마커를 안 갈았는가" 를 사람이 보게 하는 것이다.
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5, check=False,
+        ).stdout.strip()
+        base = data["base_commit"]
+        if head and base and not head.startswith(base) and not base.startswith(head):
+            merge_base = subprocess.run(
+                ["git", "merge-base", "--is-ancestor", base, head],
+                capture_output=True, timeout=5, check=False,
+            ).returncode
+            if merge_base != 0:
+                print(
+                    f"[cck] 경고: 마커의 base_commit({base[:8]})이 현재 HEAD({head[:8]})의 "
+                    "조상이 아니다 — 브리프 교체 시 마커를 치환하지 않았을 수 있다 "
+                    "(rules/child-marker.md)",
+                    file=sys.stderr,
+                )
+    except (OSError, subprocess.TimeoutExpired, KeyError):
+        pass  # 판정 불가는 침묵 — 오탐 경고는 전체 경고를 죽인다
+
+    return True
 
 
 def _split_commands(command: str) -> list[list[str]]:

@@ -257,6 +257,21 @@ def _compose_conv(text: str, block: str) -> str:
 # 도구 allowlist·Task 재개)에 의존하는 룰은 이식해봐야 지킬 수단이 없으므로 제외하고,
 # 제외 사유를 생성물에 명시한다 — "왜 없는지"를 남기지 않으면 다음 사람이 버그로 읽는다.
 # ─────────────────────────────────────────────────────────────────────────────
+def _rule_tier(path: Path) -> str:
+    """규범의 tier frontmatter (core|conditional|reference). 없으면 "".
+
+    **이식 대상이라도 reference 티어는 인라인하지 않는다** — 필요할 때만 읽으면 되는
+    규범을 AGENTS.md 에 통째로 실으면 Codex 의 병합 총량 예산을 먹는다. conventions
+    블록이 CONVENTIONS_INLINE / REFERENCE_ONLY 로 하는 구분과 같은 논리이며,
+    이제 그 구분을 손 목록이 아니라 **규범 자신의 tier** 가 정한다.
+    """
+    head = path.read_text(encoding="utf-8").split("---", 2)
+    if len(head) < 3:
+        return ""
+    m = re.search(r"^tier:\s*(\w+)\s*$", head[1], re.MULTILINE)
+    return m.group(1) if m else ""
+
+
 def _rule_portability(path: Path) -> tuple[bool | None, str]:
     """규범 파일의 frontmatter 에서 `portable` 과 사유를 읽는다 (D-45).
 
@@ -405,8 +420,8 @@ def _classify(rules: list[Path]) -> tuple[list[Path], list[str], list[str]]:
         flag, _ = _rule_portability(p)
         if flag is None:
             unknown.append(p.stem)
-        elif flag:
-            portable.append(p)
+        elif flag and _rule_tier(p) != "reference":
+            portable.append(p)  # reference 티어는 인라인하지 않는다 — 이름만 광고
     # 유령(분류표에만 있고 실물 없음)은 **구조적으로 불가능해졌다** — 분류가 규범 파일
     # 자신에 있으므로 파일이 사라지면 분류도 사라진다. 빈 목록을 유지해 호출부 계약만 지킨다.
     return portable, unknown, []
