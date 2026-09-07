@@ -73,6 +73,63 @@ fixture 는 Round 1 종합 결과에 충돌 2건을 둔다 — **#1 Hard vs Hard
 `baseline._meta.regenerationCadence` 규정대로 같은 배치에서 전량 재실행했다(부분 실행은
 `--baseline` 저장이 거부된다). **38/38 pass, 기존 37건 status 전부 유지(회귀 0).**
 
+## [2.18.0] — 2026-09-07
+
+W-025 배치. 규범 주입을 **34,062B → 9,829B (71% 감축)** 하고, 배포물 전반의
+"존재하지 않는 것을 가리키는 서술"과 소비자 환경에서 상시 발화하던 경고를 정리했다.
+
+### Fixed — 워크트리를 쓰면 매 세션 경고가 떴다
+
+`session-check` 가 `.git/hooks` 를 디렉토리로 가정했다. 워크트리에서 `.git` 은 gitdir
+포인터 **파일**이라 `ENOTDIR` 로 실패하고, **이 킷이 권장하는 운영 형태**(`isolation:
+worktree`·`parallel-worktree`)를 따르는 모든 사용자에게 경고가 나가고 있었다.
+`git rev-parse --git-path hooks` 로 해석한다.
+
+### Changed — 규범이 자기 활성화 조건과 이식성을 선언한다
+
+`ALWAYS_RULES` 하드코딩 리스트를 없애고 각 규범이 frontmatter 로 선언한다:
+
+```yaml
+tier: core | conditional | reference
+portable: true | false
+```
+
+- **`tier`** — 상시 주입은 `core` 뿐이다. 상황 규범(`parallel-worktree`·`mcp-usage`·
+  `feedback-loop`·`task-resume`)은 신호가 있을 때만, 참조 규범(`agent-system`·
+  `agent-delegation-chain`)은 색인만 남는다. 주입은 **현저성을 사는 비용이지 강제가 아니다**.
+- **`portable`** — `export_harness.py` 의 `PORTABLE`/`NOT_PORTABLE` 딕셔너리를 대체한다.
+  같은 13종에 대한 분류가 두 곳에 있고 정합 강제가 없던 것을 한 곳으로 모았다.
+  분류가 규범 파일 자신에 있으므로 **유령 엔트리와 양쪽 등재가 구조적으로 불가능**해졌다.
+
+### Removed
+
+- **`rules/tool-usage-priority.md`** — 호스트가 정반대를 지시하는 사례가 실측됐다.
+  도구 선택은 네이티브 행동이고, 이 킷의 원칙은 "네이티브가 하는 일을 중복하지 않는다"다.
+- **`skills/README.md`** · `skills/references/` 미참조 8종 — 손유지 색인·고아 자산.
+  생존 2종은 `plan-task/references/` 로 이관. 결과로 `skills/` 최상위 진입이 **19 = 실제 스킬 수**가
+  되어 `agy plugin validate` 의 오집계(21)가 해소됐다.
+- `agent-system` 의 키워드 표, `using-claude-code-kit` 의 Skill Trigger Map·Agent Selection —
+  하네스가 이미 트리거까지 제공한다.
+
+### Added
+
+- **`rules/untrusted-text.md`** — 외부·타세션 텍스트를 데이터로만 다루는 규율.
+  원래 워크플로 스킬 안에 있었으나 자기 제목이 "호스트 무관 공통 규율"이었다. core 규범이 맞다.
+- **`verify-done.sh` §16** — 세션 주입 총량 예산(10,240B). core/WORKFLOW 를 따로 재지 않는다.
+  절을 파일 사이로 옮기는 것만으로 통과시킬 수 있기 때문이다.
+
+### Fixed — 존재하지 않는 것을 가리키던 서술
+
+dangling `references:` frontmatter, 존재하지 않는 에이전트로의 위임 지시, 없는 도구명(`LSP`),
+`agent-creator`·`skill-creator` 가 가르치던 금지 필드·없는 등록 절차, `mcp-builder` 의 없는 CLI,
+`enforce-structure` 의 소비자 파일 전제(우아한 폴백으로 전환). 워크트리 복귀 프로토콜이 에이전트
+8종에 복제돼 있던 것은 규범 참조로 축약했다.
+
+### Fixed — eval 하네스가 대상에게 평가 사실을 노출했다
+
+작업 디렉토리 이름에 에이전트명과 시나리오 id 가 박혀 있어 `pwd` 한 번으로 드러났다.
+중립 prefix 로 바꾸고 매핑은 리포트에 기록한다.
+
 ## [2.17.0] — 2026-09-01
 
 W-023 배치. eval 커버리지의 **마지막 kit-내부 갭**을 갚았다 — v2.16.0이 남긴 B·C등급 5종 중

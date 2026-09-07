@@ -29,5 +29,5 @@
   "name": "claude-code-kit",
   "repository": "https://github.com/This-HW/claude-code-kit",
   "skills": "./skills/",
-  "version": "2.17.0"
+  "version": "2.18.0"
 }
