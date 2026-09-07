@@ -118,21 +118,7 @@ def resolve_pytest_python() -> str | None:
     return None
 
 
-# assertion type -> required field names (스키마 검증 + 채점 공용 SSOT)
-KNOWN_ASSERTION_TYPES: dict[str, set[str]] = {
-    "output_regex": {"pattern"},
-    "output_contains_any": {"values"},
-    "output_not_contains": {"values"},
-    "pytest_green": {"path"},
-    "file_contains": {"file", "pattern"},
-    "file_unchanged": {"file"},
-    # git 상태 어서션 3종 (W-023 D-5). expect:false로 부정을 표현한다 —
-    # *_not_* 타입은 만들지 않는다(타입 표가 읽기 어려워지면 시나리오 작성자가
-    # 틀린 타입을 고른다).
-    "git_log_contains": {"pattern"},
-    "git_branch_exists": {"branch"},
-    "git_status_clean": set(),
-}
+# assertion 타입 계약은 ASSERTION_REGISTRY 한 곳에 있다 (아래 '채점' 절).
 
 # git.json 연산 어휘 -> 필수 필드 (W-023 D-1, config 제거는 D-1 결정log — 화이트리스트
 # **안**의 연산만으로 임의 코드 실행이 성립함이 실증됨: filter.<n>.clean 같은 임의 git
@@ -883,92 +869,86 @@ def _safe_join(base: Path, rel: str) -> Path | None:
     return p if p.is_relative_to(base.resolve()) else None
 
 
-def check_assertion(
-    assertion: dict,
-    stdout: str,
-    fixture_dir: Path,
-    source_fixture: Path | None = None,
-) -> tuple[bool, str]:
-    t = assertion.get("type")
-    if t == "output_regex":
-        flags = 0
-        for ch in assertion.get("flags", ""):
-            flags |= {"i": re.IGNORECASE, "s": re.DOTALL, "m": re.MULTILINE}.get(ch, 0)
-        pattern = assertion["pattern"]
-        ok = re.search(pattern, stdout, flags) is not None
-        return ok, f"output_regex '{pattern}'" + ("" if ok else " — 매치 없음")
-    if t == "output_contains_any":
-        values = assertion.get("values", [])
-        low = _norm(stdout)
-        ok = any(_norm(v) in low for v in values)
-        return ok, f"output_contains_any {values}" + ("" if ok else " — 하나도 없음")
-    if t == "output_not_contains":
-        values = assertion.get("values", [])
-        low = _norm(stdout)
-        hit = [v for v in values if _norm(v) in low]
-        ok = not hit
-        return ok, "output_not_contains" + ("" if ok else f" — 발견됨 {hit}")
-    if t == "pytest_green":
-        rel = assertion.get("path", ".")
-        target = _safe_join(fixture_dir, rel)
-        if target is None:
-            return False, f"pytest_green — 경로 탈출 차단: {rel}"
-        py = resolve_pytest_python()
-        if py is None:
-            # pytest 부재 = 검증 불가. green 위장 금지 — 명시적 실패로 드러낸다.
-            return (
-                False,
-                "pytest_green — pytest 인터프리터 없음 (검증 불가, .venv 확인)",
-            )
-        try:
-            r = subprocess.run(
-                [py, "-m", "pytest", str(target), "-q", "-p", "no:cacheprovider"],
-                cwd=str(fixture_dir),
-                capture_output=True,
-                text=True,
-                timeout=int(assertion.get("timeout", 120)),
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            # 무한루프 fixture 하나가 전체 런을 크래시시키지 않게 fail로 강등 (ATK-003).
-            return False, "pytest_green — pytest 타임아웃"
-        ok = r.returncode == 0
-        return ok, "pytest_green" + (
-            "" if ok else f" — exit {r.returncode}: {r.stdout[-400:]} {r.stderr[-200:]}"
-        )
-    if t == "file_contains":
-        f = _safe_join(fixture_dir, assertion["file"])
-        if f is None:
-            return False, f"file_contains — 경로 탈출 차단: {assertion['file']}"
-        if not f.is_file():
-            return False, f"file_contains — 파일 없음 {assertion['file']}"
-        content = f.read_text(encoding="utf-8")
-        # MULTILINE 기본 적용 (W-018 S3 실측): 이게 없으면 '^'/'$'가 파일 전체의
-        # 시작/끝에만 매치해, frontmatter처럼 구분선 뒤에 오는 필드를 앵커링하는
-        # 흔한 패턴이 실제로 false-fail을 냈다(2026-08-26 실측). 인라인 `(?m)`
-        # 워크어라운드가 이미 있던 시나리오는 중복 지정이라도 무해하다.
-        ok = re.search(assertion["pattern"], content, re.MULTILINE) is not None
-        return ok, "file_contains" + ("" if ok else " — 패턴 없음")
-    if t == "file_unchanged":
-        # 채점 게이밍 방지(ATK-006): 에이전트가 테스트 파일을 고쳐 green을 만드는
-        # 우회를 차단 — 실행 후 파일이 원본 fixture와 byte-동일해야 통과.
-        rel_f = assertion["file"]
-        cur = _safe_join(fixture_dir, rel_f)
-        if cur is None:
-            return False, f"file_unchanged — 경로 탈출 차단: {rel_f}"
-        if source_fixture is None:
-            return False, "file_unchanged — 원본 fixture 참조 없음 (러너 버그)"
-        orig = _safe_join(source_fixture, rel_f)
-        if orig is None or not orig.is_file():
-            return False, f"file_unchanged — 원본에 없는 파일 {rel_f}"
-        if not cur.is_file():
-            return False, f"file_unchanged — 실행 후 파일 삭제됨 {rel_f}"
-        ok = cur.read_bytes() == orig.read_bytes()
-        return ok, "file_unchanged" + ("" if ok else f" — {rel_f} 변조됨 (게이밍 의심)")
-    if t in ("git_log_contains", "git_branch_exists", "git_status_clean"):
-        return _check_git_assertion(assertion, t, fixture_dir)
-    return False, f"알 수 없는 assertion type: {t}"
+def _check_output_regex(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+    flags = 0
+    for ch in a.get("flags", ""):
+        flags |= {"i": re.IGNORECASE, "s": re.DOTALL, "m": re.MULTILINE}.get(ch, 0)
+    pattern = a["pattern"]
+    ok = re.search(pattern, stdout, flags) is not None
+    return ok, f"output_regex '{pattern}'" + ("" if ok else " — 매치 없음")
 
+def _check_output_contains_any(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+    values = a.get("values", [])
+    low = _norm(stdout)
+    ok = any(_norm(v) in low for v in values)
+    return ok, f"output_contains_any {values}" + ("" if ok else " — 하나도 없음")
+
+def _check_output_not_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+    values = a.get("values", [])
+    low = _norm(stdout)
+    hit = [v for v in values if _norm(v) in low]
+    ok = not hit
+    return ok, "output_not_contains" + ("" if ok else f" — 발견됨 {hit}")
+
+def _check_pytest_green(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+    rel = a.get("path", ".")
+    target = _safe_join(fx, rel)
+    if target is None:
+        return False, f"pytest_green — 경로 탈출 차단: {rel}"
+    py = resolve_pytest_python()
+    if py is None:
+        # pytest 부재 = 검증 불가. green 위장 금지 — 명시적 실패로 드러낸다.
+        return (
+            False,
+            "pytest_green — pytest 인터프리터 없음 (검증 불가, .venv 확인)",
+        )
+    try:
+        r = subprocess.run(
+            [py, "-m", "pytest", str(target), "-q", "-p", "no:cacheprovider"],
+            cwd=str(fx),
+            capture_output=True,
+            text=True,
+            timeout=int(a.get("timeout", 120)),
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        # 무한루프 fixture 하나가 전체 런을 크래시시키지 않게 fail로 강등 (ATK-003).
+        return False, "pytest_green — pytest 타임아웃"
+    ok = r.returncode == 0
+    return ok, "pytest_green" + (
+        "" if ok else f" — exit {r.returncode}: {r.stdout[-400:]} {r.stderr[-200:]}"
+    )
+
+def _check_file_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+    f = _safe_join(fx, a["file"])
+    if f is None:
+        return False, f"file_contains — 경로 탈출 차단: {a['file']}"
+    if not f.is_file():
+        return False, f"file_contains — 파일 없음 {a['file']}"
+    content = f.read_text(encoding="utf-8")
+    # MULTILINE 기본 적용 (W-018 S3 실측): 이게 없으면 '^'/'$'가 파일 전체의
+    # 시작/끝에만 매치해, frontmatter처럼 구분선 뒤에 오는 필드를 앵커링하는
+    # 흔한 패턴이 실제로 false-fail을 냈다(2026-08-26 실측). 인라인 `(?m)`
+    # 워크어라운드가 이미 있던 시나리오는 중복 지정이라도 무해하다.
+    ok = re.search(a["pattern"], content, re.MULTILINE) is not None
+    return ok, "file_contains" + ("" if ok else " — 패턴 없음")
+
+def _check_file_unchanged(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+    # 채점 게이밍 방지(ATK-006): 에이전트가 테스트 파일을 고쳐 green을 만드는
+    # 우회를 차단 — 실행 후 파일이 원본 fixture와 byte-동일해야 통과.
+    rel_f = a["file"]
+    cur = _safe_join(fx, rel_f)
+    if cur is None:
+        return False, f"file_unchanged — 경로 탈출 차단: {rel_f}"
+    if src_fx is None:
+        return False, "file_unchanged — 원본 fixture 참조 없음 (러너 버그)"
+    orig = _safe_join(src_fx, rel_f)
+    if orig is None or not orig.is_file():
+        return False, f"file_unchanged — 원본에 없는 파일 {rel_f}"
+    if not cur.is_file():
+        return False, f"file_unchanged — 실행 후 파일 삭제됨 {rel_f}"
+    ok = cur.read_bytes() == orig.read_bytes()
+    return ok, "file_unchanged" + ("" if ok else f" — {rel_f} 변조됨 (게이밍 의심)")
 
 def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bool, str]:
     """git 상태 어서션 3종 채점 (W-023 D-5). fixture_dir은 run_scenario가 넘기는
@@ -1031,6 +1011,53 @@ def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bo
     return ok, t + ("" if ok else f" — expect={expect_ok} actual={matched}")
 
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 어서션 계약 레지스트리 — **한 곳뿐** (D-13 / 25-7)
+#
+# 이전에는 필수 필드표(KNOWN_ASSERTION_TYPES)와 채점 if-체인이 **두 곳에** 있었고
+# 동기화를 강제하는 것이 없었다. 실패 모드가 fail-closed 라 안 물렸을 뿐이다.
+# 이제 스키마 검증과 디스패치가 이 표 하나를 읽는다 — 타입 추가는 여기 한 줄이다.
+# ─────────────────────────────────────────────────────────────────────────────
+def _git_checker(t: str):
+    def _run(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+        return _check_git_assertion(a, t, fx)
+
+    return _run
+
+
+ASSERTION_REGISTRY: dict[str, tuple[set[str], object]] = {
+    "output_regex": ({"pattern"}, _check_output_regex),
+    "output_contains_any": ({"values"}, _check_output_contains_any),
+    "output_not_contains": ({"values"}, _check_output_not_contains),
+    "pytest_green": ({"path"}, _check_pytest_green),
+    "file_contains": ({"file", "pattern"}, _check_file_contains),
+    "file_unchanged": ({"file"}, _check_file_unchanged),
+    # git 상태 어서션 3종 (W-023 D-5). expect:false로 부정을 표현한다 —
+    # *_not_* 타입은 만들지 않는다(타입 표가 읽기 어려워지면 시나리오 작성자가
+    # 틀린 타입을 고른다).
+    "git_log_contains": ({"pattern"}, _git_checker("git_log_contains")),
+    "git_branch_exists": ({"branch"}, _git_checker("git_branch_exists")),
+    "git_status_clean": (set(), _git_checker("git_status_clean")),
+}
+
+# 스키마 검증이 쓰는 뷰. 레지스트리에서 **파생**되므로 따로 유지하지 않는다.
+KNOWN_ASSERTION_TYPES: dict[str, set[str]] = {
+    k: v[0] for k, v in ASSERTION_REGISTRY.items()
+}
+
+
+def check_assertion(
+    assertion: dict,
+    stdout: str,
+    fixture_dir: Path,
+    source_fixture: Path | None = None,
+) -> tuple[bool, str]:
+    entry = ASSERTION_REGISTRY.get(assertion.get("type"))
+    if entry is None:
+        return False, f"알 수 없는 assertion type: {assertion.get('type')}"
+    return entry[1](assertion, stdout, fixture_dir, source_fixture)
 # ---------------------------------------------------------------------------
 # LLM-judge (opt-in, deterministic 전부 통과 시에만)
 # ---------------------------------------------------------------------------
