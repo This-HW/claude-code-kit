@@ -1,3 +1,9 @@
+---
+tier: conditional
+activates: MCP 설정 존재 감지 (.mcp.json)
+portable: false
+---
+
 # MCP Usage Rules
 
 ## MCP Servers

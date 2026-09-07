@@ -59,7 +59,7 @@ jobs:
           import pathlib, re, sys
           errors = []
           for f in pathlib.Path("plugins").rglob("*.md"):
-              if "/skills/" in str(f):
+              if "/skills/" in str(f) or "/rules/" in str(f):
                   continue
               content = f.read_text()
               if not content.startswith("---"):
@@ -85,7 +85,7 @@ jobs:
           FORBIDDEN = ["permissionMode", "context_cache", "output_schema", "next_agents", "hooks"]
           errors = []
           for f in pathlib.Path("plugins").rglob("*.md"):
-              if "/skills/" in str(f):
+              if "/skills/" in str(f) or "/rules/" in str(f):
                   continue
               content = f.read_text()
               if not content.startswith("---"):

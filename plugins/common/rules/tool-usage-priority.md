@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # Tool Usage Priority Rules
 
 ## File Operations

@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # Definition of Done — 완료 게이트 (Spec 6 / W-010)
 
 "완료/끝/통과"는 **판단이 아니라 명령의 출력**이다. verification-before-completion의

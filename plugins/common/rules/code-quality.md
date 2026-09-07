@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # Code Quality Rules
 
 ## Functions

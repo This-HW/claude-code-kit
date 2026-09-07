@@ -1,3 +1,9 @@
+---
+tier: conditional
+activates: LESSONS 주입 시 (feedback ledger digest 존재)
+portable: true
+---
+
 # Feedback Loop Rule (Spec 3 / W-007)
 
 validation·review에서 반복 발견된 결함을 학습해 같은 실수를 반복하지 않는다.

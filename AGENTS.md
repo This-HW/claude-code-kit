@@ -4,7 +4,7 @@
 > 재생성: `./scripts/export-harness.sh` (플러그인 사용자는 `/harness-export` 스킬 참조)
 > 마커 블록 **밖의 내용은 생성기가 건드리지 않는다** — 프로젝트 고유 규약을 자유롭게 적어라.
 
-<!-- cck:begin rules-v1.4.0 sha256:0a03ad2f1a28364384d90ee69b684444ae5526623cde50c855c6120b44f9eca1 -->
+<!-- cck:begin rules-v1.4.0 sha256:a0a2437450b3dabcded6cb94b75de8c84eca5aaccaac6ae1b33fea40e0b12fc2 -->
 
 ## claude-code-kit — 하네스 중립 규범
 
@@ -71,6 +71,11 @@ brainstorming  →  plan-task  →  auto-dev
 ---
 
 <!-- source: rules/code-quality.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### Code Quality Rules
 
 #### Functions
@@ -129,6 +134,11 @@ return doProcess(user);
 ---
 
 <!-- source: rules/definition-of-done.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### Definition of Done — 완료 게이트 (Spec 6 / W-010)
 
 "완료/끝/통과"는 **판단이 아니라 명령의 출력**이다. verification-before-completion의
@@ -198,6 +208,12 @@ return doProcess(user);
 ---
 
 <!-- source: rules/feedback-loop.md (원문 그대로) -->
+---
+tier: conditional
+activates: LESSONS 주입 시 (feedback ledger digest 존재)
+portable: true
+---
+
 ### Feedback Loop Rule (Spec 3 / W-007)
 
 validation·review에서 반복 발견된 결함을 학습해 같은 실수를 반복하지 않는다.
@@ -218,6 +234,11 @@ validation·review에서 반복 발견된 결함을 학습해 같은 실수를 �
 ---
 
 <!-- source: rules/loop-engineering.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### Loop Engineering Rule (Spec 5 / W-009)
 
 **Harness Engineering**(어디서·무엇으로 행동하는가)의 상보 개념. Loop Engineering은
@@ -274,6 +295,11 @@ validation·review에서 반복 발견된 결함을 학습해 같은 실수를 �
 ---
 
 <!-- source: rules/planning-check.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### Planning Check Rules
 
 NEVER implement based on assumption. ALWAYS stop and verify specs first.
@@ -313,6 +339,11 @@ NEVER implement based on assumption. ALWAYS stop and verify specs first.
 ---
 
 <!-- source: rules/planning-protocol.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### Planning Protocol Rules
 
 NEVER implement based on assumption. ALWAYS verify against specs or ask the user.
@@ -371,6 +402,11 @@ ALWAYS use: "기획에 따르면", "사용자가 요청한", "확인 결과"
 ---
 
 <!-- source: rules/ssot.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### SSOT (Single Source of Truth) Rules
 
 #### Core Principles
@@ -404,6 +440,11 @@ src/infrastructure/errors/
 ---
 
 <!-- source: rules/tool-usage-priority.md (원문 그대로) -->
+---
+tier: core
+portable: true
+---
+
 ### Tool Usage Priority Rules
 
 #### File Operations

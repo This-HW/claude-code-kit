@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # SSOT (Single Source of Truth) Rules
 
 ## Core Principles

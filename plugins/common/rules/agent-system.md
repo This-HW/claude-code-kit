@@ -1,3 +1,9 @@
+---
+tier: reference
+portable: false
+indexLine: 에이전트 선택·모델 정책은 rules/agent-system.md 를 읽어라
+---
+
 # Agent System Rules
 
 Agents are auto-discovered from the plugin directory — check the available

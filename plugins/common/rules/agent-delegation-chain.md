@@ -1,3 +1,9 @@
+---
+tier: reference
+portable: false
+indexLine: 서브에이전트 위임 전 rules/agent-delegation-chain.md 를 읽어라
+---
+
 # Agent Delegation Chain Rules
 
 ## Standing User Authorization for Delegation (SSOT)

@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # Planning Protocol Rules
 
 NEVER implement based on assumption. ALWAYS verify against specs or ask the user.

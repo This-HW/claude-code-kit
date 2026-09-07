@@ -6,6 +6,7 @@ active Work가 없어도 rules는 항상 주입됨.
 공식 output 형식:
   {"hookSpecificOutput": {"additionalContext": "<text>"}}
 """
+
 from __future__ import annotations
 
 import json
@@ -194,49 +195,104 @@ def summarize_work(work_dir: Path) -> str | None:
 
 _MAX_ACTIVE_WORKS = 10
 
-ALWAYS_RULES = [
-    "agent-system.md",
-    "tool-usage-priority.md",
-    "planning-protocol.md",
-    "planning-check.md",
-    "agent-delegation-chain.md",
-    "code-quality.md",
-    "ssot.md",
-    "mcp-usage.md",
-    "feedback-loop.md",
-    "loop-engineering.md",
-    "definition-of-done.md",
-    "parallel-worktree.md",
-]
+_VALID_TIERS = {"core", "conditional", "reference"}
 
 
-def load_rules(plugin_root: Path, include_task_resume: bool) -> str:
+def _strip_frontmatter(raw: str) -> str:
+    """YAML frontmatter(--- ... ---)를 제거하고 본문만 반환. 없으면 그대로."""
+    lines = raw.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return raw.strip()
+    end = -1
+    for i, line in enumerate(lines[1:], 1):
+        if line.strip() == "---":
+            end = i
+            break
+    if end == -1:
+        return raw.strip()
+    return "\n".join(lines[end + 1 :]).strip()
+
+
+def load_rules(
+    plugin_root: Path,
+    include_task_resume: bool,
+    *,
+    signals: dict | None = None,
+) -> str:
     """
-    plugin_root/rules/ 디렉토리의 rule 파일들을 읽어 섹션 문자열로 반환.
+    plugin_root/rules/ 디렉토리를 스캔해 각 규범의 frontmatter `tier` 선언에 따라
+    주입 섹션을 구성한다 (D-17 — 하드코딩 목록 대신 규범 자신이 티어를 선언).
+
+    - core: 항상 포함.
+    - conditional: `signals`(파일명 stem → bool)에 신호가 있을 때만 포함.
+      `task-resume`는 하위호환을 위해 `include_task_resume` 인자로도 켤 수 있다
+      (기존 활성 Work 감지 신호 — signals에 있으면 그쪽이 우선).
+    - reference: 본문은 주입하지 않고 frontmatter `indexLine`만 색인으로 남는다.
+    - tier 선언이 없거나 무효한 파일은 건너뛴다 (fail-open — 누락 검사는 별도 게이트 몫).
+
     파일이 없거나 읽기 실패해도 무시 (fail-open).
-    반환값: '=== RULES ===' 섹션 전체 문자열 (파일 없으면 빈 문자열)
+    반환값: '=== RULES ===' 섹션 전체 문자열 (내용 없으면 빈 문자열)
     """
     rules_dir = plugin_root / "rules"
     if not rules_dir.exists():
         return ""
 
-    rule_files = list(ALWAYS_RULES)
-    if include_task_resume:
-        rule_files.append("task-resume.md")
+    sig = dict(signals) if signals else {}
+    sig.setdefault("task-resume", include_task_resume)
 
-    sections = []
-    for filename in rule_files:
-        rule_path = rules_dir / filename
+    bodies: list[str] = []
+    index_lines: list[str] = []
+    for rule_path in sorted(rules_dir.glob("*.md")):
         try:
-            content = rule_path.read_text(encoding="utf-8").strip()
+            raw = rule_path.read_text(encoding="utf-8")
         except Exception:
             continue
-        sections.append(content)
+        fm = parse_frontmatter(rule_path)
+        tier = fm.get("tier", "")
+        if tier not in _VALID_TIERS:
+            continue
 
-    if not sections:
+        if tier == "core":
+            bodies.append(_strip_frontmatter(raw))
+        elif tier == "conditional":
+            stem = rule_path.stem
+            if sig.get(stem, False):
+                bodies.append(_strip_frontmatter(raw))
+        elif tier == "reference":
+            index_line = fm.get("indexLine", "").strip()
+            if index_line:
+                index_lines.append(f"- {index_line}")
+
+    if index_lines:
+        bodies.append("참고(필요할 때 읽어라):\n" + "\n".join(index_lines))
+
+    if not bodies:
         return ""
 
-    return "=== RULES ===\n" + "\n---\n".join(sections) + "\n=== END RULES ==="
+    return "=== RULES ===\n" + "\n---\n".join(bodies) + "\n=== END RULES ==="
+
+
+def _in_worktree(project_root: Path) -> bool:
+    """conditional 신호 — parallel-worktree: 링크된 git worktree인지 감지.
+
+    링크된 worktree의 `.git`은 gitdir을 가리키는 파일이고, 메인 체크아웃의
+    `.git`은 디렉토리다. fail-open — 판별 불가 시 False.
+    """
+    try:
+        return (project_root / ".git").is_file()
+    except Exception:
+        return False
+
+
+def _mcp_config_present(project_root: Path) -> bool:
+    """conditional 신호 — mcp-usage: 프로젝트 스코프 MCP 설정 존재 감지.
+
+    fail-open — 판별 불가 시 False.
+    """
+    try:
+        return (project_root / ".mcp.json").is_file()
+    except Exception:
+        return False
 
 
 def load_lessons(project_root: Path) -> str:
@@ -295,7 +351,6 @@ def load_workflow_skill(plugin_root: Path) -> str:
     return "=== WORKFLOW ===\n" + body + "\n=== END WORKFLOW ==="
 
 
-
 _STALE_TASKS_MAX_EXAMPLES = 3
 _STALE_TASKS_MAX_DIRS = 200  # 스캔 세션 상한 (mtime 최신 우선 — best-effort)
 _STALE_TASKS_MAX_FILES_PER_DIR = 100  # 세션당 파일 상한
@@ -325,7 +380,9 @@ def load_stale_tasks(
     if os.environ.get("CKKIT_STALE_TASKS", "1") == "0":
         return ""
     try:
-        root = tasks_root if tasks_root is not None else Path.home() / ".claude" / "tasks"
+        root = (
+            tasks_root if tasks_root is not None else Path.home() / ".claude" / "tasks"
+        )
         if not root.is_dir():
             return ""
         try:
@@ -369,7 +426,10 @@ def load_stale_tasks(
                     t = json.loads(f.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
                     continue
-                if isinstance(t, dict) and t.get("status") in ("in_progress", "pending"):
+                if isinstance(t, dict) and t.get("status") in (
+                    "in_progress",
+                    "pending",
+                ):
                     found += 1
                     if is_mine and len(examples) < _STALE_TASKS_MAX_EXAMPLES:
                         examples.append(
@@ -465,9 +525,18 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    rules_text = load_rules(_file_based_root, include_task_resume=has_active_work)
     workflow_text = load_workflow_skill(_file_based_root)
     lessons_text = load_lessons(project_root)
+    conditional_signals = {
+        "feedback-loop": bool(lessons_text),
+        "parallel-worktree": _in_worktree(project_root),
+        "mcp-usage": _mcp_config_present(project_root),
+    }
+    rules_text = load_rules(
+        _file_based_root,
+        include_task_resume=has_active_work,
+        signals=conditional_signals,
+    )
 
     # stdin의 session_id로 현재 세션 제외 (fail-open)
     session_id = ""

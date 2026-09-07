@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # Loop Engineering Rule (Spec 5 / W-009)
 
 **Harness Engineering**(어디서·무엇으로 행동하는가)의 상보 개념. Loop Engineering은

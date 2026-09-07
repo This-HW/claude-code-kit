@@ -1,3 +1,8 @@
+---
+tier: core
+portable: true
+---
+
 # Planning Check Rules
 
 NEVER implement based on assumption. ALWAYS stop and verify specs first.
