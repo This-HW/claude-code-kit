@@ -4,7 +4,7 @@
 > 재생성: `./scripts/export-harness.sh` (플러그인 사용자는 `/harness-export` 스킬 참조)
 > 마커 블록 **밖의 내용은 생성기가 건드리지 않는다** — 프로젝트 고유 규약을 자유롭게 적어라.
 
-<!-- cck:begin rules-v1.4.0 sha256:721535ecc1f71748eb1d78daff5128f73eca6de3ca2f97e439bd74554079ab24 -->
+<!-- cck:begin rules-v1.4.0 sha256:7458a9b4a4745cf5c990287fd152ef681b36bb98517a66a618480efa0a7b4167 -->
 
 ## claude-code-kit — 하네스 중립 규범
 
@@ -32,6 +32,7 @@ brainstorming  →  plan-task  →  auto-dev
 | --- | --- |
 | `rules/code-quality` | 호스트 무관 |
 | `rules/definition-of-done` | 호스트 무관 |
+| `rules/delegation-contract` | 브리프·보고 계약은 호스트 무관 — control-loop·자식 스킬이 공유하는 L0 계약(D-35) |
 | `rules/feedback-loop` | 호스트 무관 |
 | `rules/loop-engineering` | 호스트 무관 |
 | `rules/planning-check` | 호스트 무관 |
@@ -123,6 +124,26 @@ CLAUDE.md 반영. 배치 완료 = 게이트 green + attest + Work 상태 해소
 정리한다 — 마킹이 보고보다 먼저다. 진행 중/대기 태스크는 마킹하지 않는다(잔존 사유
 명시).** 마지막 태스크=보고/마무리라 마킹을 뒤에 두면 완료 처리가 증발한다(실측된
 반복 버그) — ad-hoc 태스크에도 적용. completed 위장 금지(false-green 금지).
+
+---
+
+<!-- source: rules/delegation-contract.md (원문 그대로) -->
+---
+tier: core
+portable: true
+portable_reason: 브리프·보고 계약은 호스트 무관 — control-loop·자식 스킬이 공유하는 L0 계약(D-35)
+---
+
+### Delegation Contract
+
+4블록: ①전제(선검증) ②범위(IN/OUT+완료기준) ③금지(명령수준:`--check`만)
+④보고(下)
+
+보고1행: `[역할] 완료 — <수치>, 커밋 <sha>, 테스트 <n passed>`
+정규식: `^\[.+\] 완료 — .+, 커밋 [0-9a-f]{7,40}, 테스트 \d+ passed`
+
+rc 파이프 금지 — 파일/pipefail, 근거없으면재요청.
+병합sha=통합브랜치 최종.
 
 ---
 
