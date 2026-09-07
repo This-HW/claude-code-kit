@@ -612,6 +612,24 @@ else
   printf '%s\n' "$ORCA_FILES" | sed 's/^/      /'
 fi
 
+hdr "18. 이름 SSOT 파생 드리프트 (D-3 / W-027 27-2)"
+# plugins/common/.claude-plugin/plugin.json 의 name(SSOT)에서 README·plugins/common/
+# README·CLAUDE.md·site/content/**를 파생시키는 scripts/derive-name.py 의 드리프트
+# 검사. §17은 D-22(상호 참조 실재 게이트, 25-16)의 몫으로 예약돼 있으므로 다음 빈
+# 번호(§18)를 쓴다 — 섹션 번호 규약(재사용·재배치 금지)은 위 §36-49 주석 참고.
+if [ -f packaging/name-targets.json ] && [ -f scripts/derive-name.py ]; then
+  python3 scripts/derive-name.py --check >"$TMPD/name_derive" 2>&1
+  ND_RC=$?
+  if [ "$ND_RC" -eq 0 ]; then
+    green "이름 파생: $(tail -1 "$TMPD/name_derive")"
+  else
+    red "이름 파생 드리프트 (run: python3 scripts/derive-name.py --write)"
+    sed 's/^/      /' "$TMPD/name_derive" | head -10
+  fi
+else
+  red "이름 파생 생성기 산출물 누락 (packaging/name-targets.json 또는 scripts/derive-name.py) — D-3"
+fi
+
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"
 hdr "수동 DoD attest (증거와 함께 명시 — 자동 검사 불가)"

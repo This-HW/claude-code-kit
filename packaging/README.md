@@ -64,3 +64,32 @@ next person doesn't have to re-derive the reasoning from scratch.
 **Before flipping a target to `enabled:true`**, verify against the real CLI — this
 repo's history (S1–S4 of W-019) is a generator built ahead of two targets that were
 verified one at a time against `codex`/`agy`, not assumed from documentation alone.
+
+## `name-targets.json` — deriving the product name into prose docs (D-3)
+
+`targets.json` (above) generates *manifests* — pure, never-hand-edited artifacts, so
+full byte-for-byte regeneration is safe. `name-targets.json` +
+`../scripts/derive-name.py` solve a related but different problem: `README.md`,
+`plugins/common/README.md`, `CLAUDE.md`, and everything under `site/content/` are
+prose that people edit by hand. Regenerating them wholesale from a template would
+create a second copy of nearly all their content — the exact SSOT-duplication failure
+this repo's gates exist to catch.
+
+So `derive-name.py` doesn't regenerate files; it tracks the SSOT name it last applied
+(`lastAppliedName`) and, on `--write`, does a literal find-and-replace of that old name
+with the current SSOT name (`plugins/common/.claude-plugin/plugin.json`'s `name`)
+across the policy's `files` and `directories` (the latter scanned recursively for
+`*.md` — never hand-listed, same principle as `check_doc_counts.py`'s count detection).
+Everything else in those files is untouched. `--check` (wired into `verify-done.sh`
+§18) fails when the policy's `lastAppliedName` no longer matches the SSOT name — i.e.
+the name changed but nobody ran `--write` yet.
+
+```bash
+python3 scripts/derive-name.py --check   # drift only, never writes
+python3 scripts/derive-name.py --write   # propagate a name change, update the policy
+```
+
+This can't catch a hand-typed wrong name that was never derived from the SSOT in the
+first place — see `name-targets.json`'s `_meta.known_limitation`. It only guarantees
+that once a name *was* derived, changing the SSOT and forgetting to re-derive shows up
+as a red gate.

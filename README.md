@@ -74,6 +74,19 @@ differs by platform capability, verified against the real CLIs (not assumed):
 | Hooks | ❌ not shipped — Codex's hook runtime does not load the exec-array form (`command`+`args`) this kit uses; confirmed by direct testing, not just reading docs | ❌ not shipped this batch — format unverified |
 | MCP servers | ❌ not bundled (kit doesn't ship MCP servers) | ❌ not bundled |
 
+**Parity contract**: rules and skills (norms and procedures) work on every harness —
+Claude Code injects rules each session and Codex/Antigravity carry them via `AGENTS.md`
+(see [`/harness-export`](plugins/common/skills/harness-export/SKILL.md)) or read skills
+directly. Dedicated executors and automatic enforcement (agents and hooks) are a Claude
+Code deepening feature. Put plainly: **what a non-Claude-Code harness loses is exactly
+one thing — automatic blocking (hooks).** Everything else keeps working, because it
+depends only on git and external processes, not on any harness-specific runtime:
+discipline (rules), procedure (skills), state (child session markers under
+`gitdir/cck/child.json`), and the registry `describe` seam all carry over unchanged.
+One caveat: behavioral evals (`evals/`) currently drive only Claude Code — the harness
+call is centralized behind one seam (`evals/run.py`'s `Harness` protocol) but a
+Codex/Antigravity implementation hasn't been built yet.
+
 ### Codex
 
 ```bash
