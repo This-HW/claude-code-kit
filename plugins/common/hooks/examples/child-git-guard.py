@@ -63,10 +63,20 @@ def is_child_session() -> bool:
         return False  # 마커 없음 = 자식 스킬 미로드 = 보호 대상 아님(fail-open)
 
     try:
-        json.loads(marker.read_text(encoding="utf-8"))
+        data = json.loads(marker.read_text(encoding="utf-8"))
     except Exception:
         return False  # 손상된 마커는 없는 것과 동일하게 취급(fail-open)
-    return True
+
+    # 스키마 검증 — `rules/child-marker.md` 가 키 이름을 고정한다.
+    # 검증 없이 "파일이 있으면 자식"으로 두면, 쓰는 쪽이 키를 다르게 써도 통과한다.
+    # 실측: 두 세션이 각각 `base_commit`·`baseline_commit` 을 썼다. 키가 갈리면
+    # 마커의 내용을 쓰는 순간(기준 커밋 대조 등) 오판이 된다.
+    if not isinstance(data, dict) or data.get("schema") != 1:
+        return False  # 모르는 스키마 버전 = 판정 불가 = 보호하지 않는다(fail-open)
+    return all(
+        isinstance(data.get(k), str) and data[k]
+        for k in ("parent", "role", "base_commit")
+    )
 
 
 def _split_commands(command: str) -> list[list[str]]:

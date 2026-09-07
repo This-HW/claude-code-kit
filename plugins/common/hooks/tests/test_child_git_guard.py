@@ -150,7 +150,16 @@ class TestPushChildOnly:
         marker_dir = (worktree_dir / git_dir / "cck").resolve()
         marker_dir.mkdir(parents=True)
         marker = marker_dir / "child.json"
-        marker.write_text(json.dumps({"role": "child", "parentSession": "test"}))
+        marker.write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "parent": "test",
+                    "role": "child",
+                    "base_commit": "0" * 40,
+                }
+            )
+        )
 
         result = subprocess.run(
             [sys.executable, str(EXAMPLES_DIR / "child-git-guard.py")],

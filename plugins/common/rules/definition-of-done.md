@@ -13,11 +13,9 @@ FAIL 있으면 "완료" 대신 실제 상태를 증거와 함께 보고 → 수�
 
 ## DoD 체크리스트
 
-기계 검사(`scripts/verify-done.sh` 강제, FAIL 시 완료 불가): JSON·plugin.json·frontmatter
-유효, ruff/pytest/시크릿 clean, 문서 카운트 sync, stale 참조 0. 수동 attest(증거 필수):
-스펙 전 항목 구현, 적대적 리뷰 1회, Work 라이프사이클 정확 보고, CHANGELOG·README·
-CLAUDE.md 반영. 배치 완료 = 게이트 green + attest + Work 상태 해소
-(`loop-engineering.md`) — "마지막 스텝 도달"≠완료.
+**기계 검사 목록은 게이트가 소유한다** — 열거하면 검사를 더할 때마다 낡는다(실제로 그랬다).
+수동 attest(기계 불가): 스펙 전 항목 구현 · 적대적 리뷰 1회 · Work 상태 정확 보고 ·
+CHANGELOG·README·CLAUDE.md 반영. 완료 = 게이트 green + attest + Work 해소.
 
 ## Task 마감 규율
 
