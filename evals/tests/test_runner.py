@@ -531,9 +531,9 @@ def test_file_unchanged_detects_test_tampering(tmp_path):
     assert ok is True
 
 
-def test_safe_join_blocks_traversal(tmp_path):
-    assert runner._safe_join(tmp_path, "../../etc/passwd") is None
-    assert runner._safe_join(tmp_path, "sub/file.py") is not None
+def test_resolve_in_repo_blocks_traversal(tmp_path):
+    assert runner._resolve_in_repo(tmp_path, "../../etc/passwd") is None
+    assert runner._resolve_in_repo(tmp_path, "sub/file.py") is not None
 
 
 def test_compare_baseline_flags_coverage_loss(tmp_path):
@@ -1192,7 +1192,7 @@ def test_check_assertion_git_assertions_fail_closed_on_non_repo(tmp_path):
 # ---------------------------------------------------------------------------
 # W-023 리뷰 Critical — `write` 로 `.git/` 에 쓰면 제거한 config op 이 되살아난다
 #
-# _safe_join 은 "base 밖으로 나가는가"만 본다. `.git/config` 는 base **안**이라
+# _resolve_in_repo 는 "base 밖으로 나가는가"만 본다. `.git/config` 는 base **안**이라
 # 통과하는데, 거기에 `[filter "x"] clean = <셸 명령>` 을 심고 `.gitattributes`(write)
 # + `add` 하면 **실행 비트 없이** 발화한다 — 화이트리스트에서 config 를 뺀 조치가
 # write 경유로 무효화된다. 아래 테스트가 그 경로를 고정한다.
@@ -1331,7 +1331,10 @@ def _write_overlap_scenario(root: Path, *, git_op_list: list, assertions: list) 
 def test_validate_scenario_rejects_file_unchanged_overlapping_git_write(tmp_path):
     sc = _write_overlap_scenario(
         tmp_path,
-        git_op_list=[{"op": "init"}, {"op": "write", "path": "a.txt", "content": "y\n"}],
+        git_op_list=[
+            {"op": "init"},
+            {"op": "write", "path": "a.txt", "content": "y\n"},
+        ],
         assertions=[{"type": "file_unchanged", "file": "a.txt"}],
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
@@ -1342,7 +1345,10 @@ def test_validate_scenario_allows_file_unchanged_without_overlap(tmp_path):
     """겹치지 않으면 통과해야 한다 — 과잉 차단이 아님을 고정한다."""
     sc = _write_overlap_scenario(
         tmp_path,
-        git_op_list=[{"op": "init"}, {"op": "write", "path": "b.txt", "content": "y\n"}],
+        git_op_list=[
+            {"op": "init"},
+            {"op": "write", "path": "b.txt", "content": "y\n"},
+        ],
         assertions=[{"type": "file_unchanged", "file": "a.txt"}],
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)

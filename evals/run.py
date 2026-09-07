@@ -364,7 +364,7 @@ def validate_expect_schema(expect: dict, prefix: str) -> list[str]:
 def _is_git_internal(rel: str) -> bool:
     """경로가 저장소 메타디렉토리(`.git/`) 안을 가리키는가.
 
-    **왜 _safe_join 으로 부족한가 (W-023 리뷰, Critical).** `_safe_join` 은 "base 밖으로
+    **왜 _resolve_in_repo 로 부족한가 (W-023 리뷰, Critical).** `_resolve_in_repo` 는 "base 밖으로
     나가는가"만 본다 — `.git/config` 는 base **안**이므로 통과한다. 그런데 거기에 쓰면
     `[filter "x"] clean = <셸 명령>` 을 심을 수 있고, `.gitattributes`(write) + `add` 로
     **실행 비트 없이** 발화한다. 즉 화이트리스트에서 `config` op 을 제거한 조치(D-1)가
@@ -381,7 +381,7 @@ def validate_git_spec(spec: dict, prefix: str) -> list[str]:
     구조·화이트리스트·경로 탈출을 잡는다 — `--validate`/게이트 §10이 이 함수로 커버된다.
 
     `write.path`의 경로 탈출 차단은 여기서도 구조적으로(절대경로·`..`) 걸지만, 유일한
-    영구 봉쇄는 materialize_git_repo가 쓰는 _safe_join이다 — 이 함수는 실행 전 조기
+    영구 봉쇄는 materialize_git_repo가 쓰는 _resolve_in_repo이다 — 이 함수는 실행 전 조기
     거부일 뿐, 대체하지 않는다 (D-2: 한 번 resolve하고 그 결과를 끝까지 쓴다).
     """
     errors: list[str] = []
@@ -821,7 +821,7 @@ def materialize_git_repo(work_dir: Path, spec: dict) -> None:
     먼저 걸러야 정상이지만, 방어적으로 여기서도 거부한다(fail-closed, D-3) —
     검증을 거치지 않고 이 함수를 직접 호출하는 경로(단위 테스트 등)가 있을 수 있다.
 
-    `write.path`는 반드시 _safe_join(work_dir, path)을 통과해야 한다 — 한 번
+    `write.path`는 반드시 _resolve_in_repo(work_dir, path)을 통과해야 한다 — 한 번
     resolve하고 그 결과(target)를 끝까지 쓴다. 검사와 사용이 각각 resolve하면
     그 틈이 TOCTOU다 (D-2, CLAUDE.md "설정값으로 경로를 만들면 반드시 봉쇄한다").
 
@@ -834,13 +834,13 @@ def materialize_git_repo(work_dir: Path, spec: dict) -> None:
             raise RuntimeError(f"git.json 알 수 없는 op '{op}' (화이트리스트 밖)")
         if op == "write":
             raw_path = op_entry["path"]
-            # `.git/` 봉쇄가 _safe_join 보다 **먼저**다 — _safe_join 은 base 밖으로
+            # `.git/` 봉쇄가 _resolve_in_repo 보다 **먼저**다 — _resolve_in_repo 는 base 밖으로
             # 나가는 것만 막고 `.git/config` 는 base 안이라 통과시킨다 (리뷰 C-1).
             if _is_git_internal(raw_path):
                 raise RuntimeError(
                     f"git.json write.path 저장소 메타디렉토리(.git/) 쓰기 차단: {raw_path!r}"
                 )
-            target = _safe_join(work_dir, raw_path)
+            target = _resolve_in_repo(work_dir, raw_path)
             if target is None:
                 raise RuntimeError(f"git.json write.path 경로 탈출 차단: {raw_path!r}")
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -863,13 +863,15 @@ def _norm(s: str) -> str:
     return unicodedata.normalize("NFC", s).lower()
 
 
-def _safe_join(base: Path, rel: str) -> Path | None:
+def _resolve_in_repo(base: Path, rel: str) -> Path | None:
     """author-제어 상대경로를 base 밖으로 못 나가게 정규화 (ATK-012 경로 탈출 가드)."""
     p = (base / rel).resolve()
     return p if p.is_relative_to(base.resolve()) else None
 
 
-def _check_output_regex(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+def _check_output_regex(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     flags = 0
     for ch in a.get("flags", ""):
         flags |= {"i": re.IGNORECASE, "s": re.DOTALL, "m": re.MULTILINE}.get(ch, 0)
@@ -877,22 +879,31 @@ def _check_output_regex(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> 
     ok = re.search(pattern, stdout, flags) is not None
     return ok, f"output_regex '{pattern}'" + ("" if ok else " — 매치 없음")
 
-def _check_output_contains_any(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_output_contains_any(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     values = a.get("values", [])
     low = _norm(stdout)
     ok = any(_norm(v) in low for v in values)
     return ok, f"output_contains_any {values}" + ("" if ok else " — 하나도 없음")
 
-def _check_output_not_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_output_not_contains(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     values = a.get("values", [])
     low = _norm(stdout)
     hit = [v for v in values if _norm(v) in low]
     ok = not hit
     return ok, "output_not_contains" + ("" if ok else f" — 발견됨 {hit}")
 
-def _check_pytest_green(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_pytest_green(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     rel = a.get("path", ".")
-    target = _safe_join(fx, rel)
+    target = _resolve_in_repo(fx, rel)
     if target is None:
         return False, f"pytest_green — 경로 탈출 차단: {rel}"
     py = resolve_pytest_python()
@@ -919,8 +930,11 @@ def _check_pytest_green(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> 
         "" if ok else f" — exit {r.returncode}: {r.stdout[-400:]} {r.stderr[-200:]}"
     )
 
-def _check_file_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
-    f = _safe_join(fx, a["file"])
+
+def _check_file_contains(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
+    f = _resolve_in_repo(fx, a["file"])
     if f is None:
         return False, f"file_contains — 경로 탈출 차단: {a['file']}"
     if not f.is_file():
@@ -933,16 +947,19 @@ def _check_file_contains(a: dict, stdout: str, fx: Path, src_fx: Path | None) ->
     ok = re.search(a["pattern"], content, re.MULTILINE) is not None
     return ok, "file_contains" + ("" if ok else " — 패턴 없음")
 
-def _check_file_unchanged(a: dict, stdout: str, fx: Path, src_fx: Path | None) -> tuple[bool, str]:
+
+def _check_file_unchanged(
+    a: dict, stdout: str, fx: Path, src_fx: Path | None
+) -> tuple[bool, str]:
     # 채점 게이밍 방지(ATK-006): 에이전트가 테스트 파일을 고쳐 green을 만드는
     # 우회를 차단 — 실행 후 파일이 원본 fixture와 byte-동일해야 통과.
     rel_f = a["file"]
-    cur = _safe_join(fx, rel_f)
+    cur = _resolve_in_repo(fx, rel_f)
     if cur is None:
         return False, f"file_unchanged — 경로 탈출 차단: {rel_f}"
     if src_fx is None:
         return False, "file_unchanged — 원본 fixture 참조 없음 (러너 버그)"
-    orig = _safe_join(src_fx, rel_f)
+    orig = _resolve_in_repo(src_fx, rel_f)
     if orig is None or not orig.is_file():
         return False, f"file_unchanged — 원본에 없는 파일 {rel_f}"
     if not cur.is_file():
@@ -950,7 +967,10 @@ def _check_file_unchanged(a: dict, stdout: str, fx: Path, src_fx: Path | None) -
     ok = cur.read_bytes() == orig.read_bytes()
     return ok, "file_unchanged" + ("" if ok else f" — {rel_f} 변조됨 (게이밍 의심)")
 
-def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bool, str]:
+
+def _check_git_assertion(
+    assertion: dict, t: str, fixture_dir: Path
+) -> tuple[bool, str]:
     """git 상태 어서션 3종 채점 (W-023 D-5). fixture_dir은 run_scenario가 넘기는
     실행 후 temp work_dir — materialize_git_repo가 이미 저장소를 만들어 둔 상태다.
 
@@ -964,7 +984,10 @@ def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bo
     if t == "git_log_contains":
         ref = assertion.get("ref", "HEAD")
         if not isinstance(ref, str) or ref.startswith("-"):
-            return False, f"git_log_contains — 유효하지 않은 ref(옵션 주입 의심): {ref!r}"
+            return (
+                False,
+                f"git_log_contains — 유효하지 않은 ref(옵션 주입 의심): {ref!r}",
+            )
         args = ["log", "--format=%B", ref]
     elif t == "git_branch_exists":
         branch = assertion["branch"]
@@ -1009,8 +1032,6 @@ def _check_git_assertion(assertion: dict, t: str, fixture_dir: Path) -> tuple[bo
 
     ok = matched == expect_ok
     return ok, t + ("" if ok else f" — expect={expect_ok} actual={matched}")
-
-
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1058,6 +1079,8 @@ def check_assertion(
     if entry is None:
         return False, f"알 수 없는 assertion type: {assertion.get('type')}"
     return entry[1](assertion, stdout, fixture_dir, source_fixture)
+
+
 # ---------------------------------------------------------------------------
 # LLM-judge (opt-in, deterministic 전부 통과 시에만)
 # ---------------------------------------------------------------------------
