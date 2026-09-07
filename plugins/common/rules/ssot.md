@@ -7,23 +7,15 @@ portable: true
 
 ## Core Principles
 
-- ALWAYS define error types, API endpoints, and env vars in exactly one file
-- NEVER copy values — always reference via import: `import { API_URL } from "@/config/env"`
+- ALWAYS define error types, API endpoints, and env vars in exactly one place
+- NEVER copy values — always reference the single definition, however the language/framework expresses that (import, include, require, …)
 - ALWAYS structure code so one change propagates everywhere — if one change requires editing 10 files, that is an SSOT violation
 
 ## Error Logging
 
 - ALWAYS route all errors through a single central handler
 - ALWAYS include these fields in every error log: `code` (e.g. AUTH_001), `message`, `timestamp` (ISO 8601), `severity` (debug → critical)
-- NEVER scatter error handling logic across multiple modules
-
-```
-src/infrastructure/errors/
-├── types.ts     # error codes + AppError interface
-├── messages.ts  # error message constants
-├── handler.ts   # central handler (normalizeError + notifyOnCall)
-└── logger.ts    # structured logger
-```
+- NEVER scatter error handling logic across multiple modules — one module owns error types, one owns the handler, one owns the logger
 
 ## SSOT Checklist
 

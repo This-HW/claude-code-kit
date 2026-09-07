@@ -16,8 +16,8 @@ inline when an agent is defined for it.
 
 Exception — the only inline cases: a single lookup whose file/symbol/value you already
 know, and a mechanical single-file edit (typo, formatting, import order). Everything
-else delegates. 어느 에이전트를 고를지는 `agent-system.md` §Agent Selection by
-Keyword가 SSOT다 — 여기서 재정의하지 않는다.
+else delegates. 어느 에이전트를 고를지는 하네스가 시스템 프롬프트에 제공하는 에이전트
+목록·`MUST USE when:` 트리거가 SSOT다 — 여기서 재정의하지 않는다.
 
 > 근거(2026-08-21 A/B 실측, n=3+3): 승인문구가 없는 조건에서 메인 루프의 Agent 직접
 > 호출 **0/3**, `--append-system-prompt`로 위 문단만 주입한 조건에서 **3/3**.
@@ -48,7 +48,7 @@ ALWAYS have main Claude manage the delegation chain directly.
 Model, Spec 2/W-006). 절차:
 
 1. 출력을 읽고 완료 여부·품질을 판단한다.
-2. P0 모호성이 있으면 사용자에게 먼저 묻는다 (AskUserQuestion).
+2. P0 모호성이 있으면 사용자에게 선택지를 제시하고 답을 받는다(호스트가 제공하는 수단으로).
 3. 다음 에이전트 호출 여부·대상은 호출한 스킬의 절차를 따른다.
 4. 체인(또는 병렬 dispatch)이 끝나면 사용자에게 요약을 보고한다.
 

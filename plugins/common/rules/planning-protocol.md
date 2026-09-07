@@ -18,7 +18,7 @@ NEVER implement based on assumption. ALWAYS verify against specs or ask the user
 
 구현 중 기획 모호함 발견 시 아래 유형으로 분류하고 Planning으로 돌아간다:
 
-- `P0_AMBIGUITY` — AskUserQuestion으로 사용자 확인
+- `P0_AMBIGUITY` — 사용자에게 선택지를 제시하고 답을 받는다(호스트가 제공하는 수단으로)
 - `MISSING_SPEC` — 해당 명세 추가 (여정/규칙)
 - `INFEASIBLE` — 대안 검토 후 사용자에게 보고
 
@@ -39,7 +39,7 @@ ALWAYS ensure before handing off to Dev:
 
 ## P0 질문 형식
 
-P0 발견 시: 즉시 중단 → AskUserQuestion → 답변 기록 → Planning 재진행
+P0 발견 시: 즉시 중단 → 사용자에게 선택지 제시하고 답 받기(호스트가 제공하는 수단으로) → 답변 기록 → Planning 재진행
 
 ```
 **맥락**: [상황]  **질문**: [구체적 질문]

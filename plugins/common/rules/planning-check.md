@@ -19,7 +19,7 @@ NEVER implement based on assumption. ALWAYS stop and verify specs first.
 1. 불확실성 감지 즉시 멈춤
 2. `docs/planning/` → (설치돼 있으면) Notion·Figma MCP → GitHub Issues 순으로 검색.
    MCP가 없으면 건너뛴다 — 설치를 가정하지 않는다.
-3. 정보 부재 시 AskUserQuestion으로 옵션 A/B 제시
+3. 정보 부재 시 사용자에게 옵션 A/B를 제시하고 답을 받는다(호스트가 제공하는 수단으로)
 4. 결정 내용과 근거를 코드 주석에 기록
 
 ## 질문 형식 (기획 부재 시)

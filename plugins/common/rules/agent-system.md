@@ -17,16 +17,6 @@ ALWAYS specify subagent_type explicitly — no general-purpose fallback.
 - Sonnet: code implementation/fixes (implement-code, fix-bugs, write-tests)
 - Haiku: exploration/verification/simple tasks (explore-codebase, verify-code, verify-integration)
 
-## Agent Selection by Keyword
-
-- "조사", "리서치" → research-external
-- "계획", "설계" → plan-implementation
-- "구현", "코드 작성" → implement-code
-- "리뷰", "검토" → review-code
-- "탐색", "파악" → explore-codebase
-- "테스트" → write-tests
-- "수정", "버그" → fix-bugs
-
 ## general-purpose Allowed Only When
 
 - No specialized agent exists for the task

@@ -2,12 +2,11 @@
 # 각 줄 = 그 해설본이 마지막으로 반영한 **주입 룰**(plugins/common/rules/)의 sha256.
 # 주입 룰을 고쳤는데 이 값이 그대로면 verify-done §7이 FAIL — 해설본 확인 후 재생성:
 #   scripts/sync-rule-mirror.sh --regenerate
-e11a23b70bda2fa9071301763f7af0b07f0a0be769b40198a1a45ee9801c6e76  agent-delegation-chain.md
-0d9503b01af12bead524f8477b84f62de1b6cf3212db937519de1c732a8e8302  agent-system.md
+fdaab05b634a33cef1acd6f1d085f4dff30a65c5916a404aa09afd000df55aba  agent-delegation-chain.md
+cc143582bcb8b0aab0cd5d925c4e1a0cb98602d6e80579c843a0d6dbca56c76c  agent-system.md
 19e5d0288fb98c1e8ff2f92f8cf1caa19de7f43c42b7645fbec0ac59242c1e5b  code-quality.md
-c8d65df6ef1bd32b819a9ad9be5a3844cb392db489669607f1147f840ec649c6  mcp-usage.md
-ad4390f0d0dfeed6679942ae838be77649d8829ac17706e253b81f8697f52bd7  planning-check.md
-d0740191af71f67c4dc03724b50bade829383900ec326124b2970affca1bae1d  planning-protocol.md
-6b3fac5bd7630af59ae82bbb5d5e5c8705059d95561df3094e0f198d13ef411c  ssot.md
+28a4f85bea50a45135d279f2ed82cbf292d6e0130cbbad51393a35285d2c200c  mcp-usage.md
+a351c0529b18d7d2396dda160261329aeb5633fc5695340a49fd5c5b62086645  planning-check.md
+9f8107f54b058e05896249ffd62da5669ff1408936c823aae08606c38f9be728  planning-protocol.md
+4525574f280f74389230d39b966be37eb8ededc30451a89af0301997feb7e51b  ssot.md
 12a04abe0eab24c89aa7cd974efeb85b2fffb00377e4ec33c611c776e9d2e8ef  task-resume.md
-98fa0fbcb27fbc2b45fda56bee21614978a29dd16948ec8031f1447de06b8537  tool-usage-priority.md

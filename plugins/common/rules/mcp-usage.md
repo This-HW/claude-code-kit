@@ -67,11 +67,3 @@ Instead)" (github.com/anthropics/claude-code/issues/13898). Therefore:
 > entry, **and no agent description/body directs use of Context7/Exa/Tavily as its own
 > capability** (route such research to the `web-research` skill instead). Both are checked
 > by `scripts/verify-done.sh`.
-
-## NotebookLM Rules
-
-ALWAYS call `notebook_get` to check current Source count before adding a new Source.
-
-NEVER exceed 50 Sources per notebook — additions will fail above this limit.
-
-DO NOT confuse Source (original evidence) with Note (processed output).
