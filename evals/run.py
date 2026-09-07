@@ -1306,6 +1306,22 @@ def _shdisplay(cmd: list[str]) -> str:
     return " ".join(parts)
 
 
+def _claude_json_projects_count() -> int | None:
+    """`~/.claude.json` 의 projects 키 개수. 없거나 파싱 실패면 None (fail-open, D-10).
+
+    유령 프로젝트 항목이 몇 달간 아무도 모르게 쌓인 적이 있다 — run_all 전후로 이 수를
+    비교해 증가하면 그날 바로 경고한다. 하네스가 이 파일을 다시 등록하기 시작해도 조용히
+    넘어가지 않게 하는 것이 목적이다.
+    """
+    path = Path.home() / ".claude.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    projects = data.get("projects")
+    return len(projects) if isinstance(projects, dict) else None
+
+
 def run_all(
     agent_filter: str | None,
     scenario_filter: str | None,
@@ -1355,11 +1371,25 @@ def run_all(
         print("[eval] SKIPPED — claude CLI를 PATH에서 찾을 수 없음", file=sys.stderr)
         return {"results": [], "summary": {}}, EXIT_SKIPPED
 
+    projects_before = _claude_json_projects_count()
+
     results: list[dict] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, parallel)) as ex:
         futs = [ex.submit(run_scenario, agent, sc, timeout) for agent, sc in plan]
         for fut in concurrent.futures.as_completed(futs):
             results.append(fut.result())
+
+    projects_after = _claude_json_projects_count()
+    if (
+        projects_before is not None
+        and projects_after is not None
+        and projects_after > projects_before
+    ):
+        print(
+            f"[eval] 경고: ~/.claude.json projects {projects_before} → {projects_after} "
+            f"(+{projects_after - projects_before}) — 유령 등록 의심",
+            file=sys.stderr,
+        )
 
     summary = summarize(results)
     exit_code = EXIT_PASS if all(r["status"] == "pass" for r in results) else EXIT_FAIL

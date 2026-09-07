@@ -357,6 +357,29 @@ def test_compare_baseline_no_regression_when_improved(tmp_path):
     assert regressions == []
 
 
+def test_claude_json_projects_count_reads_projects(tmp_path, monkeypatch):
+    """D-10: ~/.claude.json 의 projects 딕셔너리 개수를 센다."""
+    fake_home = tmp_path
+    (fake_home / ".claude.json").write_text(
+        json.dumps({"projects": {"a": {}, "b": {}, "c": {}}})
+    )
+    monkeypatch.setattr(runner.Path, "home", lambda: fake_home)
+    assert runner._claude_json_projects_count() == 3
+
+
+def test_claude_json_projects_count_fail_open_when_missing(tmp_path, monkeypatch):
+    """D-10 fail-open: 파일이 없으면 None (경고를 강제하지 않는다)."""
+    monkeypatch.setattr(runner.Path, "home", lambda: tmp_path)
+    assert runner._claude_json_projects_count() is None
+
+
+def test_claude_json_projects_count_fail_open_on_malformed_json(tmp_path, monkeypatch):
+    """D-10 fail-open: 파싱 실패해도 None — 크래시 금지."""
+    (tmp_path / ".claude.json").write_text("{not valid json")
+    monkeypatch.setattr(runner.Path, "home", lambda: tmp_path)
+    assert runner._claude_json_projects_count() is None
+
+
 def test_summarize_pass_rate():
     results = [
         {"agent": "fix-bugs", "status": "pass"},
