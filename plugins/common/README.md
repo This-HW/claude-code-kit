@@ -1,4 +1,4 @@
-# hiway-kit
+# claude-code-kit
 
 > Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.
 
@@ -7,22 +7,22 @@
 ```bash
 # Anthropic community catalog (marketplace name: claude-community)
 /plugin marketplace add anthropics/claude-plugins-community
-/plugin install hiway-kit@claude-community
+/plugin install claude-code-kit@claude-community
 ```
 
 ```bash
-# Direct marketplace (fastest updates; marketplace name: hiway-kit)
-/plugin marketplace add This-HW/hiway-kit
-/plugin install hiway-kit@hiway-kit
+# Direct marketplace (fastest updates; marketplace name: claude-code-kit)
+/plugin marketplace add This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 ```
 
-> The published plugin is **`hiway-kit`** (the `common` set — 33 agents + 20 skills).
+> The published plugin is **`claude-code-kit`** (the `common` set — 33 agents + 21 skills).
 > Project-specific extensions live in a user's own `project-local/` tier, not as separate
 > published plugins.
 
 ## Key Skills
 
-A selection below — 20 skills total, auto-discovered from `skills/` (not hand-listed here).
+A selection below — 21 skills total, auto-discovered from `skills/` (not hand-listed here).
 
 | Command                     | Description                                     |
 | --------------------------- | ----------------------------------------------- |
@@ -59,4 +59,4 @@ A selection below — 20 skills total, auto-discovered from `skills/` (not hand-
 
 ## License
 
-MIT — [github.com/This-HW/hiway-kit](https://github.com/This-HW/hiway-kit)
+MIT — [github.com/This-HW/claude-code-kit](https://github.com/This-HW/claude-code-kit)

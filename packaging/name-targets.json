@@ -9,7 +9,7 @@
     "manifest": "plugins/common/.claude-plugin/plugin.json",
     "field": "name"
   },
-  "lastAppliedName": "hiway-kit",
+  "lastAppliedName": "claude-code-kit",
   "files": [
     "README.md",
     "plugins/common/README.md",

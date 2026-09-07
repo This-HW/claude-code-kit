@@ -6,7 +6,7 @@ categories: ["개발 과정", "AI 에이전트"]
 tags: ["적대적 리뷰", "false-green", "완료 게이트", "보안", "검증 엔지니어링"]
 ---
 
-앞선 세 글 — [하네스/루프 엔지니어링 지형도](/hiway-kit/posts/2026-07-02-harness-loop-engineering-landscape/), [병렬 git 격리 실전 적용](/hiway-kit/posts/2026-07-02-harness-engineering-in-practice/), [durable 완료 게이트 설계](/hiway-kit/posts/2026-07-03-durable-executor-machine-gate/) — 은 모두 "검증을 기계로 만들자"는 방향으로 수렴했다. 이 글은 그 방향이 도달하는 불편한 종착지에 관한 것이다: **그 검증 기계는 누가 검증하는가?**
+앞선 세 글 — [하네스/루프 엔지니어링 지형도](/claude-code-kit/posts/2026-07-02-harness-loop-engineering-landscape/), [병렬 git 격리 실전 적용](/claude-code-kit/posts/2026-07-02-harness-engineering-in-practice/), [durable 완료 게이트 설계](/claude-code-kit/posts/2026-07-03-durable-executor-machine-gate/) — 은 모두 "검증을 기계로 만들자"는 방향으로 수렴했다. 이 글은 그 방향이 도달하는 불편한 종착지에 관한 것이다: **그 검증 기계는 누가 검증하는가?**
 
 <div class="callout">
 <p><strong>핵심 요약</strong></p>

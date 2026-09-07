@@ -1,4 +1,4 @@
-# hiway-kit
+# claude-code-kit
 
 > Universal Claude Code toolkit — agents and skills for software development
 
@@ -22,21 +22,21 @@ otherwise). Guidance lives in skills, never in agent `tools:` allowlists.
 ```bash
 # Basic — Anthropic community catalog (read-only mirror; nightly sync — see Release Checklist)
 /plugin marketplace add anthropics/claude-plugins-community
-/plugin install hiway-kit@claude-community
+/plugin install claude-code-kit@claude-community
 
 # Basic — direct marketplace (fastest updates)
-/plugin marketplace add This-HW/hiway-kit
-/plugin install hiway-kit@hiway-kit
+/plugin marketplace add This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 
 # Full (with security hooks + auto-format + pre-commit)
-git clone https://github.com/This-HW/hiway-kit && cd hiway-kit && ./setup.sh
+git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./setup.sh
 ```
 
 ## Structure
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (20) + rules (15) + hooks
+└── common/      — Core agents (33) + skills (21) + rules (15) + hooks
 ```
 
 `plugins/common/` contains:
@@ -65,7 +65,7 @@ plugins/
 | agent-creator            | `/agent-creator`            | Generate plugin agents                          |
 | skill-creator            | `/skill-creator`            | Generate plugin skills                          |
 | mcp-builder              | `/mcp-builder`              | Scaffold MCP servers                            |
-| agent-teams              | `/agent-teams`              | DEPRECATED (removal in v3.0.0) — large-scale parallel work, see control-loop |
+| agent-teams              | `/agent-teams`              | SUPERSEDED by control-loop — kept through 2.x, removed in the successor hiway-kit |
 | control-loop              | `/control-loop`             | Multi-session control discipline — investigate/decide/dispatch/verify/merge |
 | child-session              | (loaded, not invoked)       | Discipline a dispatched worker session loads at start |
 | native-watch             | `/native-watch`             | Audit native-feature absorption vs the kit (SSOT: docs/native-absorption.md) |
@@ -192,7 +192,7 @@ Claude에게 다음 에이전트를 지목했다.
 ### Editing an agent/skill does NOT affect the current session
 
 Agents and skills are loaded from the **installed plugin cache**
-(`~/.claude/plugins/cache/hiway-kit/hiway-kit/<version>/`), not from this
+(`~/.claude/plugins/cache/claude-code-kit/claude-code-kit/<version>/`), not from this
 repo's working tree. So editing `plugins/common/agents/*.md` and immediately dispatching
 that agent runs the **old** definition — the change is invisible until the version is
 bumped, pushed, and the plugin updated.
@@ -395,7 +395,7 @@ Plugin cache is keyed by `{plugin-name}/{version}` — same version = no update 
 
 Two install channels propagate a pushed `main` differently — know which one a user is on:
 
-- **Direct marketplace** (`This-HW/hiway-kit` → `@hiway-kit`): reflects `main`
+- **Direct marketplace** (`This-HW/claude-code-kit` → `@claude-code-kit`): reflects `main`
   HEAD **immediately** on `/plugin marketplace update`. This is the "fastest updates" path.
 - **Anthropic community catalog** (`anthropics/claude-plugins-community` → `@claude-community`):
   a **read-only mirror synced nightly** from Anthropic's internal review pipeline. Its entry

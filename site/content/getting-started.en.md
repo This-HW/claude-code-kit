@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-description: "Install hiway-kit and walk through the core skill workflow — brainstorming, /plan-task, /auto-dev, /review, /debug, /test."
+description: "Install claude-code-kit and walk through the core skill workflow — brainstorming, /plan-task, /auto-dev, /review, /debug, /test."
 keywords: ["claude code plugin install", "claude code skill workflow", "auto-dev", "plan-task", "AI coding agent harness"]
 translationKey: "getting-started"
 ---
@@ -12,11 +12,11 @@ There are two paths.
 ```bash
 # Path 1 — the version listed on the Anthropic community marketplace
 /plugin marketplace add anthropics/claude-plugins-community
-/plugin install hiway-kit@claude-community
+/plugin install claude-code-kit@claude-community
 
 # Path 2 — directly from the repository (tracks the latest commit)
-/plugin marketplace add This-HW/hiway-kit
-/plugin install hiway-kit@hiway-kit
+/plugin marketplace add This-HW/claude-code-kit
+/plugin install claude-code-kit@claude-code-kit
 ```
 
 To install the security hooks (`protect-sensitive`, `auto-format`,
@@ -24,8 +24,8 @@ To install the security hooks (`protect-sensitive`, `auto-format`,
 `setup.sh`.
 
 ```bash
-git clone https://github.com/This-HW/hiway-kit
-cd hiway-kit
+git clone https://github.com/This-HW/claude-code-kit
+cd claude-code-kit
 ./setup.sh
 ```
 
@@ -105,4 +105,4 @@ to CI.
 - For real-world decisions and how the design evolved, see the (Korean)
   [dev log]({{< relref path="/posts" lang="ko" >}}).
 - Code and issues live on the
-  [GitHub repository](https://github.com/This-HW/hiway-kit).
+  [GitHub repository](https://github.com/This-HW/claude-code-kit).

@@ -6,7 +6,7 @@ categories: ["개발 과정", "AI 에이전트"]
 tags: ["하네스 엔지니어링", "적대적 리뷰", "git worktree", "레이스 컨디션", "검증 게이트"]
 ---
 
-하네스 엔지니어링의 원리는 글로 읽으면 명료하다. 그러나 진짜 시험은 그 원리를 실제로 돌아가는 도구 위에 얹었을 때 시작된다. 이 글은 [하네스/루프 엔지니어링 지형도](/hiway-kit/posts/2026-07-02-harness-loop-engineering-landscape/)에서 정리한 개념들을 우리 프로젝트(hiway-kit)에 실제로 적용하며 겪은 기록이다 — 그리고 두 번의 적대적 리뷰가 어떻게 우리가 "고쳤다고 믿은" 결함이 실제로는 남아 있었음을 밝혀냈는지에 대한 이야기다.
+하네스 엔지니어링의 원리는 글로 읽으면 명료하다. 그러나 진짜 시험은 그 원리를 실제로 돌아가는 도구 위에 얹었을 때 시작된다. 이 글은 [하네스/루프 엔지니어링 지형도](/claude-code-kit/posts/2026-07-02-harness-loop-engineering-landscape/)에서 정리한 개념들을 우리 프로젝트(claude-code-kit)에 실제로 적용하며 겪은 기록이다 — 그리고 두 번의 적대적 리뷰가 어떻게 우리가 "고쳤다고 믿은" 결함이 실제로는 남아 있었음을 밝혀냈는지에 대한 이야기다.
 
 <div class="callout">
 <p><strong>핵심 요약</strong></p>
@@ -109,7 +109,7 @@ worktree 격리는 각 에이전트가 *작업하는 동안* 파일을 분리해
 
 ## 참고 자료
 
-- [하네스 & 루프 엔지니어링 — 2026 중반 지형도](/hiway-kit/posts/2026-07-02-harness-loop-engineering-landscape/) — 이 글의 개념적 토대
+- [하네스 & 루프 엔지니어링 — 2026 중반 지형도](/claude-code-kit/posts/2026-07-02-harness-loop-engineering-landscape/) — 이 글의 개념적 토대
 - [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) — Anthropic Engineering
 - [Harness engineering for coding agent users](https://martinfowler.com/articles/harness-engineering.html) — Birgitta Böckeler (feedforward/feedback 프레임)
 - [My AI Adoption Journey](https://mitchellh.com/writing/my-ai-adoption-journey) — Mitchell Hashimoto

@@ -372,7 +372,7 @@ def _plugin_root(explicit: str | None) -> Path | None:
         "claude-code-kit의 규범을 원문 그대로 옮긴 것"이라고 소비자에게 선언한다.
         순서 조정은 검사가 아니다 (ATK-011).
         """
-        # 이름을 하드코딩하지 않는다 — v3.0.0 개명(claude-code-kit → hiway-kit)에서
+        # 이름을 하드코딩하지 않는다 — 개명(claude-code-kit ↔ hiway-kit)에서
         # 하드코딩된 검사가 자기 자신을 못 찾아 SKIPPED 를 냈다. 판정은 **이 파일이
         # 속한 플러그인의 매니페스트 이름**과 같은가로 한다(자기 참조). D-3 의
         # "이름은 SSOT 에서 파생한다"가 탐색 로직에도 적용된다.

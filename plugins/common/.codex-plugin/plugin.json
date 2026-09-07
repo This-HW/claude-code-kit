@@ -26,8 +26,8 @@
     "debugging"
   ],
   "license": "MIT",
-  "name": "hiway-kit",
+  "name": "claude-code-kit",
   "repository": "https://github.com/This-HW/claude-code-kit",
   "skills": "./skills/",
-  "version": "3.2.0"
+  "version": "2.20.0"
 }

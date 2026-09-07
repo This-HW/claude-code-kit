@@ -6,7 +6,7 @@ categories: ["개발 과정", "AI 에이전트"]
 tags: ["루프 엔지니어링", "durable execution", "적대적 리뷰", "완료 게이트", "Initializer-Executor"]
 ---
 
-앞선 두 글은 [하네스/루프 엔지니어링의 지형도](/hiway-kit/posts/2026-07-02-harness-loop-engineering-landscape/)와 그것을 [병렬 작업의 git 격리에 실전 적용](/hiway-kit/posts/2026-07-02-harness-engineering-in-practice/)한 기록이었다. 이번 글은 그 다음 질문에 관한 것이다 — 에이전트가 **여러 세션에 걸쳐 오래** 도는 루프에서, "완료"를 무엇으로 판정할 것인가.
+앞선 두 글은 [하네스/루프 엔지니어링의 지형도](/claude-code-kit/posts/2026-07-02-harness-loop-engineering-landscape/)와 그것을 [병렬 작업의 git 격리에 실전 적용](/claude-code-kit/posts/2026-07-02-harness-engineering-in-practice/)한 기록이었다. 이번 글은 그 다음 질문에 관한 것이다 — 에이전트가 **여러 세션에 걸쳐 오래** 도는 루프에서, "완료"를 무엇으로 판정할 것인가.
 
 <div class="callout">
 <p><strong>핵심 요약</strong></p>
