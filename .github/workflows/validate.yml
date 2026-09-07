@@ -165,6 +165,27 @@ jobs:
         # gate.runFullSuiteInCI: false 방침대로 CI는 드리프트 대조만 한다.
         run: python3 scripts/check_eval_coverage.py
 
+      - name: Plugin manifest validate (배포 경로가 실제로 거는 관문 / §19)
+        # 커뮤니티 카탈로그의 pin 전진(anthropics/claude-plugins-community 의
+        # bump-plugin-shas.yml)이 새 SHA 에서 `claude plugin validate` 를 돌린다.
+        # 실패하면 그 항목은 red PR 로 남거나 freeze 목록에 올라 자동 전진이 멈춘다 —
+        # 즉 우리 CI 가 아니라 **배포 경로가 거는 관문**이므로 여기서 먼저 돌린다.
+        # 상류는 `latest` 를 쓰므로 우리도 핀하지 않는다(핀하면 스키마가 갈린다).
+        run: |
+          set -euo pipefail
+          npm i -g @anthropic-ai/claude-code >/dev/null 2>&1
+          rc=0
+          out=$(mktemp)
+          for t in .claude-plugin/marketplace.json plugins/common \
+                   plugins/common/agents plugins/common/skills; do
+            [ -e "$t" ] || continue
+            claude plugin validate --strict "$t" >>"$out" 2>&1 || rc=1
+          done
+          # 종료코드만 보지 않는다 — --strict 실패에도 0 을 내는 것이 실측됐다.
+          if grep -q "Validation failed" "$out"; then rc=1; fi
+          cat "$out"
+          exit $rc
+
       - name: Security scan (gitleaks)
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:

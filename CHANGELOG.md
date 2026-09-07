@@ -8,6 +8,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### 카탈로그 pin 정지의 근본 원인 특정 + 배포 관문 게이트 (2026-09-08, 버전 무변경)
+
+`plugins/` 의 **에이전트·스킬·룰·훅은 무변경**이다. 바뀐 것은 마켓플레이스 매니페스트의
+미지 필드 하나와 레포 도구(게이트·CI)뿐이라 소비자 동작이 달라지지 않는다 — v2.20.0 이
+최종 릴리스라는 사실도 그대로다.
+
+**근본 원인 — 우리 결함이 아니다.** pin 전진은 `anthropics/claude-plugins-community` 의
+워크플로 **`Bump Plugin SHAs`**(매일 07:23 UTC cron)가 수행하는데:
+
+| 확인 | 결과 |
+| --- | --- |
+| 워크플로 상태 | **`disabled_manually`** |
+| 마지막 실행 | **2026-08-13** (이후 0회) |
+| 우리 항목이 `freeze-shas.txt` 에 있는가 | **없다** |
+| 막힌 bump PR | **없다** (열린 PR 11건 중 0건) |
+
+카탈로그의 **모든 항목이 똑같이 멈춰 있다.** 재제출로 풀리는 문제가 아니다.
+
+**Fixed — 실제 오류 1건.** `claude plugin validate` 가
+`❯ repository: Unknown field 'repository'` 를 잡았다. `marketplace.json` 최상위에서
+제거했다(`plugin.json` 쪽 `repository` 는 유효하므로 유지). **이것이 핀 정지의 원인은
+아니다** — 상류는 비-strict 로 돌리므로 경고 단계였다. 인과를 과장하지 않는다.
+
+**Added — 게이트 §19 + CI 스텝: `claude plugin validate --strict`.**
+이 검사는 우리 CI 가 아니라 **배포 경로가 실제로 거는 관문**이다. 상류가 bump 시 이걸
+돌리고 실패하면 red PR 또는 freeze 목록행이다. **자동화가 재개되는 순간 green 인 것이
+우리가 통제할 수 있는 전부**이므로 미리 건다. 종료코드만 보지 않는다 — `--strict` 실패에도
+exit 0 이 나는 것이 실측됐다. 되돌려-FAIL 확인: 필드를 되살리면 §19 가 red.
+
 
 
 W-024 배치. **버전을 올리지 않는다** — 변경이 `evals/`·`scripts/`·`docs/` 로 전부 레포

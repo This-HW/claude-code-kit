@@ -630,6 +630,44 @@ else
   red "이름 파생 생성기 산출물 누락 (packaging/name-targets.json 또는 scripts/derive-name.py) — D-3"
 fi
 
+hdr "19. 배포 매니페스트·컴포넌트 (claude plugin validate --strict)"
+# 왜 있나: **커뮤니티 카탈로그의 pin 전진이 이 검사를 돌린다.** 상류
+# bump-plugin-shas.yml 이 새 SHA 에서 `claude plugin validate` 를 실행하고, 실패하면
+# 그 항목은 red PR 로 남거나 freeze 목록에 올라 **자동 전진이 영구히 멈춘다.** 즉 이
+# 검사는 우리 CI 가 아니라 **배포 경로가 실제로 거는 관문**이고, 우리는 그것을 미리
+# 돌려 본다.
+#
+# 이 검사가 도는 조건(warning-signal.md §검토 절차 4): `claude` CLI 가 PATH 에 있을 때,
+# 매니페스트·에이전트·스킬에 스키마 위반이나 미지 필드가 있으면 발화한다. 실제로 발화한
+# 이력: 최상위 `repository` 필드가 두 레포 모두에 있었고 로드 시 무시되고 있었다.
+#
+# --strict 를 쓰는 이유: 상류는 기본(비-strict)으로 돌리지만, **우리가 소비자보다
+# 느슨할 이유가 없다.** 경고 단계에서 잡으면 상류 정책이 조여져도 영향받지 않는다.
+if command -v claude >/dev/null 2>&1; then
+  CPV_FAIL=0
+  : >"$TMPD/cpv"
+  for _t in .claude-plugin/marketplace.json plugins/common \
+            plugins/common/agents plugins/common/skills; do
+    [ -e "$_t" ] || continue
+    if ! claude plugin validate --strict "$_t" >>"$TMPD/cpv" 2>&1; then
+      CPV_FAIL=1
+    fi
+  done
+  # exit code 를 신뢰하지 않는다: --strict 실패 시에도 0 을 내는 것이 관측됐다(실측).
+  # 그래서 출력의 실패 표식도 함께 본다 — 종료코드만 보면 거짓 green 이 된다.
+  if grep -q "Validation failed" "$TMPD/cpv" 2>/dev/null; then CPV_FAIL=1; fi
+  if [ "$CPV_FAIL" -eq 0 ]; then
+    green "claude plugin validate --strict: 매니페스트·에이전트·스킬 전부 통과"
+  else
+    red "claude plugin validate --strict 실패 — 카탈로그 pin 전진이 이 검사에 걸린다"
+    grep -E "❯|✘|⚠" "$TMPD/cpv" | sed 's/^/    /' | head -20
+  fi
+else
+  # §3b 와 같은 비대칭: 미설치를 green 으로 위장하지 않고 노란 줄로 남긴다.
+  # (주석을 '# shellcheck' 로 시작하면 셸 린터가 지시자로 파싱한다 — 실측으로 걸렸다.)
+  printf '  \033[33m! claude CLI 미설치 — 배포 매니페스트 검증 생략 (CI 가 판정)\033[0m\n'
+fi
+
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"
 hdr "수동 DoD attest (증거와 함께 명시 — 자동 검사 불가)"
