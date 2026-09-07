@@ -19,18 +19,18 @@ effort: medium
 
 2. **설정 결정**
    - 모델 선택 (Opus/Sonnet/Haiku)
-   - 권한 모드 선택
    - 도구 화이트리스트/블랙리스트
 
 3. **파일 생성**
-   - 위치: `plugins/{domain}/agents/{category}/` (플러그인 구조)
+   - 위치: `plugins/{domain}/agents/{category}/` (플러그인 구조 — 디렉토리에서 자동 발견됨,
+     manifest 등록 불필요)
    - 또는 `.claude/agents/` (프로젝트 로컬)
    - 파일명: `agent-name.md`
 
 4. **검증**
-   - frontmatter 형식 확인
+   - frontmatter 형식 확인 (`name`·`description`·`model`·`maxTurns` 필수)
    - 도구 이름 검증
-   - plugin.json 등록 확인
+   - 금지 필드 미사용 확인: `permissionMode`·`context_cache`·`output_schema`·`next_agents`·인라인 `hooks`
 
 ## 모델 선택 가이드
 
@@ -40,14 +40,6 @@ effort: medium
 | 코드 구현/수정     | `sonnet`  | 균형잡힌 성능        |
 | 탐색/검증/단순작업 | `haiku`   | 빠른 실행, 비용 효율 |
 
-## 권한 모드 선택
-
-| 모드          | 용도                |
-| ------------- | ------------------- |
-| `default`     | 표준 권한 확인      |
-| `acceptEdits` | 파일 편집 자동 허용 |
-| `plan`        | 읽기 전용           |
-
 ## 출력 형식 (claude-code-kit 플러그인 구조)
 
 ```markdown
@@ -56,6 +48,7 @@ name: [소문자-하이픈]
 description: [역할]. MUST USE when: [트리거 조건].
 model: [sonnet|opus|haiku]
 effort: [low|medium|high|max]
+maxTurns: [20 for implementation, 10 for exploration/review]
 tools:
   - [도구 목록]
 disallowedTools:
@@ -65,17 +58,9 @@ disallowedTools:
 [시스템 프롬프트]
 ```
 
-## 플러그인 구조 등록
-
-생성 후 `plugins/{domain}/.claude-plugin/plugin.json`의 `agents` 필드에 등록:
-
-```json
-{
-  "agents": "agents/"
-}
-```
-
-에이전트 파일은 `plugins/{domain}/agents/{category}/{name}.md`에 위치.
+에이전트 파일은 `plugins/{domain}/agents/{category}/{name}.md`에 위치한다.
+**manifest(`plugin.json`)에는 agent/skill 레지스트리가 없다** — 디렉토리에서
+자동 발견되므로 등록 단계가 없다.
 
 ## 자동 위임 최적화
 
@@ -93,6 +78,7 @@ name: test-runner
 description: Test execution specialist. MUST USE when: code changes are made and tests need to be run.
 model: haiku
 effort: low
+maxTurns: 10
 tools:
   - Read
   - Bash

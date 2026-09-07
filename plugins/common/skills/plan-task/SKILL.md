@@ -39,7 +39,7 @@ Step 0 진입 즉시, Work ID 확보 전에 스킬 자체 진행을 추적할 Ta
 
 > **Task 도구가 없으면 멈추지 말고 대체 경로로 간다** — `ToolSearch`가 Task 계열을
 > 반환하지 않는 호스트/세션이 있다(F-038). 그때는 `./scripts/checklist.sh` 기반
-> durable checklist로 추적한다. 규율 SSOT: `skills/references/task-tools-fallback.md`.
+> durable checklist로 추적한다. 규율 SSOT: `skills/plan-task/references/task-tools-fallback.md`.
 2. 다음 Tasks 생성 (이미 `[Planning]` Task 있으면 스킵):
 
 ```
@@ -197,5 +197,5 @@ Planning이 완료되었습니다. 바로 개발을 시작하겠습니다.
 
 | 문서              | 경로                                              |
 | ----------------- | ------------------------------------------------- |
-| Work 시스템 상세  | `plugins/common/skills/references/work-system.md` |
+| Work 시스템 상세  | `plugins/common/skills/plan-task/references/work-system.md` |
 | Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`       |

@@ -39,7 +39,7 @@ effort: max
 | **Dependencies**     | 아키텍트        | analyze-dependencies  | 외부 연동, 라이브러리, 시스템 간 의존성   |
 | **Code Quality**     | 리뷰어          | review-code           | 코드 품질, 유지보수성, 테스트 가능성      |
 | **Metrics**          | 데이터 엔지니어 | define-metrics        | 성능 지표, 모니터링, SLA                  |
-| **Data/Schema**      | DB 설계자       | design-database       | 스키마 설계, 데이터 모델, 마이그레이션    |
+| **Data/Schema**      | DB 설계자       | (전용 에이전트 없음, general-purpose) | 스키마 설계, 데이터 모델, 마이그레이션    |
 | **Devil's Advocate** | 전략 비평가     | devils-advocate       | 실패 시나리오, 설계 약점, 리스크 정량화   |
 
 **상세:** [perspectives-guide.md](perspectives-guide.md)

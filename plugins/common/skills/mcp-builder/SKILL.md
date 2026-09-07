@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
 ```bash
 claude mcp list           # MCP 서버 목록 확인
-claude mcp restart        # 서버 재시작
+claude mcp --help         # 가용 서브커맨드 확인(버전마다 달라질 수 있음)
 ```
 
 ---
@@ -219,8 +219,8 @@ if not API_KEY:
 ### 서버 로그 확인
 
 ```bash
-# MCP 서버 상태 확인
-claude mcp status myproject
+# 가용 서브커맨드 확인(상태 확인 방법은 버전마다 다르다)
+claude mcp --help
 
 # 수동 테스트
 echo '{"jsonrpc":"2.0","method":"tools/list","id":1}' | python -m mcp_server_myproject
