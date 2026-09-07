@@ -48,7 +48,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 EVALS_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = EVALS_ROOT.parent
@@ -162,6 +162,55 @@ class AgentDef:
     tools: list[str]
     disallowed_tools: list[str]
     system_prompt: str
+
+
+class Harness(Protocol):
+    """하네스 결합점 프로토콜 (D-12/§12.4 정정). `run.py`가 특정 CLI에 묶이지
+    않도록 3개 결합점 — 시나리오 실행 커맨드·judge 커맨드·가용성 게이트 —
+    을 여기로 뽑는다. 리터럴 `"claude"` 문자열은 구현체(`ClaudeCodeHarness`)
+    안에만 존재해야 한다."""
+
+    def run_scenario_cmd(self, agent: AgentDef, task: str) -> list[str]:
+        """시나리오 실행 CLI 인자 조립. 타임아웃은 호출부 subprocess.run(timeout=)이 강제한다."""
+
+    def judge_cmd(self, prompt: str) -> list[str]:
+        """LLM-judge 호출 CLI 인자 조립. judge 모델명도 구현체 소유다."""
+
+    def is_available(self) -> bool:
+        """이 하네스의 CLI가 PATH에서 실행 가능한지."""
+
+
+class ClaudeCodeHarness:
+    """유일한 구현체 — Claude Code CLI(`claude`)."""
+
+    def run_scenario_cmd(self, agent: AgentDef, task: str) -> list[str]:
+        cmd = [
+            "claude",
+            "-p",
+            task,
+            "--model",
+            agent.model,
+            "--append-system-prompt",
+            agent.system_prompt,
+            "--permission-mode",
+            "bypassPermissions",
+            "--output-format",
+            "text",
+        ]
+        if agent.tools:
+            cmd += ["--allowedTools", *agent.tools]
+        if agent.disallowed_tools:
+            cmd += ["--disallowedTools", *agent.disallowed_tools]
+        return cmd
+
+    def judge_cmd(self, prompt: str) -> list[str]:
+        return ["claude", "-p", prompt, "--model", "sonnet", "--output-format", "text"]
+
+    def is_available(self) -> bool:
+        return shutil.which("claude") is not None
+
+
+HARNESS: Harness = ClaudeCodeHarness()
 
 
 def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
@@ -1096,7 +1145,7 @@ def run_judge(stdout: str, judge_cfg: dict, timeout: int) -> dict:
     )
     try:
         r = subprocess.run(
-            ["claude", "-p", prompt, "--model", "sonnet", "--output-format", "text"],
+            HARNESS.judge_cmd(prompt),
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -1122,25 +1171,9 @@ def run_judge(stdout: str, judge_cfg: dict, timeout: int) -> dict:
 
 def build_claude_command(agent: AgentDef, task: str) -> list[str]:
     """CLI 인자만 조립한다. 타임아웃은 호출부의 subprocess.run(timeout=)이 강제한다
-    (여기서 받던 timeout 인자는 어디에도 쓰이지 않는 죽은 파라미터였다)."""
-    cmd = [
-        "claude",
-        "-p",
-        task,
-        "--model",
-        agent.model,
-        "--append-system-prompt",
-        agent.system_prompt,
-        "--permission-mode",
-        "bypassPermissions",
-        "--output-format",
-        "text",
-    ]
-    if agent.tools:
-        cmd += ["--allowedTools", *agent.tools]
-    if agent.disallowed_tools:
-        cmd += ["--disallowedTools", *agent.disallowed_tools]
-    return cmd
+    (여기서 받던 timeout 인자는 어디에도 쓰이지 않는 죽은 파라미터였다).
+    실제 조립은 `HARNESS`(현재 `ClaudeCodeHarness`) 소유 — 하네스 결합점은 거기 하나뿐이다."""
+    return HARNESS.run_scenario_cmd(agent, task)
 
 
 def _result(
@@ -1376,7 +1409,7 @@ def run_all(
             print(f"          cmd: {_shdisplay(cmd)}")
         return {"results": [], "summary": {}}, EXIT_PASS
 
-    if shutil.which("claude") is None:
+    if not HARNESS.is_available():
         print("[eval] SKIPPED — claude CLI를 PATH에서 찾을 수 없음", file=sys.stderr)
         return {"results": [], "summary": {}}, EXIT_SKIPPED
 

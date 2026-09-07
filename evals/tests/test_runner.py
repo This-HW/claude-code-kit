@@ -12,6 +12,7 @@ evals/run.py 단위 테스트 — claude CLI 호출은 전부 mock/서브프로�
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
@@ -1406,3 +1407,129 @@ def test_validate_scenario_allows_file_unchanged_without_overlap(tmp_path):
     )
     errors = runner.validate_scenario(sc, agents_root=runner.AGENTS_ROOT)
     assert not any("겹침" in e for e in errors), errors
+
+
+# ---------------------------------------------------------------------------
+# 하네스 결합점 봉쇄 (D-12/§12.4, 수용 16) — grep -c claude는 판정 기준이 아니다:
+# "claude_exit" 같은 CLI 무관 문자열이 카운트를 오염시킨다. ast로 리터럴
+# "claude" 노드의 실제 위치만 본다.
+# ---------------------------------------------------------------------------
+
+
+def _claude_code_harness_line_range(tree: ast.Module) -> tuple[int, int]:
+    harness = next(
+        (
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, ast.ClassDef) and n.name == "ClaudeCodeHarness"
+        ),
+        None,
+    )
+    assert harness is not None, "ClaudeCodeHarness 클래스를 찾을 수 없음"
+    end = max(getattr(n, "end_lineno", harness.lineno) for n in ast.walk(harness))
+    return harness.lineno, end
+
+
+def test_claude_literal_confined_to_claude_code_harness():
+    """CLI 리터럴 "claude"는 ClaudeCodeHarness 구현체 안에만 존재해야 한다.
+    run_scenario_cmd/judge_cmd/is_available 세 결합점 모두 여기로 모여야 하며,
+    run.py 본문(run_scenario/run_judge/run_all 등)에는 리터럴이 하나도 없어야 한다."""
+    src = Path(runner.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    start, end = _claude_code_harness_line_range(tree)
+
+    offenders = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and node.value == "claude"
+        and not (start <= node.lineno <= end)
+    ]
+    assert offenders == [], (
+        f"'claude' 리터럴이 ClaudeCodeHarness({start}-{end}) 밖에 있음: 라인 {offenders}"
+    )
+
+
+def test_claude_code_harness_calls_are_subprocess_run_or_shutil_which_first_arg():
+    """ClaudeCodeHarness 안의 "claude" 리터럴이 실제로 subprocess.run 첫 인자
+    (judge_cmd/run_scenario_cmd가 만드는 커맨드 리스트가 흘러가는 지점)이거나
+    shutil.which 인자로만 쓰이는지 — 즉 셋(run_scenario_cmd/judge_cmd/
+    is_available)이 프로토콜이 약속한 결합점 모양을 실제로 갖췄는지 확인한다."""
+    src = Path(runner.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    harness = next(
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.ClassDef) and n.name == "ClaudeCodeHarness"
+    )
+    methods = {n.name: n for n in harness.body if isinstance(n, ast.FunctionDef)}
+    assert set(methods) == {"run_scenario_cmd", "judge_cmd", "is_available"}
+
+    def _returns_or_builds_claude_list(fn: ast.FunctionDef) -> bool:
+        for node in ast.walk(fn):
+            if isinstance(node, ast.List) and any(
+                isinstance(elt, ast.Constant) and elt.value == "claude"
+                for elt in node.elts
+            ):
+                return True
+        return False
+
+    assert _returns_or_builds_claude_list(methods["run_scenario_cmd"])
+    assert _returns_or_builds_claude_list(methods["judge_cmd"])
+
+    which_calls = [
+        node
+        for node in ast.walk(methods["is_available"])
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "which"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and node.args[0].value == "claude"
+    ]
+    assert which_calls, "is_available은 shutil.which('claude')를 호출해야 한다"
+
+
+def test_run_scenario_and_run_judge_use_harness_indirection(monkeypatch, tmp_path):
+    """run_scenario/run_judge가 HARNESS(Harness 프로토콜)를 거쳐 커맨드를 얻는지 —
+    HARNESS를 가짜로 바꿔치면 다른(비-claude) 커맨드가 subprocess.run에 전달돼야
+    한다. 이것이 되돌려-FAIL 대상: build_claude_command나 run_judge가 다시
+    리터럴 "claude"를 직접 조립하도록 되돌리면 이 테스트가 깨진다."""
+
+    class FakeHarness:
+        def run_scenario_cmd(self, agent, task):
+            return ["fake-harness-cli", "-p", task]
+
+        def judge_cmd(self, prompt):
+            return ["fake-harness-cli", "-p", prompt]
+
+        def is_available(self):
+            return True
+
+    captured_cmds = []
+
+    class R:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(cmd, **kwargs):
+        captured_cmds.append(cmd)
+        return R()
+
+    monkeypatch.setattr(runner, "HARNESS", FakeHarness())
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    sc = _scenario(
+        tmp_path,
+        {"assertions": [{"type": "output_contains_any", "values": ["ok"]}]},
+    )
+    runner.run_scenario(_agent(tmp_path), sc, timeout=5)
+    assert captured_cmds
+    assert captured_cmds[0][0] == "fake-harness-cli"
+
+    captured_cmds.clear()
+    runner.run_judge("stdout text", {"rubric": "r"}, timeout=5)
+    assert captured_cmds
+    assert captured_cmds[0][0] == "fake-harness-cli"
