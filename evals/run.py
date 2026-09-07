@@ -1150,6 +1150,7 @@ def _result(
     checks: list[dict],
     duration: float,
     judge=None,
+    work_dir: str | None = None,
 ) -> dict:
     return {
         "agent": agent,
@@ -1158,6 +1159,9 @@ def _result(
         "checks": checks,
         "judge": judge,
         "duration_s": round(duration, 2),
+        # 작업 디렉토리 이름 자체는 중립(에이전트명·시나리오 id 미노출, D-39) —
+        # 디버깅용 매핑은 여기 리포트에만 남긴다.
+        "work_dir": work_dir,
     }
 
 
@@ -1180,9 +1184,10 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
             0.0,
         )
 
-    with tempfile.TemporaryDirectory(
-        prefix=f"ckkit-eval-{agent.name}-{scenario.scenario_id}-"
-    ) as td:
+    # prefix는 중립이어야 한다(D-39) — 에이전트명·시나리오 id를 넣으면 `pwd` 한 번으로
+    # 평가 대상 에이전트가 "나는 지금 평가받는 중"임을 알 수 있다. 디버깅용
+    # (디렉토리 → 에이전트/시나리오) 매핑은 _result()의 work_dir 필드로 리포트에만 남긴다.
+    with tempfile.TemporaryDirectory(prefix="ckkit-eval-") as td:
         work_dir = Path(td) / "fixture"
         if scenario.fixture_dir.is_dir():
             shutil.copytree(
@@ -1211,6 +1216,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                         }
                     ],
                     0.0,
+                    work_dir=str(work_dir),
                 )
 
         cmd = build_claude_command(agent, scenario.task)
@@ -1232,6 +1238,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                 "fail",
                 [{"type": "timeout", "ok": False, "detail": f"{timeout}s 초과"}],
                 time.time() - start,
+                work_dir=str(work_dir),
             )
 
         # 인프라 실패(비정상 exit)는 품질 fail과 구분해 'error'로 기록하되,
@@ -1249,6 +1256,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
                     }
                 ],
                 time.time() - start,
+                work_dir=str(work_dir),
             )
 
         checks = []
@@ -1284,6 +1292,7 @@ def run_scenario(agent: AgentDef, scenario: Scenario, timeout: int) -> dict:
             checks,
             time.time() - start,
             judge=judge_result,
+            work_dir=str(work_dir),
         )
 
 

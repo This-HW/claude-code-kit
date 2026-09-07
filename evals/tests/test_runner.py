@@ -501,6 +501,36 @@ def test_run_scenario_claude_nonzero_exit_is_error(tmp_path, monkeypatch):
     assert "claude exit 1" in res["checks"][0]["detail"]
 
 
+def test_run_scenario_work_dir_does_not_leak_agent_or_scenario(tmp_path, monkeypatch):
+    """D-39/25-30: 실행 cwd 이름에 에이전트명·시나리오 id가 나타나면 안 된다.
+
+    되돌려-FAIL: prefix를 f"ckkit-eval-{agent.name}-{scenario.scenario_id}-"로
+    되돌리면 이 테스트가 red가 된다. 매핑 자체는 리포트의 work_dir 필드로 남는다
+    (디버깅 편의 유지).
+    """
+    captured_cwd = {}
+
+    class R:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(*a, **k):
+        captured_cwd["cwd"] = k["cwd"]
+        return R()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    agent = _agent(tmp_path)
+    sc = _scenario(
+        tmp_path, {"assertions": [{"type": "output_regex", "pattern": "ok"}]}
+    )
+    res = runner.run_scenario(agent, sc, timeout=5)
+
+    assert agent.name not in captured_cwd["cwd"]
+    assert sc.scenario_id not in captured_cwd["cwd"]
+    assert res["work_dir"] == captured_cwd["cwd"]
+
+
 def test_run_scenario_assertion_exception_degrades_to_fail(tmp_path, monkeypatch):
     """채점기 예외는 크래시가 아니라 해당 assertion fail로 강등."""
 
