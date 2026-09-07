@@ -409,7 +409,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (21) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (21) + rules (14) + hooks
 ```
 
 The plugin contains:

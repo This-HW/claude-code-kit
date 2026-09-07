@@ -36,7 +36,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (21) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (21) + rules (14) + hooks
 ```
 
 `plugins/common/` contains:
