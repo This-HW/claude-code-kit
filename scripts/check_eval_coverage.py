@@ -33,6 +33,7 @@ import argparse
 import importlib.util
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -123,12 +124,15 @@ def _resolve_in_repo(
     나갈 수 있다 — 셋 다 `resolve()` 한 번으로 정규화한 뒤 `container_root` 하위인지
     대조하면 전부 같은 검사로 잡힌다.
 
-    `scripts/build-targets.py::_resolve_in_repo`와 **동일한 관례**다(W-019 교차
-    리뷰 후속, sanddab 실측 — daggertooth의 `baseline.file`도 정확히 같은 클래스로
-    경로 탈출됐다: 절대경로를 주면 레포 밖 파일을 기준선으로 신뢰해 green을 냈다).
-    이 결함이 반복되는 이유가 관례 부재였으므로, 새로 발명하지 않고 그대로 이식했다.
-    호출자는 이 결과(Path)를 그대로 재사용해야 한다 — 다시 조합하면 검증한 값과
-    실제로 읽는 값이 달라질 수 있다(TOCTOU).
+    `scripts/build-targets.py::_resolve_in_repo`와 **동일한 관례**이자 **동일한
+    시그니처**다(W-019 교차 리뷰 후속, sanddab 실측 — daggertooth의 `baseline.file`도
+    정확히 같은 클래스로 경로 탈출됐다: 절대경로를 주면 레포 밖 파일을 기준선으로
+    신뢰해 green을 냈다). 이 결함이 반복되는 이유가 관례 부재였으므로, 새로 발명하지
+    않고 그대로 이식했다. 호출자는 이 결과(Path)를 그대로 재사용해야 한다 — 다시
+    조합하면 검증한 값과 실제로 읽는 값이 달라질 수 있다(TOCTOU).
+
+    구현은 합치지 않는다(D-15: 구현은 여러 벌, 계약만 하나). 공유 적대적 케이스 표는
+    `scripts/tests/resolve_in_repo_contract.py` — 두 구현을 같은 표로 검증한다.
     """
     real = (container_root / rel_path).resolve()
     try:
@@ -367,6 +371,17 @@ def check_classification_complete(root: Path, policy: dict) -> tuple[bool, list[
     return True, lines
 
 
+# 검사 추가 = 이 목록에 함수 하나 추가 (F6). 각 항목은 `(root, policy) ->
+# tuple[bool, list[str]]` 시그니처(위 check_* 함수들과 동일)를 지켜야 한다 —
+# main()의 루프가 그 계약에 의존한다.
+CHECKS: list[Callable[[Path, dict], tuple[bool, list[str]]]] = [
+    check_coverage,
+    check_tier1,
+    check_tier2,
+    check_classification_complete,
+]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, default=Path("."), help="repo root (테스트용)")
@@ -390,25 +405,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     ok = True
-    cov_ok, cov_lines = check_coverage(root, policy)
-    ok &= cov_ok
-    for line in cov_lines:
-        print(line)
-
-    tier_ok, tier_lines = check_tier1(root, policy)
-    ok &= tier_ok
-    for line in tier_lines:
-        print(line)
-
-    tier2_ok, tier2_lines = check_tier2(root, policy)
-    ok &= tier2_ok
-    for line in tier2_lines:
-        print(line)
-
-    class_ok, class_lines = check_classification_complete(root, policy)
-    ok &= class_ok
-    for line in class_lines:
-        print(line)
+    for check in CHECKS:
+        check_ok, lines = check(root, policy)
+        ok &= check_ok
+        for line in lines:
+            print(line)
 
     return 0 if ok else 1
 
