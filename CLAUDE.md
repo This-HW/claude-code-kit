@@ -20,7 +20,7 @@ otherwise). Guidance lives in skills, never in agent `tools:` allowlists.
 ## Installation
 
 ```bash
-# Basic — Anthropic community catalog (read-only mirror; nightly sync — see Release Checklist)
+# Basic — Anthropic community catalog (read-only mirror; pin은 크게 뒤처질 수 있다 — Release Checklist 참고)
 /plugin marketplace add anthropics/claude-plugins-community
 /plugin install claude-code-kit@claude-community
 
@@ -398,15 +398,29 @@ Two install channels propagate a pushed `main` differently — know which one a 
 - **Direct marketplace** (`This-HW/claude-code-kit` → `@claude-code-kit`): reflects `main`
   HEAD **immediately** on `/plugin marketplace update`. This is the "fastest updates" path.
 - **Anthropic community catalog** (`anthropics/claude-plugins-community` → `@claude-community`):
-  a **read-only mirror synced nightly** from Anthropic's internal review pipeline. Its entry
-  is **pinned to a commit SHA**; the pin advances **automatically** as you push to `main`,
-  but only after the pipeline re-runs safety screening and the nightly mirror sync — expect
-  **~a day, not instant**. You do **NOT** PR the catalog (direct PRs are auto-closed); the
-  one-time listing was via `clau.de/plugin-directory-submission`, and **version updates
-  need no re-submission**. (Verified 2026-07-29 against the catalog repo README.)
-- **Implication**: right after a release, the fix is live on the direct marketplace but the
-  community catalog still serves the previous pinned SHA until the next nightly sync. Point
-  users who need a fix immediately to the direct marketplace path.
+  a **read-only mirror** of Anthropic's internal review pipeline. Its entry is **pinned to a
+  commit SHA**. You do **NOT** PR the catalog (direct PRs are auto-closed); the one-time
+  listing was via `clau.de/plugin-directory-submission`, and **version updates need no
+  re-submission**.
+- **The pin advance is NOT reliable, and "nightly" is a documented claim we have measured to
+  be false.** The catalog repo's README says nightly sync, and this file used to repeat it as
+  "~a day, not instant". Measured 2026-09-08:
+
+  | 실측 | 값 |
+  | --- | --- |
+  | 우리 항목 마지막 bump | **2026-08-09** (`292ba07`, v2.12.3) |
+  | 그 사이 미반영된 릴리스 | 2.13.0 → 2.20.0 |
+  | 카탈로그 미러 최종 커밋(경로 무관) | **2026-08-24** — 전체가 조용하다 |
+  | `marketplace.json` 커밋 300개 중 우리 항목 bump | **1건** |
+
+  8/9~8/24 사이 카탈로그는 다른 플러그인은 bump 하고 있었으므로 **우리만 누락된 구간**이
+  있고, 8/24 이후로는 미러 전체가 멈췄다. **원인은 레포 밖에서 판정할 수 없다** —
+  내부 파이프라인 상태다. 그래서 *"문서에 적힌 주기"* 가 아니라 *"실측된 상태"* 를 적는다.
+- **Implication**: 릴리스 직후 직접 마켓플레이스에는 즉시 반영되지만, 커뮤니티 카탈로그는
+  **몇 주~한 달 뒤처져 있을 수 있다.** 릴리스 노트·안내에서 "하루면 전파된다"고 쓰지 마라 —
+  전파 시점을 약속할 근거가 없다. 즉시성이 필요한 사용자는 직접 마켓플레이스로 보낸다.
+- **부수 관측**: 핀이 크게 뒤처져 있던 덕에, 2026-09-07 이 레포의 플러그인 이름이 일시적으로
+  `hiway-kit` 이었던 구간이 **카탈로그 사용자에게 노출되지 않았다.** 운이지 설계가 아니다.
 
 ## Contributing
 

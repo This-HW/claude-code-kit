@@ -40,12 +40,20 @@ qualifies); older interpreters make the hooks no-ops and the session warns you o
 /plugin marketplace update claude-code-kit
 ```
 
-> **Registry status:** listed in Anthropic's community plugin catalog
+> **Registry status — the catalog is far behind. Use Path 2 for anything current.**
+> This plugin is listed in Anthropic's community plugin catalog
 > [`anthropics/claude-plugins-community`](https://github.com/anthropics/claude-plugins-community)
-> (listing verified 2026-07-07; distinct from the Anthropic-curated
-> `claude-plugins-official`). The catalog pin advances by periodic sync —
-> documented as nightly, so expect about a day for new releases to propagate.
-> Path 2 tracks `main` directly with no delay.
+> (distinct from the Anthropic-curated `claude-plugins-official`), but that listing is
+> **pinned to a commit SHA that has not advanced since 2026-08-09** — it serves **v2.12.3**,
+> not this release. Measured 2026-09-08: our entry was bumped exactly once in the catalog's
+> last 300 `marketplace.json` commits, and the mirror repo has had **no commits at all since
+> 2026-08-24**.
+>
+> The catalog's own README documents a nightly sync, and this README used to repeat that
+> ("expect about a day"). **The observed cadence does not match it**, and the cause is inside
+> Anthropic's review pipeline where we cannot see it — so we state what we measured instead of
+> what is documented. Path 2 tracks `main` directly with no delay and is the only path that
+> reflects v2.20.0 today.
 
 ## Successor: `hiway-kit`
 
