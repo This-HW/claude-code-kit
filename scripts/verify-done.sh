@@ -69,7 +69,7 @@ for f in pathlib.Path("plugins").glob("*/.claude-plugin/plugin.json"):
     a = d.get("author", {})
     if not isinstance(a, dict) or "email" not in a: err.append(f"{f}: missing author.email")
 for f in pathlib.Path("plugins").rglob("*.md"):
-    if "/skills/" in str(f): continue
+    if "/skills/" in str(f) or "/rules/" in str(f): continue
     c = f.read_text()
     if not c.startswith("---"): continue
     end = c.find("---", 3)

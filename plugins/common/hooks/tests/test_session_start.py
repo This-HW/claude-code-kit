@@ -119,27 +119,43 @@ class TestParseTaskMap:
         assert len(tasks) == 1
 
 
+def _write_rule(rules_dir, name, tier, body, **extra_fm):
+    fm_lines = [f"tier: {tier}"]
+    for k, v in extra_fm.items():
+        fm_lines.append(f"{k}: {v}")
+    content = "---\n" + "\n".join(fm_lines) + "\n---\n\n" + body
+    (rules_dir / name).write_text(content)
+
+
 class TestLoadRules:
     def test_no_rules_dir(self, tmp_path):
         result = load_rules(tmp_path, include_task_resume=False)
         assert result == ""
 
-    def test_loads_existing_rules(self, tmp_path):
+    def test_core_tier_always_loaded(self, tmp_path):
         rules_dir = tmp_path / "rules"
         rules_dir.mkdir()
-        (rules_dir / "agent-system.md").write_text("# Agent Rules\nContent here.")
+        _write_rule(rules_dir, "agent-system.md", "core", "Core Content Here")
         result = load_rules(tmp_path, include_task_resume=False)
         assert "=== RULES ===" in result
-        assert "Agent Rules" in result
+        assert "Core Content Here" in result
         assert "=== END RULES ===" in result
 
-    def test_missing_rule_file_skipped(self, tmp_path):
+    def test_core_tier_strips_frontmatter(self, tmp_path):
         rules_dir = tmp_path / "rules"
         rules_dir.mkdir()
-        # Only create one of the many expected files
-        (rules_dir / "agent-system.md").write_text("# Exists")
+        _write_rule(rules_dir, "code-quality.md", "core", "# Title\nBody text")
         result = load_rules(tmp_path, include_task_resume=False)
-        assert "Exists" in result
+        assert "tier: core" not in result
+        assert "# Title" in result
+        assert "Body text" in result
+
+    def test_missing_tier_skipped(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        (rules_dir / "no-tier.md").write_text("# No Tier\nShould not appear")
+        result = load_rules(tmp_path, include_task_resume=False)
+        assert result == ""
 
     def test_all_missing_returns_empty(self, tmp_path):
         (tmp_path / "rules").mkdir()
@@ -149,16 +165,62 @@ class TestLoadRules:
     def test_task_resume_included_when_has_active_work(self, tmp_path):
         rules_dir = tmp_path / "rules"
         rules_dir.mkdir()
-        (rules_dir / "task-resume.md").write_text("# Resume Rules")
+        _write_rule(
+            rules_dir,
+            "task-resume.md",
+            "conditional",
+            "Resume Rules",
+            activates="active work",
+        )
         result = load_rules(tmp_path, include_task_resume=True)
         assert "Resume Rules" in result
 
     def test_task_resume_excluded_when_no_active_work(self, tmp_path):
         rules_dir = tmp_path / "rules"
         rules_dir.mkdir()
-        (rules_dir / "task-resume.md").write_text("# Resume Rules")
+        _write_rule(
+            rules_dir,
+            "task-resume.md",
+            "conditional",
+            "Resume Rules",
+            activates="active work",
+        )
         result = load_rules(tmp_path, include_task_resume=False)
         assert "Resume Rules" not in result
+
+    def test_conditional_signal_via_signals_dict(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        _write_rule(
+            rules_dir, "mcp-usage.md", "conditional", "MCP Rules", activates="mcp"
+        )
+        off = load_rules(tmp_path, include_task_resume=False)
+        on = load_rules(
+            tmp_path, include_task_resume=False, signals={"mcp-usage": True}
+        )
+        assert "MCP Rules" not in off
+        assert "MCP Rules" in on
+
+    def test_reference_tier_not_injected_but_indexed(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        _write_rule(
+            rules_dir,
+            "agent-system.md",
+            "reference",
+            "Full agent body — should not be injected",
+            indexLine="read rules/agent-system.md when selecting an agent",
+        )
+        result = load_rules(tmp_path, include_task_resume=False)
+        assert "Full agent body" not in result
+        assert "read rules/agent-system.md when selecting an agent" in result
+
+    def test_invalid_tier_skipped(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        _write_rule(rules_dir, "bogus.md", "always", "Should not appear")
+        result = load_rules(tmp_path, include_task_resume=False)
+        assert result == ""
 
 
 class TestMain:
@@ -246,6 +308,7 @@ def test_load_stale_tasks_excludes_current_session_and_clean(tmp_path):
 def test_load_stale_tasks_age_filter(tmp_path, monkeypatch):
     """나이 임계(기본 14일) 초과 세션은 스킵 — 알림 피로 방지 (재감사 B/ATK-002)."""
     import os as _os
+
     d = tmp_path / "tasks" / "ancient"
     _write_task(d, 1, "pending", "화석")
     _mark_mine(tmp_path / "projects", tmp_path / "proj", "ancient")
@@ -322,6 +385,7 @@ def test_load_stale_tasks_prefers_recent_sessions(tmp_path, monkeypatch):
     """세션 상한 초과 시 mtime 최신 우선 (재감사 A/ATK-003)."""
     ss = _mod
     import os as _os
+
     monkeypatch.setattr(ss, "_STALE_TASKS_MAX_DIRS", 1)
     for name, subj in (("old", "옛날"), ("new", "최신")):
         _write_task(tmp_path / "tasks" / name, 1, "pending", subj)

@@ -58,19 +58,11 @@ explore-codebase(Haiku) → 결과를 clarify-requirements(Opus)에 전달
 
 ---
 
-## 3. 에이전트 키워드 매핑
+## 3. 에이전트 선택
 
-메인 Claude가 사용자 요청에서 키워드를 감지해 적절한 에이전트를 선택합니다.
-
-| 한국어 키워드           | 영어 키워드                   | 에이전트              | 설명            |
-| ----------------------- | ----------------------------- | --------------------- | --------------- |
-| 조사, 리서치, 외부 검색 | research, investigate         | `research-external`   | 외부 자료 수집  |
-| 계획, 설계, 아키텍처    | plan, design, architect       | `plan-implementation` | 구현 계획 수립  |
-| 구현, 코드 작성, 개발   | implement, code, develop      | `implement-code`      | 실제 코드 생성  |
-| 리뷰, 검토, 코드 리뷰   | review, audit, check          | `review-code`         | 코드 품질 검토  |
-| 탐색, 파악, 이해        | explore, understand, navigate | `explore-codebase`    | 코드베이스 분석 |
-| 테스트, 테스트 코드     | test, spec, unit              | `write-tests`         | 테스트 작성     |
-| 수정, 버그, 오류        | fix, bug, error               | `fix-bugs`            | 버그 수정       |
+에이전트 선택 키워드 매핑 표는 제거됐다(D-18) — 하네스가 시스템 프롬프트에 에이전트
+목록과 `MUST USE when:` 트리거를 이미 제공하므로, 정본이 이를 다시 나열하는 것은
+네이티브 재기술이다. 필요한 것은 아래 두 원칙뿐이다.
 
 **일반 에이전트(general-purpose) 사용 허용 조건:**
 

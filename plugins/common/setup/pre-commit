@@ -50,6 +50,8 @@ files = [f for f in result.stdout.splitlines() if f.startswith("plugins/") and f
 
 errors = []
 for fpath in files:
+    if "/skills/" in fpath or "/rules/" in fpath:
+        continue
     p = pathlib.Path(fpath)
     if not p.exists():
         continue

@@ -24,43 +24,28 @@ ALWAYS structure code so one change propagates everywhere.
 
 ## 2. SSOT 위반 vs 적용 예시
 
-### Before (위반) — API URL이 여러 곳에 분산
+### Before (위반) — API 도메인이 여러 모듈에 분산
 
-```typescript
-// user.service.ts
-const response = await fetch("https://api.example.com/v1/users");
-
-// order.service.ts
-const response = await fetch("https://api.example.com/v1/orders");
-
-// auth.service.ts
-const response = await fetch("https://api.example.com/v1/auth/login");
+```
+user 모듈:  https://api.example.com/v1/users 로 직접 요청
+order 모듈: https://api.example.com/v1/orders 로 직접 요청
+auth 모듈:  https://api.example.com/v1/auth/login 으로 직접 요청
 ```
 
-**문제:** API 도메인이 변경되면 3개 파일을 모두 수정해야 함. 하나라도 빠뜨리면 버그.
+**문제:** API 도메인이 변경되면 관련 모듈을 모두 수정해야 함. 하나라도 빠뜨리면 버그.
 
 ---
 
-### After (적용) — 단일 설정 파일 참조
+### After (적용) — 단일 설정 참조
 
-```typescript
-// config/env.ts (단일 소스)
-export const API_BASE_URL =
-  process.env.API_BASE_URL ?? "https://api.example.com";
-export const API_VERSION = "v1";
-export const API_URL = `${API_BASE_URL}/${API_VERSION}`;
+```
+config 모듈 (단일 소스):
+  API_BASE_URL = 환경변수 또는 기본값
+  API_URL      = API_BASE_URL + API_VERSION
 
-// user.service.ts
-import { API_URL } from "@/config/env";
-const response = await fetch(`${API_URL}/users`);
-
-// order.service.ts
-import { API_URL } from "@/config/env";
-const response = await fetch(`${API_URL}/orders`);
-
-// auth.service.ts
-import { API_URL } from "@/config/env";
-const response = await fetch(`${API_URL}/auth/login`);
+user/order/auth 모듈:
+  config에서 API_URL을 참조(언어별 관례대로 import/include/require)해
+  `${API_URL}/users` 같은 형태로만 사용 — 도메인 문자열을 직접 쓰지 않는다
 ```
 
 **효과:** API_BASE_URL 한 곳만 바꾸면 전체에 적용.
@@ -75,16 +60,16 @@ const response = await fetch(`${API_URL}/auth/login`);
 에러 발생 위치 (서비스, 컨트롤러, 미들웨어 등)
           │
           ▼
-  src/infrastructure/errors/
-  ├── types.ts      → AppError 인터페이스, 에러 코드 enum
-  ├── messages.ts   → 에러 메시지 상수 (한국어/영어)
-  ├── handler.ts    → normalizeError() + notifyOnCall()
-  └── logger.ts     → 구조화된 로그 출력 (JSON)
+  errors 모듈 — 언어/프레임워크 관례대로 파일을 나눈다 (예시일 뿐, 강제하지 않는다):
+  · 에러 타입/코드 정의
+  · 에러 메시지 상수
+  · 중앙 핸들러 (정규화 + 알림)
+  · 구조화된 로거
           │
           ▼
     중앙 에러 핸들러
-    ├── 에러 정규화 (unknown → AppError)
-    ├── 심각도에 따른 알림 (critical → PagerDuty)
+    ├── 에러 정규화 (알 수 없는 예외 → 공통 에러 타입)
+    ├── 심각도에 따른 알림 (critical → 온콜 채널)
     └── 구조화된 로그 기록
 ```
 
@@ -107,29 +92,20 @@ const response = await fetch(`${API_URL}/auth/login`);
 
 ## 5. 에러 코드 네이밍 규칙
 
-```typescript
-// types.ts — 에러 코드를 한 곳에서 정의
-export const ErrorCode = {
-  // 도메인_번호 형식
-  AUTH_001: "AUTH_001", // 인증 실패
-  AUTH_002: "AUTH_002", // 토큰 만료
-  AUTH_003: "AUTH_003", // 권한 없음
-  PAYMENT_001: "PAYMENT_001", // 결제 실패
-  PAYMENT_002: "PAYMENT_002", // 잔액 부족
-  DB_001: "DB_001", // DB 연결 실패
-} as const;
+```
+에러 타입 정의 (한 곳):
+  AUTH_001  = 인증 실패
+  AUTH_002  = 토큰 만료
+  AUTH_003  = 권한 없음
+  PAYMENT_001 = 결제 실패
+  PAYMENT_002 = 잔액 부족
+  DB_001    = DB 연결 실패
+  (도메인_번호 형식 — 언어의 enum/상수 맵/딕셔너리 등 관례로 표현)
 
-export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
-
-// messages.ts — 메시지를 한 곳에서 정의
-export const ErrorMessages: Record<ErrorCode, string> = {
-  AUTH_001: "인증에 실패했습니다",
-  AUTH_002: "인증 토큰이 만료되었습니다",
-  AUTH_003: "접근 권한이 없습니다",
-  PAYMENT_001: "결제 처리에 실패했습니다",
-  PAYMENT_002: "잔액이 부족합니다",
-  DB_001: "데이터베이스 연결에 실패했습니다",
-};
+메시지 정의 (별도의 한 곳, 코드와 1:1 매핑):
+  AUTH_001  → "인증에 실패했습니다"
+  AUTH_002  → "인증 토큰이 만료되었습니다"
+  ...
 ```
 
 ---

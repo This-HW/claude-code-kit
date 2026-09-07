@@ -1,8 +1,8 @@
 `plugins/common/rules/` (13) is what gets **injected every session**, so it is compressed.
-`docs/architecture/rules/` (9) is the long-form human explanation of nine of those rules,
-created in W-004 — tables, worked examples, anti-patterns. The remaining four
-(`definition-of-done`, `feedback-loop`, `loop-engineering`, `parallel-worktree`) have no
-mirror by design; the injected rule is the whole story for them.
+`docs/architecture/rules/` (8) is the long-form human explanation of eight of those rules,
+created in W-004 — tables, worked examples, anti-patterns. The remaining five
+(`definition-of-done`, `feedback-loop`, `loop-engineering`, `parallel-worktree`,
+`untrusted-text`) have no mirror by design; the injected rule is the whole story for them.
 
 Nothing linked the two, so they drifted silently — a 2026-08-17 audit found three behind,
 and the `planning-check` mirror still told readers to search Notion/Figma MCP in order,

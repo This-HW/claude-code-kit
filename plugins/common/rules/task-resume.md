@@ -1,3 +1,9 @@
+---
+tier: conditional
+activates: 기존 task 재개 신호 (active Work 존재)
+portable: false
+---
+
 # Task Resume Rules
 
 ## 트리거 조건

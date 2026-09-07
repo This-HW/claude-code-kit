@@ -1,3 +1,9 @@
+---
+tier: conditional
+activates: 워크트리 여부 감지 (.git 파일 == linked worktree)
+portable: false
+---
+
 # Parallel Worktree Rules
 
 병렬 dispatch에서 파일을 수정하는 에이전트는 worktree로 "격리 진입"하고, 검증
