@@ -75,6 +75,62 @@ fixture 는 Round 1 종합 결과에 충돌 2건을 둔다 — **#1 Hard vs Hard
 `baseline._meta.regenerationCadence` 규정대로 같은 배치에서 전량 재실행했다(부분 실행은
 `--baseline` 저장이 거부된다). **38/38 pass, 기존 37건 status 전부 유지(회귀 0).**
 
+## [3.0.0] — 2026-09-07
+
+**개명: `claude-code-kit` → `hiway-kit`.** 이 킷은 Claude Code 전용이 아니다 —
+규범과 절차는 Codex·Antigravity 에서도 동작한다. 이름이 그 사실과 어긋나 있었다.
+
+### ⚠️ 기존 사용자는 재설치가 필요하다
+
+**자동 이행되지 않는다.** 실측으로 확인한 사실이다
+(`docs/specs/2026-09-07-rename-probe.md`, runtime-verified):
+
+- `enabledPlugins` 키는 **수동 이행**이다. 구 설치본이 "찾을 수 없음"이 돼도 자동으로 옮겨지지 않는다.
+- 구·신 이름이 **공존하면 스킬이 경고 없이 중복 로드**된다. 디둡 키가
+  `<plugin.json의 name>:<스킬명>` 이라, `name` 이 바뀌면 같은 스킬이 별개 엔트리 2개가 된다.
+- 따라서 **"기한 있는 폐기 별칭"을 두지 않았다.** 카탈로그에서 구 이름을 즉시 제거한다 —
+  구 설치본이 "찾을 수 없음"이 되는 것이 **조용한 중복보다 나은 신호**다.
+
+```bash
+# 1) 구 플러그인 제거
+/plugin uninstall claude-code-kit@claude-code-kit
+
+# 2) 구 마켓플레이스 제거
+/plugin marketplace remove claude-code-kit
+
+# 3) 새 이름으로 재설치
+/plugin marketplace add This-HW/claude-code-kit
+/plugin install hiway-kit@hiway-kit
+```
+
+**저장소 주소는 그대로다** (`This-HW/claude-code-kit`) — 바뀐 것은 **플러그인 이름**이다.
+스킬 호출도 바뀐다: `/claude-code-kit:plan-task` → **`/hiway-kit:plan-task`** (프리픽스 18자 → 9자).
+
+### Removed
+
+- **`skills/agent-teams`** — v2.19.0 에서 폐기 예고했던 대로 제거한다. 그 내용은
+  `control-loop` 과 운송 부록(`docs/control-loop-transport.md`)이 흡수했다. 스킬 21 → 20.
+
+### Changed — 이름이 SSOT 에서 파생된다
+
+`plugins/common/.claude-plugin/plugin.json` 의 `name` 이 유일한 출처이고,
+`scripts/derive-name.py` 가 README·`CLAUDE.md`·`site/` 를 파생시킨다.
+`verify-done.sh` **§18** 이 드리프트를 잡는다.
+
+이번 개명이 그 설계를 실증했다 — **값 하나를 바꾸고 생성기를 돌리자 13개 파일이 따라왔다.**
+이전 같으면 59개 파일을 손으로 고쳐야 했다.
+
+**개명이 드러낸 결함 2건도 함께 고쳤다**: `check_doc_counts.py` 와 `export_harness.py` 가
+플러그인 이름을 **하드코딩**하고 있어 개명이 검사기 자신을 깨뜨렸다. 둘 다 SSOT 에서 읽도록
+바꿨다 — 게이트도 D-3 의 적용 대상이다.
+
+### 파리티 계약 (변경 없음, 명시만)
+
+> 규범과 절차(`rules`·`skills`)는 **모든 하네스 공통**. 전용 실행자와 자동 강제
+> (`agents`·`hooks`)는 **Claude Code 심화 기능**.
+
+비-Claude Code 하네스에서 잃는 것은 **자동 차단 하나**다. 규율·절차·상태·이음매는 전부 동작한다.
+
 ## [2.19.0] — 2026-09-07
 
 W-026 배치. **다중 세션 개발 규율**을 스킬·규범·훅으로 구현한다 — 컨트롤 세션과 자식 세션이

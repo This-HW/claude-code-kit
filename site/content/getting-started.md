@@ -1,6 +1,6 @@
 ---
 title: "시작하기"
-description: "claude-code-kit 설치부터 핵심 스킬 워크플로우(brainstorming → plan-task → auto-dev, /review, /debug, /test)까지 실제 사용 시나리오."
+description: "hiway-kit 설치부터 핵심 스킬 워크플로우(brainstorming → plan-task → auto-dev, /review, /debug, /test)까지 실제 사용 시나리오."
 keywords: ["claude code plugin install", "claude code skill workflow", "auto-dev", "plan-task"]
 translationKey: "getting-started"
 ---
@@ -12,19 +12,19 @@ translationKey: "getting-started"
 ```bash
 # 경로 1 — Anthropic 커뮤니티 카탈로그에 등재된 버전
 /plugin marketplace add anthropics/claude-plugins-community
-/plugin install claude-code-kit@claude-community
+/plugin install hiway-kit@claude-community
 
 # 경로 2 — 저장소에서 직접 (최신 커밋 추종)
-/plugin marketplace add This-HW/claude-code-kit
-/plugin install claude-code-kit@claude-code-kit
+/plugin marketplace add This-HW/hiway-kit
+/plugin install hiway-kit@hiway-kit
 ```
 
 보안 훅(`protect-sensitive`, `auto-format`, `stop-validator`)과 pre-commit까지
 로컬에 설치하려면 저장소를 클론해 `setup.sh`를 실행한다.
 
 ```bash
-git clone https://github.com/This-HW/claude-code-kit
-cd claude-code-kit
+git clone https://github.com/This-HW/hiway-kit
+cd hiway-kit
 ./setup.sh
 ```
 
@@ -97,4 +97,4 @@ API 시그니처, 파일 위치, 완료 조건이 확정된다 — 다음 단계
 
 - 아키텍처 원리가 궁금하면 [소개](/about/)를 읽는다.
 - 실제 적용 사례와 의사결정 과정은 [개발 기록](/posts/)에서 확인할 수 있다.
-- 코드/이슈는 [GitHub 저장소](https://github.com/This-HW/claude-code-kit)에서.
+- 코드/이슈는 [GitHub 저장소](https://github.com/This-HW/hiway-kit)에서.

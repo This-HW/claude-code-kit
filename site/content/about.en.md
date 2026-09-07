@@ -1,11 +1,11 @@
 ---
 title: "About"
-description: "The architecture and implementation principles behind claude-code-kit — harness x loop engineering, deterministic guardrails, and definition-of-done machine gates."
+description: "The architecture and implementation principles behind hiway-kit — harness x loop engineering, deterministic guardrails, and definition-of-done machine gates."
 keywords: ["claude code plugin", "multi-agent development system", "agent harness engineering", "AI coding agent evals", "definition of done"]
 translationKey: "about"
 ---
 
-**claude-code-kit** is a multi-agent development system built on the
+**hiway-kit** is a multi-agent development system built on the
 [Claude Code](https://claude.com/claude-code) agent harness. This page is not
 about what we built, but **why we built it this way**.
 
@@ -16,7 +16,7 @@ engineering, context engineering, and **harness engineering**. A harness
 governs tool orchestration, state persistence, verification loops, and error
 recovery across a task's entire lifecycle.
 
-claude-code-kit makes this distinction explicit:
+hiway-kit makes this distinction explicit:
 
 <div class="callout">
 <strong>Gate vs. Loop</strong>
@@ -141,4 +141,4 @@ Learn more: check out [Getting Started]({{< relref "/getting-started" >}}) for r
 installation and usage scenarios, or read the (Korean) [dev log]({{< relref path="/posts" lang="ko" >}}) to
 see how this design evolved.
 
-Repository: [github.com/This-HW/claude-code-kit](https://github.com/This-HW/claude-code-kit) (MIT)
+Repository: [github.com/This-HW/hiway-kit](https://github.com/This-HW/hiway-kit) (MIT)

@@ -2,11 +2,11 @@
   "interface": {
     "displayName": "Claude Code Kit"
   },
-  "name": "claude-code-kit-marketplace",
+  "name": "hiway-kit-marketplace",
   "plugins": [
     {
       "category": "Coding",
-      "name": "claude-code-kit",
+      "name": "hiway-kit",
       "policy": {
         "authentication": "ON_INSTALL",
         "installation": "AVAILABLE"

@@ -1,11 +1,11 @@
 ---
 title: "소개"
-description: "claude-code-kit의 아키텍처와 구현 원리 — 하네스 × 루프 엔지니어링, 결정적 가드레일, Definition-of-Done 기계 게이트."
+description: "hiway-kit의 아키텍처와 구현 원리 — 하네스 × 루프 엔지니어링, 결정적 가드레일, Definition-of-Done 기계 게이트."
 keywords: ["claude code plugin", "multi-agent development system", "agent harness engineering", "AI coding agent evals", "definition of done"]
 translationKey: "about"
 ---
 
-**claude-code-kit**은 [Claude Code](https://claude.com/claude-code) 하네스 위에서
+**hiway-kit**은 [Claude Code](https://claude.com/claude-code) 하네스 위에서
 동작하는 멀티 에이전트 개발 시스템이다. 이 페이지는 무엇을 만들었는지가 아니라
 **왜 이렇게 설계했는지**를 설명한다.
 
@@ -15,7 +15,7 @@ translationKey: "about"
 컨텍스트 엔지니어링 → **하네스 엔지니어링**. 하네스는 툴 오케스트레이션·상태
 영속화·검증 루프·에러 복구를 태스크 전체 생애주기에 걸쳐 통제한다.
 
-claude-code-kit은 이 구분을 다음과 같이 명문화한다.
+hiway-kit은 이 구분을 다음과 같이 명문화한다.
 
 <div class="callout">
 <strong>게이트 vs 루프</strong>
@@ -129,4 +129,4 @@ Claude Code 자체가 새 네이티브 기능을 내놓으면 kit의 커스텀 �
 더 알아보기: [시작하기](/getting-started/)에서 실제 설치·사용 시나리오를 확인하거나,
 [개발 기록](/posts/)에서 이 설계가 어떻게 진화해왔는지 읽어본다.
 
-저장소: [github.com/This-HW/claude-code-kit](https://github.com/This-HW/claude-code-kit) (MIT)
+저장소: [github.com/This-HW/hiway-kit](https://github.com/This-HW/hiway-kit) (MIT)

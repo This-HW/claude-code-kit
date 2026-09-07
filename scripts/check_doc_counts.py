@@ -80,14 +80,22 @@ def check_claim(root: Path, rel: str, pattern: str, actual: int, label: str) -> 
 
 
 def check_included_table(root: Path, a: dict) -> bool:
-    """README 'What's Included' 표의 claude-code-kit 행 — 부재 = 실패 (anti self-disable)."""
+    """README 'What's Included' 표의 플러그인 행 — 부재 = 실패 (anti self-disable).
+
+    행을 찾는 이름은 **SSOT(plugin.json)에서 읽는다** — 하드코딩하면 개명이
+    검사기 자신을 깨뜨린다(v3.0.0 개명에서 실제로 그랬다). D-3 의 "이름은 SSOT 에서
+    파생한다"가 게이트에도 적용된다.
+    """
     p = root / "README.md"
     if not p.exists():
         print(f"{NG} README.md 없음")
         return False
+    import json as _json
+    _mp = root / "plugins" / "common" / ".claude-plugin" / "plugin.json"
+    _name = _json.loads(_mp.read_text(encoding="utf-8"))["name"]
     row = None
     for line in p.read_text(encoding="utf-8").splitlines():
-        if re.match(r"^\|\s*.?claude-code-kit.?\s*\|", line):
+        if re.match(r"^\|\s*.?" + re.escape(_name) + r".?\s*\|", line):
             row = line
             break
     if row is None:

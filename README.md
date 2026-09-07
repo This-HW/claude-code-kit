@@ -1,10 +1,10 @@
-# claude-code-kit
+# hiway-kit
 
-> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 21 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
+> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 20 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
 
 A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling. (Not a TUI component library or a scaffolding installer — this is the agents + skills plugin.)
 
-Docs & development log: **[this-hw.github.io/claude-code-kit](https://this-hw.github.io/claude-code-kit/)** (한국어 · [English](https://this-hw.github.io/claude-code-kit/en/))
+Docs & development log: **[this-hw.github.io/hiway-kit](https://this-hw.github.io/hiway-kit/)** (한국어 · [English](https://this-hw.github.io/hiway-kit/en/))
 
 A single, well-tested core plugin built on a native-first foundation, scale-appropriate orchestration, a feedback learning loop, loop engineering, and a Definition-of-Done gate. (see [CHANGELOG](CHANGELOG.md) · [docs/specs/](docs/specs/))
 
@@ -22,17 +22,17 @@ qualifies); older interpreters make the hooks no-ops and the session warns you o
 
 ```bash
 /plugin marketplace add anthropics/claude-plugins-community   # skip if already added
-/plugin install claude-code-kit@claude-community
+/plugin install hiway-kit@claude-community
 ```
 
-**Path 2 — direct marketplace** (marketplace name: `claude-code-kit`; fastest updates):
+**Path 2 — direct marketplace** (marketplace name: `hiway-kit`; fastest updates):
 
 ```bash
-/plugin marketplace add This-HW/claude-code-kit
-/plugin install claude-code-kit@claude-code-kit
+/plugin marketplace add This-HW/hiway-kit
+/plugin install hiway-kit@hiway-kit
 
 # Updating: refresh the marketplace, then the new version is picked up
-/plugin marketplace update claude-code-kit
+/plugin marketplace update hiway-kit
 ```
 
 > **Registry status:** listed in Anthropic's community plugin catalog
@@ -45,8 +45,8 @@ qualifies); older interpreters make the hooks no-ops and the session warns you o
 ## Full Mode (Security Hooks + Auto-format)
 
 ```bash
-git clone https://github.com/This-HW/claude-code-kit
-cd claude-code-kit
+git clone https://github.com/This-HW/hiway-kit
+cd hiway-kit
 ./setup.sh
 ```
 
@@ -68,7 +68,7 @@ differs by platform capability, verified against the real CLIs (not assumed):
 
 | Component | Codex | Antigravity |
 | --- | --- | --- |
-| Skills (21) | ✅ `"skills": "./skills/"` | ✅ recognized (real skills install and run correctly) |
+| Skills (20) | ✅ `"skills": "./skills/"` | ✅ recognized (real skills install and run correctly) |
 | Rules (13) | ⚠ no dedicated field → carried via `AGENTS.md` (see [`/harness-export`](plugins/common/skills/harness-export/SKILL.md)) | ✅ recognized |
 | Agents (33) | ⚠ no dedicated field | ❌ **not supported** — `agy plugin validate` does not recurse into `agents/`'s category subdirectories (`backend`/`dev`/`meta`/`planning`); it miscounts the 4 category folders as agent entries and finds none of the real 33. No config exists to opt into recursion (confirmed against official docs and the plugin schema) |
 | Hooks | ❌ not shipped — Codex's hook runtime does not load the exec-array form (`command`+`args`) this kit uses; confirmed by direct testing, not just reading docs | ❌ not shipped this batch — format unverified |
@@ -91,17 +91,17 @@ Codex/Antigravity implementation hasn't been built yet.
 
 ```bash
 # Add this repo (or your installed copy) as a plugin marketplace
-codex plugin marketplace add /path/to/claude-code-kit
+codex plugin marketplace add /path/to/hiway-kit
 
 # Install
-codex plugin add claude-code-kit@claude-code-kit-marketplace
+codex plugin add hiway-kit@hiway-kit-marketplace
 
 # Verify
-codex plugin list   # shows claude-code-kit@claude-code-kit-marketplace
+codex plugin list   # shows hiway-kit@hiway-kit-marketplace
 
 # Remove
-codex plugin remove claude-code-kit@claude-code-kit-marketplace
-codex plugin marketplace remove claude-code-kit-marketplace
+codex plugin remove hiway-kit@hiway-kit-marketplace
+codex plugin marketplace remove hiway-kit-marketplace
 ```
 
 Codex also reads the repo's existing `.claude-plugin/marketplace.json` as a legacy
@@ -113,16 +113,16 @@ not done; install via a local/Git marketplace as above works today.
 
 ```bash
 # Validate first (checks the manifest and component dirs)
-agy plugin validate /path/to/claude-code-kit/plugins/common
+agy plugin validate /path/to/hiway-kit/plugins/common
 
 # Install
-agy plugin install /path/to/claude-code-kit/plugins/common
+agy plugin install /path/to/hiway-kit/plugins/common
 
 # Verify
-agy plugin list   # shows claude-code-kit
+agy plugin list   # shows hiway-kit
 
 # Remove
-agy plugin uninstall claude-code-kit
+agy plugin uninstall hiway-kit
 ```
 
 **No official public registry is confirmed for Antigravity** — Google's docs
@@ -132,7 +132,7 @@ describe only local/workspace installation, so that's the only supported path he
 
 ## Architecture & Concepts
 
-claude-code-kit이 무엇을 어떻게 융합하는지 — 한눈에 보는 설계 원리.
+hiway-kit이 무엇을 어떻게 융합하는지 — 한눈에 보는 설계 원리.
 
 ### 설계 철학 — 네이티브 우선, kit은 의견 레이어
 
@@ -210,11 +210,11 @@ kit에 녹아 있는 개념과 그 장점 — *어떻게* 구현되는지와 함
 
 [obra/superpowers](https://github.com/obra/superpowers) 플러그인과 **상호보완**하도록 설계됐습니다 — 둘을 같이 켜도 충돌·중복이 없습니다.
 
-- **각자 자동 적용**: 둘 다 세션 시작에 자기 메타스킬을 자동 주입 (`using-claude-code-kit` / `using-superpowers`). 수동 호출 불필요.
-- **중복 제거**: `using-claude-code-kit`은 범용 스킬 규율(1% 룰·red flags)을 superpowers에 양보하고, **kit 고유 델타**(에이전트맵·Work 시스템·native/loop/DoD)만 제공 → 병행 시 중복 0.
-- **역할 분담**: superpowers = 방법론 지휘자, claude-code-kit = 실행 레이어(전문 에이전트·auto-dev 파이프라인·hooks·Work 추적).
+- **각자 자동 적용**: 둘 다 세션 시작에 자기 메타스킬을 자동 주입 (`using-hiway-kit` / `using-superpowers`). 수동 호출 불필요.
+- **중복 제거**: `using-hiway-kit`은 범용 스킬 규율(1% 룰·red flags)을 superpowers에 양보하고, **kit 고유 델타**(에이전트맵·Work 시스템·native/loop/DoD)만 제공 → 병행 시 중복 0.
+- **역할 분담**: superpowers = 방법론 지휘자, hiway-kit = 실행 레이어(전문 에이전트·auto-dev 파이프라인·hooks·Work 추적).
 - **시너지**: kit의 Definition-of-Done(기계 게이트) + superpowers의 verification-before-completion(원칙)이 상호보강.
-- **단독 동작**: superpowers 없이 claude-code-kit만으로도 자급자족.
+- **단독 동작**: superpowers 없이 hiway-kit만으로도 자급자족.
 
 ## Works with your MCPs (memory 등)
 
@@ -236,7 +236,7 @@ kit은 **특정 MCP 서버를 가정하지 않습니다** (consumer-first). 대�
 
 | Plugin            | Agents | Skills | Description                               |
 | ----------------- | ------ | ------ | ----------------------------------------- |
-| `claude-code-kit` | 33     | 21     | Core: planning, development, review, meta |
+| `hiway-kit` | 33     | 20     | Core: planning, development, review, meta |
 
 ---
 
@@ -309,8 +309,8 @@ Merge-back rules (verify-then-exit, sequential merge, conflict escalation to
 | `doc-coauthoring`          | `/doc-coauthoring`          | AI-assisted documentation authoring and review                             |
 | `debug`                    | `/debug`                    | 4-Phase debug: diagnose → fix-bugs → verify-code                           |
 | `test`                     | `/test`                     | Run tests and auto-fix failures via verify-code + fix-bugs                 |
-| `agent-creator`            | `/agent-creator`            | Generate claude-code-kit plugin agents with correct frontmatter            |
-| `skill-creator`            | `/skill-creator`            | Generate claude-code-kit skills with best practices                        |
+| `agent-creator`            | `/agent-creator`            | Generate hiway-kit plugin agents with correct frontmatter            |
+| `skill-creator`            | `/skill-creator`            | Generate hiway-kit skills with best practices                        |
 | `mcp-builder`              | `/mcp-builder`              | Scaffold MCP servers and configure Claude Code integration                 |
 | `agent-teams`              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` (dynamic workflow) |
 | `native-watch`             | `/native-watch`             | Audit native-feature absorption against the SSOT ledger (`docs/native-absorption.md`) |
@@ -422,7 +422,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (21) + rules (14) + hooks
+└── common/      — Core agents (33) + skills (20) + rules (14) + hooks
 ```
 
 The plugin contains:

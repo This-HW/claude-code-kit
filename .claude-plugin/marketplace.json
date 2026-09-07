@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-code-kit",
+  "name": "hiway-kit",
   "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
   "owner": {
     "name": "This-HW",
@@ -9,7 +9,7 @@
   "repository": "https://github.com/This-HW/claude-code-kit",
   "plugins": [
     {
-      "name": "claude-code-kit",
+      "name": "hiway-kit",
       "description": "Turn any task into production-ready code. Specialized agents automatically handle planning, implementation, code review, and security scanning for any stack.",
       "category": "development",
       "source": {
