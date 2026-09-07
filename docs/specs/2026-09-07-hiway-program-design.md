@@ -634,3 +634,159 @@ CLAUDE.md 는 이 중복을 의도로 명시한다 — *"위 두 파일의 헬�
 15. **W-025** · 네 경로 헬퍼가 동일한 적대 케이스 표를 통과하고, 이름이 전부 `_resolve_in_repo` 다
 16. **W-026** · `run.py` 에 `"claude"` 리터럴이 `ClaudeCodeHarness` 안에만 존재한다
 17. **W-027** · README 의 파리티 문장이 *"행동 eval 은 Claude Code 만 구동한다"* 를 명시한다
+
+---
+
+## 9. 주입 예산 재설계 — 규범을 덜어내되 잃지 않기 (2026-09-07 추가)
+
+> 이 절은 §2·§5·§7 을 **개정**한다. 결정 D-17~D-21 과 W-025 작업 항목이 추가된다.
+> 계기: "훅·세션 스타트에 규칙이 과하게 들어가 있다. 덜어내되 최고의 아키텍처로,
+> 사람들이 언제든 보고 이해되도록."
+
+### 9.1 측정 — 세션마다 실제로 주입되는 것
+
+| 구성 | 크기 | 비중 | 출처 |
+| --- | ---: | ---: | --- |
+| RULES | 20,191B | 84% | `rules/*.md` 13종 중 13종 전부 |
+| WORKFLOW | 3,728B | 16% | `using-claude-code-kit/SKILL.md` |
+| **합계** | **23,989B** | | 매 세션, 무조건 |
+
+비교 감각: `AGENTS.md` 는 §15 로 **24,576B 상한**이 걸려 있는데, 세션 주입은 그 **98%**를
+아무 상한 없이 쓰고 있다. 한쪽에는 예산 게이트가 있고 다른 쪽에는 없다.
+
+### 9.2 진단 — 크기가 아니라 **활성화 조건의 부재**다
+
+13개 규범 중 **12개가 무조건** 주입된다(`ALWAYS_RULES`). 조건부는 `task-resume.md`
+하나뿐이다. 그런데 실제로 언제나 참이어야 하는 규범은 그중 일부다 —
+`parallel-worktree`(3,363B)는 병렬 워크트리를 쓸 때만, `mcp-usage`(3,427B)는 MCP가
+있을 때만, `agent-delegation-chain`(3,814B)은 위임할 때만 의미가 있다.
+
+세 종류의 낭비가 겹쳐 있다:
+
+**(a) 호스트와 충돌하는 규범** — `tool-usage-priority.md` 는
+*"NEVER use Bash for file operations. Read files → Read (NOT cat/head/tail)"* 라고 지시한다.
+그런데 bypass 모드의 호스트 시스템 프롬프트는 정반대를 지시한다 —
+*"read files with cat, head, or sed -n, search with grep and find … rather than using the
+dedicated Read, Edit, or Write tools."* **주입된 규범이 호스트의 지시와 정면으로 싸운다.**
+
+**(b) 네이티브가 이미 제공하는 것의 재기술** — 하네스는 시스템 프롬프트에 에이전트 33종과
+스킬 19종을 설명과 `MUST USE when:` 트리거까지 붙여 이미 나열한다. 그 위에
+`agent-system.md` 의 "Agent Selection by Keyword" 표와 WORKFLOW 의 "Skill Trigger Map"
+표가 같은 내용을 다시 싣는다.
+
+**(c) 소비자 중립성 위반** — `ssot.md` 는 TypeScript 파일 레이아웃(`import { API_URL } from
+"@/config/env"`, `src/infrastructure/errors/*.ts`)을 규범으로 싣는다. 이 킷은 **어떤 언어의
+프로젝트에도 설치되는** 범용 플러그인이다. `mcp-usage.md` 는 `## NotebookLM Rules` 절에서
+특정 MCP 서버의 수치 제한(Source 50개)까지 규정한다 — 같은 파일이 세 줄 위에서
+*"never assume a server is present"* 라고 말하면서.
+
+### 9.3 관측된 결함 — 활성화 목록이 코드에 하드코딩돼 있다
+
+`ALWAYS_RULES` 는 `session-start.py:197` 의 파이썬 리스트다. 이 상수를 참조하는 코드는
+**그 파일과 그 파일의 테스트뿐**이고, 디렉토리와의 정합을 강제하는 게이트가 없다.
+
+결과 두 가지:
+
+1. **14번째 규범을 추가하면 조용히 주입되지 않는다.** 파일은 존재하고, CHECKSUMS 는
+   집합 동등을 통과하고, 아무도 red 를 보지 못한다 — *"검사 대상이 아닌 것은 결코 red 가
+   되지 않는다"* 의 정확한 재현이다. §8 의 F2(어서션 계약 이중 선언)와 **같은 결함 클래스**다.
+2. **규범 파일을 열어도 자기가 언제 켜지는지 알 수 없다.** 알려면 훅의 파이썬 코드를
+   읽어야 한다. 사용자 요구("사람들이 언제든 보고 이해되도록")가 지금 구조에서는 성립하지 않는다.
+
+### D-17 — 활성화 조건을 **규범 자신이 선언한다**
+
+`ALWAYS_RULES` 하드코딩 리스트를 제거하고, 각 규범이 frontmatter 로 자기 티어를 선언한다.
+훅은 디렉토리를 스캔해 선언을 읽는다. `packaging/targets.json` 이 타겟에 대해 하는 일과
+같은 모델이다 — **목록을 손으로 유지하지 않는다.**
+
+```yaml
+---
+tier: core              # core | conditional | reference
+activates: always       # conditional 인 경우 감지 신호를 적는다
+---
+```
+
+| 티어 | 언제 주입되나 | 성격 |
+| --- | --- | --- |
+| **core** | 항상 | 스킬을 하나도 invoke 하지 않은 상태에서도 참이어야 하는 행동 기본값 |
+| **conditional** | 훅이 신호를 감지했을 때 | 상황 규범. 이미 `task-resume` 가 이 방식이다 |
+| **reference** | 주입 안 함. **색인 한 줄**만 | 필요해지는 시점에 모델이 파일을 읽는다 |
+
+**왜 reference 가 후퇴가 아닌가**: 주입은 **현저성(salience)을 사기 위한 비용이지 강제가
+아니다.** 이 레포가 이미 실측한 사실 — 에이전트 정의 안에 박아둔 마커도 8종 중 6종이
+간헐적으로 생략했다(W-018/W-021). 강제는 훅(L3)과 게이트가 하고, 주입은 현저성만 산다.
+따라서 **항상 현저해야 하는 것만 항상 싣는다.** 진짜 강제가 필요하면 텍스트를 더 넣는 게
+아니라 게이트를 만든다.
+
+### D-18 — 호스트와 싸우거나 네이티브가 이미 주는 것은 **삭제한다**
+
+- **`tool-usage-priority.md` 삭제** (573B). 호스트가 자기 환경에 맞는 툴 선택을 직접 지시하며,
+  그 지시가 이 규범과 정면으로 모순된다. 도구 선택은 네이티브 행동이고, 이 레포의 원칙은
+  *"네이티브가 하는 일을 자체 구현으로 중복하지 않는다"* 다. 규범 13 → 12.
+- **`agent-system.md` 의 "Agent Selection by Keyword" 표 제거**, 모델 선택 정책 등
+  네이티브가 말하지 않는 것만 남긴다.
+- **WORKFLOW 의 "Skill Trigger Map"·"Agent Selection" 표 제거** — 하네스의 스킬·에이전트
+  목록이 이미 트리거까지 제공한다. 킷 고유의 체인(`brainstorming → plan-task → auto-dev`)과
+  Work 시스템 규약만 남긴다.
+
+### D-19 — 소비자 중립화
+
+- `ssot.md` 의 TypeScript 경로·import 예시를 **언어 중립 원칙**으로 축약.
+- `mcp-usage.md` 의 `## NotebookLM Rules` 제거. 서버별 상세는 규범이 아니라 그 서버를 쓰는
+  스킬의 몫이다(`rules/mcp-usage.md` 자신이 세운 "MCP lives in skills" 원칙과 일치).
+
+### D-20 — 주입에 **예산 게이트**를 건다
+
+`AGENTS.md` 에는 크기 예산(§15)이 있는데 세션 주입에는 없다. 같은 종류의 상한을 둔다.
+
+- **core 티어 총합 ≤ 6,144B** (6KB)
+- WORKFLOW ≤ 2,048B
+- 게이트 위치: `verify-done.sh` **§16** (섹션 번호 규약대로 **다음 빈 번호**. §12 는 계속 비워 둔다)
+- 함께 검사: 모든 규범 파일이 `tier` 를 선언했는가 (선언 누락 = fail) — 9.3 의 결함 1 봉쇄
+
+**목표치**: 23,989B → **약 7.5KB (69% 감축)**. 단, 감축량은 목표이지 판정 기준이 아니다.
+판정은 예산 게이트가 한다.
+
+### D-21 — 티어 배정 (초안, 배치에서 확정)
+
+| 규범 | 현재 | 제안 | 근거 |
+| --- | --- | --- | --- |
+| `definition-of-done` | always | **core**(축약) | 완료 판정은 모든 세션에 필요. 본문은 게이트를 가리키게 축약 |
+| `planning-protocol` | always | **core** | 착수 전 게이트 |
+| `loop-engineering` | always | **core**(축약) | 언제 멈추는가 |
+| `planning-check` | always | **core** | 짧고 착수 전 |
+| `code-quality` | always | **core**(축약) | 보편 |
+| `ssot` | always | **core**(중립화) | 원칙은 보편, 예시는 언어 종속 |
+| `feedback-loop` | always | **conditional** | `LESSONS` 주입 시에만 의미 — 신호가 이미 있다 |
+| `task-resume` | conditional | **conditional** | 이미 올바르다 |
+| `parallel-worktree` | always | **conditional** | 워크트리 여부는 감지 가능 |
+| `mcp-usage` | always | **conditional** | MCP 설정 존재는 감지 가능 |
+| `agent-system` | always | **reference**(축약) | 키워드 표는 네이티브 중복 |
+| `agent-delegation-chain` | always | **reference** | 세션 시작 시점에 위임 여부를 알 수 없다 |
+| `tool-usage-priority` | always | **삭제** | D-18 |
+
+`reference` 티어의 규범은 core 에 **색인 한 줄**로 남는다 —
+예: *"위임 전 `rules/agent-delegation-chain.md` 를 읽어라."*
+
+### 9.4 작업 항목 추가 (W-025)
+
+| 항목 | 내용 | 담당 |
+| --- | --- | --- |
+| 25-11 | 규범 frontmatter `tier` 선언 + `ALWAYS_RULES` 제거, 훅은 디렉토리 스캔 (D-17) | 워커 |
+| 25-12 | `tool-usage-priority.md` 삭제 + 네이티브 중복 표 제거 (D-18) | 워커 |
+| 25-13 | `ssot`·`mcp-usage` 소비자 중립화 (D-19) | 워커 |
+| 25-14 | core/WORKFLOW 예산 게이트 `verify-done.sh` §16 신설 (D-20) | 워커 |
+| 25-15 | 티어 배정 확정 + 축약 (D-21) | 컨트롤 |
+
+**연쇄 영향 — 이 배치가 건드리는 게이트**: 규범 수가 13 → 12 로 바뀌므로
+`check_doc_counts.py` 대상 문서 전부, `rules/CHECKSUMS.sha256`,
+`docs/architecture/rules/MIRROR.sha256`(해설본 미러 9종 중 해당분), `AGENTS.md`(§11 드리프트),
+`packaging/targets.json` 의 컴포넌트 실측이 함께 움직인다. 배포물 변경이므로
+**버전 범프가 필요하다** — W-025 는 더 이상 "버전 무변경" 배치가 아니다(§5 정정).
+
+### 9.5 수용 테스트 추가
+
+18. **W-025** · 세션 주입 총량이 예산 안이고, 예산을 넘기면 §16 이 실제로 red 를 낸다 *(되돌려-FAIL)*
+19. **W-025** · 규범 파일을 하나 추가하고 `tier` 선언을 빠뜨리면 게이트가 fail 한다
+20. **W-025** · 규범 파일을 열면 frontmatter 만 보고 언제 주입되는지 알 수 있다 — 훅 코드를 읽지 않아도 된다
+21. **W-025** · `conditional` 규범이 신호 없는 세션에서 주입되지 않고, 신호 있는 세션에서 주입된다
