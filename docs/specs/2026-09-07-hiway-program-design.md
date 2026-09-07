@@ -1131,3 +1131,118 @@ D-4 는 "기한 있는 폐기 별칭"이라고만 하고 기한을 정하지 않
 30. **W-025** · `mcp-builder` 본문에 하드코딩된 CLI 사용법 문자열 0건
 31. **W-025** · `enforce-structure` 가 `project-structure.yaml` 없는 프로젝트에서 crash 없이 스킵을 보고한다
 32. **전 배치** · 버전 배정이 W-025 C=2.18.0 / W-026=2.19.0 / W-027=3.0.0 로 CHANGELOG 와 일치
+
+---
+
+## 12. 검수 정정 — 확인된 사실 오류 4건 (2026-09-07 추가)
+
+> 이 절은 §2·§8·§9·§11 을 **정정**한다. opus 검수 세션(`review-spec`, `ctx_bc67718e469b`)이
+> 제기하고 **컨트롤이 직접 재현 검증**한 것만 담는다. 검수 전문: `review/00-REVIEW.md`
+> (워크트리 `review-spec`, 결함 10 + 증거 갭 9 + 순서 의존 8).
+> 나머지 지적의 반영은 검수 산출물 01~04 수령 후 별도 절로 처리한다.
+
+### 12.1 §9.1 주입량 측정이 틀렸다 — **문자수를 바이트로 적었다** (검수 E1)
+
+§9.1·§9.2·D-20·§11.2(e) 가 근거로 삼은 표가 틀렸다.
+
+| 구성 | §9.1 이 적은 값 | **실측(바이트)** |
+| --- | ---: | ---: |
+| RULES | 20,191 | **28,005** |
+| WORKFLOW | 3,728 | **6,057** |
+| 합계 | 23,989 | **34,062** |
+
+**원인**: 측정 스크립트가 `len(str)` 로 **문자수**를 셌다. 한국어 규범 문서는 대부분 3바이트
+문자라 실제 바이트의 70% 로 나온다. 비교 대상인 `AGENTS.md` 예산 24,576 은 **바이트**이므로
+**단위가 다른 두 값을 비교**한 것이다.
+
+```bash
+# 재현 (이 명령을 근거로 삼는다)
+python3 - <<'EOF'
+import importlib.util; from pathlib import Path
+s = importlib.util.spec_from_file_location("ss", "plugins/common/hooks/session-start.py")
+m = importlib.util.module_from_spec(s); s.loader.exec_module(m); r = Path("plugins/common")
+print(len(m.load_rules(r, False).encode()), len(m.load_workflow_skill(r).encode()))
+EOF
+# → 28005 6057
+```
+
+**정정되는 파생 주장**:
+
+- §9.1 *"예산의 98%"* → **139%**. 세션 주입은 이미 `AGENTS.md` 상한을 **넘겼다**.
+  진단과 결정(D-17~D-21)의 방향은 바뀌지 않는다 — **논거가 더 강해진다.**
+- D-20 *"23,989B → 약 7.5KB, 69% 감축"* → 34,062B 기준 **78% 감축**.
+- §11.2(e) 의 core 6종 합 **13,282B 는 맞다** — `wc -c` 로 잰 바이트다.
+  따라서 **core 예산 6,144B(46%)는 유효**하다. 같은 문서 안에서 한 측정은 문자, 한 측정은
+  바이트였고 그래서 서로 모순됐다.
+
+**재발 방지**: 예산 값은 **단위를 필드명에 박는다**(`coreBudgetBytes`). 산문의 숫자가 아니라
+데이터로 옮기는 D-17 계열 작업에서 함께 처리한다.
+
+### 12.2 D-31 의 산술이 19 에 도달하지 않는다 (검수 L5)
+
+D-31 은 *"README.md 삭제 + `references/` 정리 후 = 19"* 라고 적었다. **틀렸다.**
+D-24 는 `references/` 10종 중 **8종만** 지운다 — 실측 참조 수:
+
+| 파일 | 참조하는 SKILL.md |
+| --- | ---: |
+| `task-tools-fallback.md` | **3** (brainstorming·plan-task·auto-dev) |
+| `work-system.md` | **2** (plan-task·auto-dev) |
+| 나머지 8종 | 0~1 (D-24 삭제 대상) |
+
+살아남는 2종 때문에 **`references/` 디렉토리가 남는다** → agy 최상위 진입 =
+19(스킬) + 1(`references/`) = **20**. 수용 테스트 28 은 이대로면 **fail** 이고,
+27-4 의 `_skillsCountNote` "해소됨" 갱신은 **거짓 기록**이 된다.
+
+**정정 — 처방을 추가한다**: 살아남는 2종을
+`plugins/common/skills/plan-task/references/` 로 **이관**한다. 공통 소비자가 `plan-task` 이고,
+`agy` 는 `skills/` **최상위 진입만** 세므로 스킬 디렉토리 안으로 들어가면 집계에서 빠진다 → 19 달성.
+작업 항목 **25-29** 신설(25-18 보다 뒤). D-31 의 "부수 효과" 논거는 이 이관을 포함해야만 성립한다.
+
+### 12.3 D-8 의 강제 장치는 존재하지 않는다 — D-8 을 다시 쓴다 (검수 L1)
+
+D-8 은 *"`check_classification_complete` 가 이 누락을 경고로 잡으므로 … 그 경고가 정확히
+이 결정을 강제하는 장치다"* 라고 적었다. **실측 반증**:
+
+```
+scripts/check_eval_coverage.py  _discover_all_agents()
+  → plugins/common/agents 만 rglob   ← 스킬은 스캔 대상이 아니다
+  → missing = all_agents - covered   ← 단방향, covered - all_agents 를 보지 않는다
+evals/policy.json:141  classificationCompleteEnforceFail: false   ← 에이전트조차 warn
+```
+
+`control-loop` 은 **스킬**이므로 `all_agents` 에 영원히 들어오지 않는다. 등재하지 않아도
+경고 0건, 등재해도 아무 일이 없다. **계획 문서가 W-024 의 결함 클래스를 인용하는 바로 그
+문단 안에서 그 클래스를 재현했다.**
+
+**정정 — D-8 폐기 후 재작성.** 검사를 스킬까지 넓히지 **않는다**: eval 정책의 단위는
+에이전트이고, 스킬을 넣는 것은 범주 오류인 데다 강제도 되지 않는다.
+**D-32 가 자연어 사실성에 한 것과 같은 처리**를 한다 — *"현행 러너로 채점 불가"* 를
+`control-loop/SKILL.md` 본문과 `evals/README.md` 에 명시하고, **게이트 불가임을 함께 적는다.**
+게이트로 안 되는 것을 게이트라 부르지 않는다는 원칙의 일관 적용이다.
+수용 테스트 6(*"경고 없이 통과"*)은 **의미가 없으므로 삭제**한다.
+
+### 12.4 D-12 의 전제가 틀렸다 — 하네스 결합점은 1곳이 아니라 3곳 (검수 L2)
+
+D-12 는 *"하네스 호출 지점 하나만 심으로 뽑는다"* 고 했다. 실측 결합점:
+
+| 위치 | 내용 | D-12 원문 포함 |
+| --- | --- | --- |
+| `evals/run.py:1077` | `build_claude_command` — 시나리오 실행 | ✅ |
+| `evals/run.py:1049` | **LLM judge** — `["claude","-p",…,"--model","sonnet",…]`, **모델명까지 하네스 종속** | ❌ |
+| `evals/run.py:1304` | `shutil.which("claude")` 가용성 게이트 | ❌ |
+
+하나만 뽑으면 러너는 여전히 `claude` CLI 없이 **채점 자체를 못 한다** — D-12 가 막겠다고
+선언한 자기모순이 그대로 남는다.
+
+**정정**: `Harness` 프로토콜에 **`run_scenario_cmd()` · `judge_cmd()` · `is_available()` 3 메서드**.
+judge 의 모델명도 구현체 소유로 옮긴다. **수용 테스트 16 재작성** — `grep -c claude evals/run.py`
+= 14 이고 그중 다수가 CLI 호출과 무관한 문자열(`"claude_exit"`, argparse description)이므로
+**문자열 스캔이 아니라 호출 스캔**(AST 로 `subprocess.run` 첫 인자 확인)으로 판정한다.
+
+### 12.5 이 절이 말하는 것
+
+네 건 모두 **내가 쓴 것**이고, 네 건 모두 **실측으로 반증됐다**. 공통 원인은 하나다 —
+**검증 없이 쓴 숫자와 전제**. §0 의 판단 기준 1(약속과 실물의 일치)을 설계 문서 자신이 어겼다.
+
+그래서 검수 산출물 01~04 를 받을 때도 같은 규율을 적용한다: **재현 명령이 붙지 않은 주장은
+반영하지 않는다.** 이번 4건은 전부 컨트롤이 직접 재현했다.
