@@ -196,19 +196,25 @@ def _dumps(d: dict) -> str:
     return json.dumps(d, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-def _resolve_in_repo(repo_root: Path, rel_path: str) -> tuple[Path | None, str | None]:
-    """`rel_path`(정책 파일의 문자열)를 `repo_root` 안으로만 한정해 해석한다.
+def _resolve_in_repo(
+    container_root: Path, rel_path: str
+) -> tuple[Path | None, str | None]:
+    """`rel_path`(정책 파일의 문자열)를 `container_root` 안으로만 한정해 해석한다.
 
-    `repo_root / rel_path`는 `rel_path`가 절대경로면 `repo_root`를 버리고
+    `container_root / rel_path`는 `rel_path`가 절대경로면 `container_root`를 버리고
     `rel_path` 그대로가 된다(pathlib의 문서화된 동작). `..`나 심링크로도 트리 밖으로
-    나갈 수 있다 — 셋 다 `resolve()` 한 번으로 정규화한 뒤 `repo_root` 하위인지
+    나갈 수 있다 — 셋 다 `resolve()` 한 번으로 정규화한 뒤 `container_root` 하위인지
     대조하면 전부 같은 검사로 잡힌다. **호출자는 이 결과(Path)를 그대로 재사용해야
-    한다** — 다시 `repo_root / rel_path`를 계산하면 검증한 값과 실제로 쓰는 값이
+    한다** — 다시 `container_root / rel_path`를 계산하면 검증한 값과 실제로 쓰는 값이
     달라질 수 있다(모듈 docstring 원칙 6).
+
+    시그니처는 `scripts/check_eval_coverage.py::_resolve_in_repo`와 **동일**하다
+    (D-15: 구현은 여러 벌, 계약만 하나 — 파라미터 이름까지 통일해 둔다).
+    공유 적대적 케이스 표는 `scripts/tests/resolve_in_repo_contract.py`.
     """
-    real = (repo_root / rel_path).resolve()
+    real = (container_root / rel_path).resolve()
     try:
-        real.relative_to(repo_root.resolve())
+        real.relative_to(container_root.resolve())
     except ValueError:
         return None, f"레포 루트 밖을 가리킨다 → {real}"
     return real, None
