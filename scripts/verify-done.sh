@@ -594,6 +594,24 @@ else
   red "AGENTS.md 없음 — ./scripts/export-harness.sh 로 먼저 생성하라"
 fi
 
+hdr "17. 배포물 안 오케스트레이션 도구 이름 0건 (G-D6, W-026 / D-6·Q5)"
+# control-loop의 운송 부록(docs/control-loop-transport.md)은 특정 오케스트레이션
+# CLI(orca) 이름을 담지만, 그 부록은 비규범이고 docs/에만 있다(D-6). plugins/ 아래
+# 어디든 이 이름이 새면 배포물이 소비자에게 orca 같은 특정 도구를 전제하는 것처럼
+# 보이는 드리프트다 — G-D6는 이 불변식을 결정적으로 강제한다(되돌려-FAIL).
+# 대소문자 구분: export_harness.py의 "Orca"(ADE 예시로서의 일반 명사, §7 주석 참고)
+# 는 오케스트레이션 CLI를 가리키는 것이 아니므로 소문자 정확 매치만 검사한다.
+# git-tracked 파일만 본다 — .ruff_cache·__pycache__ 등 생성물의 우연한 매치(바이너리
+# 캐시 blob 등)를 걸러낸다. 소스가 아닌 것은 이 게이트의 대상이 아니다.
+ORCA_FILES=$(git ls-files plugins 2>/dev/null | xargs -I{} sh -c 'grep -l "orca" "{}" 2>/dev/null' 2>/dev/null)
+ORCA_HITS=$(printf '%s\n' "$ORCA_FILES" | grep -c . || true)
+if [ "$ORCA_HITS" -eq 0 ]; then
+  green "plugins/ 안 'orca' 0건"
+else
+  red "plugins/ 안 'orca' ${ORCA_HITS}건 — 운송 도구 이름은 docs/control-loop-transport.md로"
+  printf '%s\n' "$ORCA_FILES" | sed 's/^/      /'
+fi
+
 # ── 결과 ──────────────────────────────────────────────────────────
 hdr "═══ 기계 검사 결과: ${PASS} pass / ${FAIL} fail ═══"
 hdr "수동 DoD attest (증거와 함께 명시 — 자동 검사 불가)"
