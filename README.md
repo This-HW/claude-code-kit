@@ -42,6 +42,31 @@ qualifies); older interpreters make the hooks no-ops and the session warns you o
 > documented as nightly, so expect about a day for new releases to propagate.
 > Path 2 tracks `main` directly with no delay.
 
+## Migrating from `claude-code-kit` (v3.0.0 rename)
+
+The plugin was renamed `claude-code-kit` → **`hiway-kit`** in v3.0.0. There is **no alias** —
+coexistence was measured to cause silent duplicate skill loading (`docs/specs/2026-09-07-rename-probe.md`),
+so the old name was removed from the catalog outright.
+
+```bash
+/plugin uninstall claude-code-kit@claude-code-kit
+/plugin marketplace remove claude-code-kit
+/plugin marketplace add This-HW/claude-code-kit     # repo URL is unchanged
+/plugin install hiway-kit@hiway-kit
+```
+
+**Pick the moment deliberately.** Plugins install at *user scope*, so uninstall/reinstall changes
+hook registration and rule injection for **every session on the machine — including ones running
+right now**. A session that started under the old install keeps its already-injected context but
+its hooks may stop resolving mid-flight.
+
+Migrate when no long-running work is in progress, or accept that in-flight sessions should be
+restarted afterward. This cost is inherent to the rename, not to any particular version: the probe
+confirmed `enabledPlugins` migration is **manual** under every path, so there is no version that
+carries you across automatically.
+
+Skill invocations change too: `/claude-code-kit:plan-task` → **`/hiway-kit:plan-task`**.
+
 ## Full Mode (Security Hooks + Auto-format)
 
 ```bash
