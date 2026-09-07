@@ -25,35 +25,6 @@ brainstorming → plan-task → auto-dev
 
 > 완료 선언 전 `scripts/verify-done.sh` 게이트 통과 필수 (definition-of-done).
 
-## Skill Trigger Map
-
-| 상황 | 스킬 |
-|------|------|
-| 새 기능 / 창작 | `brainstorming` 먼저 |
-| 요구사항 불명확 | `claude-code-kit:plan-task` |
-| 계획 구현 준비 | `claude-code-kit:auto-dev` |
-| 버그 / 에러 | `claude-code-kit:debug` |
-| 테스트 필요 | `claude-code-kit:test` |
-| 코드 리뷰 | `claude-code-kit:review` |
-| 리서치 필요 | `claude-code-kit:web-research` |
-| 네이티브 흡수 점검(정기) | `claude-code-kit:native-watch` |
-| 반복 결함 근원 개선 | `claude-code-kit:self-improve` |
-| 여러 하네스가 한 레포를 만짐 | `claude-code-kit:harness-export` |
-| eval 커버리지 없는 에이전트 수정 | `claude-code-kit:eval-forge` |
-| 어려운 문제를 풀고 절차를 남기고 싶음 | `claude-code-kit:skill-forge` |
-
-## Agent Selection (kit 고유 — superpowers엔 없음)
-
-| 키워드 | 에이전트 |
-|--------|----------|
-| "조사", "리서치" | `research-external` |
-| "계획", "설계" | `plan-implementation` |
-| "구현", "코드 작성" | `implement-code` |
-| "리뷰", "검토" | `review-code` |
-| "탐색", "파악" | `explore-codebase` |
-| "테스트" | `write-tests` |
-| "수정", "버그" | `fix-bugs` |
-
 ## Work System Detection
 
 `docs/works/` 폴더가 있으면: Work ID 기반 추적 활성화

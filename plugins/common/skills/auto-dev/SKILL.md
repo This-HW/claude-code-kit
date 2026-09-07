@@ -70,7 +70,7 @@ Work ID 확보 후 반드시 실행:
 
 > **Task 도구가 없으면 멈추지 말고 대체 경로로 간다** — `ToolSearch`가 Task 계열을
 > 반환하지 않는 호스트/세션이 있다(F-038). 그때는 `./scripts/checklist.sh` 기반
-> durable checklist로 추적한다. 규율 SSOT: `skills/references/task-tools-fallback.md`.
+> durable checklist로 추적한다. 규율 SSOT: `skills/plan-task/references/task-tools-fallback.md`.
 2. `TaskList` 실행 → subject가 `[W-XXX]`로 시작하는 Task 있으면 상태 확인 후 재개 (재생성 스킵, W-XXX는 현재 Work ID)
 3. Task 없으면 → Step 1: Development Tasks 생성으로 이동
 
@@ -383,5 +383,5 @@ Work 관련 작업(상태 전환, progress.md, decisions.md) 전부 생략하고
 
 | 문서              | 경로                                              |
 | ----------------- | ------------------------------------------------- |
-| Work 시스템 전체  | `plugins/common/skills/references/work-system.md` |
+| Work 시스템 전체  | `plugins/common/skills/plan-task/references/work-system.md` |
 | Planning 프로토콜 | `plugins/common/rules/planning-protocol.md`       |

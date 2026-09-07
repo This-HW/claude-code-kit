@@ -45,8 +45,6 @@ name: skill-name
 description: What it does + when to use
 model: sonnet | opus | haiku
 effort: low | medium | high | max
-argument-hint: "[파라미터 힌트]"
-allowed-tools: [tools]
 ---
 ```
 
@@ -62,10 +60,11 @@ allowed-tools: [tools]
 
 ---
 
-## 플러그인 구조 등록
+## 스킬 위치
 
-`plugins/{domain}/.claude-plugin/plugin.json`의 `skills` 필드 확인 후
-`plugins/{domain}/skills/{name}/SKILL.md` 경로에 파일 생성.
+`plugins/{domain}/skills/{name}/SKILL.md` 경로에 파일을 생성한다.
+**manifest(`plugin.json`)에는 skill 레지스트리가 없다** — 디렉토리에서 자동 발견되므로
+등록 단계가 없다.
 
 ---
 
@@ -79,8 +78,6 @@ name: skill-name
 description: Brief description. Use when [scenario].
 model: sonnet
 effort: medium
-argument-hint: "[argument description]"
-allowed-tools: Read, Write, Bash
 ---
 
 # Skill Title
@@ -131,8 +128,6 @@ name: skill-name
 description: Orchestrates agents for [purpose].
 model: sonnet
 effort: high
-argument-hint: "[argument description]"
-allowed-tools: Task, Read, Glob, Grep
 ---
 
 # Skill Title
@@ -184,7 +179,6 @@ prompt: |
 
 - [ ] Frontmatter 완전함 (name, description, model, effort)
 - [ ] 설명이 명확함 (what + when to use)
-- [ ] argument-hint 추가됨
 - [ ] 사용법 예시 포함
 - [ ] 워크플로우 단계별 설명
 - [ ] `plugins/{domain}/skills/{name}/SKILL.md` 경로 준수

@@ -454,7 +454,7 @@ Round 1 개발자 의견 반영:
 
 1. [ ] P0 질문 답변 (사용자)
 2. [ ] 비즈니스 규칙 문서화 (define-business-logic)
-3. [ ] DB 스키마 최종 확정 (design-database)
+3. [ ] DB 스키마 최종 확정 (전용 에이전트 없음, general-purpose)
 4. [ ] 구현 시작 (implement-code)
 5. [ ] 보안 검증 (security-scan)
 ```
