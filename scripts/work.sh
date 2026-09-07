@@ -2,7 +2,8 @@
 # scripts/work.sh — Work 상태 관리 CLI
 set -euo pipefail
 
-WORKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/docs/works"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKS_DIR="${REPO_ROOT}/docs/works"
 
 # ---------------------------------------------------------------------------
 # Usage
@@ -54,11 +55,39 @@ print(t)
 PYEOF
 }
 
-# Find the next W-XXX number by scanning all three stage dirs.
-# .claimed/ (ID 선점 레지스트리, claim_work_id 참조)도 depth-2라 자동 포함된다 —
-# 아직 idea/ 디렉토리를 만들지 못한 동시 프로세스의 선점 번호도 건너뛴다.
+# Shared per-repo state directory — resolved once, used everywhere (경로 봉쇄 관례,
+# CLAUDE.md). `git rev-parse --git-common-dir` returns a path **relative to REPO_ROOT
+# in the primary checkout** (".git") but an **absolute path in a worktree**
+# (실측 확인, D-40/D-41) — so it must be normalised before use, not string-compared.
+# This directory is shared by every worktree of this repo and is structurally
+# untracked, which is exactly what fixes the cross-worktree W-XXX collision below.
+CCK_STATE_DIR=""
+cck_state_dir() {
+  if [[ -n "$CCK_STATE_DIR" ]]; then
+    printf "%s" "$CCK_STATE_DIR"
+    return 0
+  fi
+  local raw
+  raw="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null)" || {
+    echo "Error: ${REPO_ROOT} is not inside a git repository (--git-common-dir failed)" >&2
+    exit 1
+  }
+  case "$raw" in
+    /*) : ;;
+    *) raw="${REPO_ROOT}/${raw}" ;;
+  esac
+  CCK_STATE_DIR="$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "${raw}/cck")"
+  printf "%s" "$CCK_STATE_DIR"
+}
+
+# Find the next W-XXX number by scanning all three stage dirs *and* the shared
+# claim registry (cck_state_dir/claimed — see claim_work_id). The claim registry
+# must be included here too: it is what lets a concurrent process in another
+# worktree see a number that has been reserved but has no docs/works directory yet.
 next_work_number() {
   local max="0"
+  local claimed_dir
+  claimed_dir="$(cck_state_dir)/claimed"
   while IFS= read -r -d '' dir; do
     local base
     base="$(basename "$dir")"
@@ -67,33 +96,39 @@ next_work_number() {
       n=$((10#$n))  # strip leading zeros
       if (( n > max )); then max=$n; fi
     fi
-  done < <(find "$WORKS_DIR" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null)
+  done < <(
+    {
+      find "$WORKS_DIR" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null
+      find "$claimed_dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null
+    }
+  )
   printf "%03d" $(( max + 1 ))
 }
 
-# Atomically claim a unique Work ID (TOCTOU 방지 — W-011).
+# Atomically claim a unique Work ID (TOCTOU 방지 — W-011, cross-worktree 방지 — D-41/25-31).
 # next_work_number 계산과 디렉토리 생성 사이에 다른 프로세스가 같은 번호를
-# 받을 수 있다(동시 `work.sh new`). mkdir의 원자성으로 .claimed/W-XXX를
+# 받을 수 있다(동시 `work.sh new`). mkdir의 원자성으로 claimed/W-XXX를
 # 선점해 번호를 확정한다 — 선점 실패 시 재채번 후 재시도.
-# .claimed 항목은 영구 레지스트리로 남아 next_work_number가 재사용을 막는다.
 #
-# 범위 한계: 이 원자성은 **하나의 체크아웃을 공유하는** 프로세스들만 직렬화한다.
-# 별도 worktree/clone의 동시 세션은 각자의 docs/works만 보므로 같은 W-XXX를 받을
-# 수 있다(.claimed는 커밋되지 않는 빈 디렉토리라 git이 추적/병합하지 못한다). 그런
-# 중복은 병합 후 find_work_dir가 경고로 표면화한다(치명 실패 아님).
+# 레지스트리는 `cck_state_dir`(레포의 모든 워크트리·clone이 공유하는 git-common-dir
+# 하위)에 있다 — 이전에는 docs/works/.claimed 였고, 이는 워크트리별로 별도 체크아웃이라
+# 동시 세션이 같은 W-XXX를 받을 수 있었다(D-41). 크로스-레포(별도 clone)는 여전히
+# 이 메커니즘으로 탐지할 수 없다 — git-common-dir 자체가 레포 경계이기 때문이다.
 claim_work_id() {
-  mkdir -p "${WORKS_DIR}/.claimed"
+  local claimed_dir
+  claimed_dir="$(cck_state_dir)/claimed"
+  mkdir -p "$claimed_dir"
   local num
   for _ in $(seq 1 20); do
     num="$(next_work_number)"
-    if mkdir "${WORKS_DIR}/.claimed/W-${num}" 2>/dev/null; then
+    if mkdir "${claimed_dir}/W-${num}" 2>/dev/null; then
       printf "%s" "$num"
       return 0
     fi
     # 경합 시 재채번 전 짧은 지터 — 동시 프로세스들이 같은 번호로 몰리는 것 완화
     sleep "0.0$((RANDOM % 5 + 1))"
   done
-  echo "Error: could not allocate a unique Work ID after 20 attempts" >&2
+  echo "Error: could not allocate a unique Work ID after 20 attempts (already claimed)" >&2
   exit 1
 }
 
@@ -215,6 +250,29 @@ with open(file, 'w') as f:
 PYEOF
 }
 
+# Sync the body's `> Status: ...` inline line with the frontmatter status (D-29).
+# W-001~W-004 갔던 문제 — completed 후에도 본문 인라인 줄이 안 바뀌어 진행 중처럼
+# 읽혔다. 과거 파일은 역사 기록이라 고치지 않는다(감사 수용 기준 5) — 이 함수는
+# `cmd_complete`가 새로 만드는 전환에만 적용되고, 패턴이 없는 파일은 그대로 둔다.
+sync_status_line() {
+  local file="$1"
+  local status="$2"
+  python3 - "$file" "$status" <<'PYEOF'
+import sys, re
+
+file, status = sys.argv[1], sys.argv[2]
+with open(file) as f:
+    content = f.read()
+
+new_content, n = re.subn(
+    r'^(> Status:).*$', r'\1 ' + status, content, count=1, flags=re.MULTILINE
+)
+if n:
+    with open(file, 'w') as f:
+        f.write(new_content)
+PYEOF
+}
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -230,11 +288,13 @@ cmd_new() {
   slug="$(to_slug "$title")"
   slug="${slug:-untitled}"  # 특수문자만 있는 제목이 빈 슬러그가 되는 것 방지
   local num
-  num="$(claim_work_id)"  # 원자적 ID 선점 (동시 실행 시 중복 W-XXX 방지)
+  num="$(claim_work_id)"  # 원자적 ID 선점 (동시 실행 시 중복 W-XXX 방지, 워크트리 간 공유 — D-41)
   local id="W-${num}"
-  # claim 이후 실패(set -e) 시 고아 .claimed 잔존으로 번호가 영구 소각되는 것 방지 —
+  local claimed_dir
+  claimed_dir="$(cck_state_dir)/claimed"
+  # claim 이후 실패(set -e) 시 고아 claimed 항목 잔존으로 번호가 영구 소각되는 것 방지 —
   # Work 디렉토리 생성 성공 후에만 trap 해제.
-  trap 'rmdir "${WORKS_DIR}/.claimed/W-'"${num}"'" 2>/dev/null || true' EXIT
+  trap 'rmdir "'"${claimed_dir}/W-${num}"'" 2>/dev/null || true' EXIT
   local dir="${WORKS_DIR}/idea/${id}-${slug}"
   local now
   now="$(iso8601)"
@@ -522,6 +582,7 @@ cmd_complete() {
   set_field "$md" status completed
   set_field "$md" completed_at "$now"
   set_field "$md" updated_at "$now"
+  sync_status_line "$md" completed
 
   # Only append validation if not already present (e.g. added by next-phase)
   local phases
