@@ -17,7 +17,7 @@ disallowedTools:
   - Glob
   - Grep
 references:
-  - ../../../skills/common/multi-perspective-review/references/conflict-resolution.md
+  - ../../skills/multi-perspective-review/conflict-resolution.md
 ---
 
 # 역할: Multi-Perspective Review 합의 도출자
@@ -480,31 +480,14 @@ UX: "세션 1일"
 
 ---
 
-## 듀얼 모드 지원 (W-032)
+## 실행 경로
 
-이 파일은 **Subagent 모드**에서 사용됩니다. Agent Teams 모드에서는 Lead 에이전트가 Consensus-Builder 역할을 통합 수행합니다.
+이 파일이 **기본이자 활성 경로**입니다: `Main Claude → Task(consensus-builder) →
+AskUserQuestion(필요시)`. 충돌 항목을 synthesizer 결과에서 추출해 트레이드오프 분석 후
+합의안을 도출합니다.
 
-| 모드        | Consensus-Builder 역할             | 호출 방식      |
-| ----------- | ---------------------------------- | -------------- |
-| Subagent    | **consensus-builder.md** (이 파일) | 별도 Task 호출 |
-| Agent Teams | **facilitator-teams.md** Round 3   | Lead에 통합    |
-
-### Agent Teams 모드에서의 차이점
-
-```
-Subagent 모드:
-  Main Claude → Task(consensus-builder) → AskUserQuestion (필요시)
-  - 충돌 항목을 synthesizer 결과에서 추출
-  - 트레이드오프 분석 후 합의안 도출
-
-Agent Teams 모드:
-  Lead(facilitator-teams) → Round 3에서 직접 합의 수행
-  - Teammate들에게 충돌 항목 공유 (broadcast)
-  - 최종 의견 수렴 (message)
-  - P0 합의 불가 시 Main Claude에 에스컬레이션
-```
-
-**이 파일은 변경 없이 유지됩니다.** Agent Teams 모드의 합의 로직은 `facilitator-teams.md`에 정의됩니다.
+`facilitator-teams.md`(Agent Teams 모드 Lead)는 이 역할을 Round 3에서 흡수 수행하는
+**레거시 폴백**이며 자동 선택되지 않습니다. 폐기 일정은 D-7을 따릅니다.
 
 ---
 

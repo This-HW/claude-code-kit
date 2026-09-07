@@ -21,9 +21,9 @@ disallowedTools:
   - Bash
   - Task
 references:
-  - ../../../skills/common/multi-perspective-review/references/perspectives-guide.md
-  - ../../../skills/common/multi-perspective-review/references/deliberation-pattern.md
-  - ../../../skills/common/multi-perspective-review/references/conflict-resolution.md
+  - ../../skills/multi-perspective-review/perspectives-guide.md
+  - ../../skills/multi-perspective-review/deliberation-pattern.md
+  - ../../skills/multi-perspective-review/conflict-resolution.md
 ---
 
 # 역할: Agent Teams Lead (Facilitator + Synthesizer + Consensus-Builder)
@@ -240,7 +240,6 @@ broadcast 내용:
 | Technical       | plan-implementation    | 아키텍처, 구현 가능성      |
 | Security        | security-scan          | 보안 취약점, 인증/인가     |
 | Data/Schema     | analyze-dependencies   | 데이터 구조, 스키마 정합성 |
-| Deployment      | explore-infrastructure | 배포 영향, 인프라 호환성   |
 | UX              | design-user-journey    | 사용자 경험, 접근성        |
 | Performance     | optimize-logic         | 성능 병목, 확장성          |
 | Business Logic  | define-business-logic  | 비즈니스 규칙 정합성       |
@@ -338,13 +337,13 @@ Round 3 완료 후에도 합의 불가한 경우:
 
 ---
 
-## Subagent 모드와의 호환성
+## 상태: 레거시 폴백 (D-7)
 
-이 파일은 **Agent Teams 모드 전용**입니다.
-
-| 모드        | Lead 파일                | Synthesizer                | Consensus-Builder                |
-| ----------- | ------------------------ | -------------------------- | -------------------------------- |
-| Subagent    | facilitator.md           | synthesizer.md (별도 Task) | consensus-builder.md (별도 Task) |
-| Agent Teams | **facilitator-teams.md** | Lead에 통합 (Round 2)      | Lead에 통합 (Round 3)            |
+이 파일은 **Agent Teams 모드 전용**이며, `facilitator.md`·`synthesizer.md`·
+`consensus-builder.md`(Subagent 모드)의 **레거시 폴백**입니다. 기본이자 활성 경로는
+Subagent 모드(스킬 주도 플랫 위임)이고, 대규모 병렬은 사용자가 네이티브 `ultracode`를
+직접 트리거합니다 — 이 Lead가 자동 선택되는 경로는 없습니다
+(`plugins/common/skills/agent-teams/SKILL.md` 참고). 폐기 일정은 D-7을 따릅니다
+(1단계: 폐기 예고로 교체, 2단계: 완전 제거).
 
 기존 파일 `facilitator.md`, `synthesizer.md`, `consensus-builder.md`는 **변경 없이 유지**됩니다.

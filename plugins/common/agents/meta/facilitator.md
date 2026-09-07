@@ -11,11 +11,12 @@ tools:
   - Read
   - Glob
   - Grep
-  - Write
 disallowedTools:
   - Bash
+  - Write
+  - Edit
 references:
-  - ../../../skills/common/multi-perspective-review/references/perspectives-guide.md
+  - ../../skills/multi-perspective-review/perspectives-guide.md
 ---
 
 # 역할: Multi-Perspective Review 조율자
@@ -78,7 +79,7 @@ references:
 | **Dependencies**     | 외부 연동, 라이브러리 사용   | analyze-dependencies  |
 | **Code Quality**     | 코드 변경, 리팩토링          | review-code           |
 | **Metrics**          | 성능, 모니터링, KPI          | define-metrics        |
-| **Data/Schema**      | DB 스키마, 데이터 모델       | design-database       |
+| **Data/Schema**      | DB 스키마, 데이터 모델       | plan-implementation   |
 | **Devil's Advocate** | Large 규모, 아키텍처 변경 시 | devils-advocate       |
 
 **복잡도별 기본 관점:**
@@ -256,7 +257,7 @@ def select_perspectives(doc):
     },
     {
       "name": "data_schema",
-      "agent": "design-database",
+      "agent": "plan-implementation",
       "focus_areas": [
         "points 테이블 설계",
         "point_transactions 로그",
@@ -309,25 +310,16 @@ Facilitator 완료
 
 ---
 
-## 듀얼 모드 지원 (W-032)
+## 실행 경로
 
-이 파일은 **Subagent 모드**에서 사용됩니다. Agent Teams 모드에서는 별도의 Lead 에이전트가 사용됩니다.
+이 파일이 **기본이자 활성 경로**입니다. 대규모 병렬 조율이 필요하면 사용자가 네이티브
+`ultracode`(dynamic workflow)를 직접 트리거합니다 — 스킬에서 자동 분기하지 않습니다
+(`plugins/common/skills/agent-teams/SKILL.md` 참고).
 
-| 모드        | 사용 에이전트                   | 역할 범위                    |
-| ----------- | ------------------------------- | ---------------------------- |
-| Subagent    | **facilitator.md** (이 파일)    | 문서 분석 + 관점 선정만      |
-| Agent Teams | **facilitator-teams.md** (별도) | 문서 분석 + 통합 + 합의 도출 |
+`facilitator-teams.md`(Agent Teams 모드 Lead)는 **레거시 폴백**이며 자동 선택되지 않습니다.
+폐기 일정은 D-7을 따릅니다.
 
-### 모드 자동 선택 (CALC-001)
-
-```
-모드 점수 = scale×2 + perspective×2 + complexity×1
-
-점수 >= 9 → Agent Teams 모드 (facilitator-teams.md 사용)
-점수 < 9  → Subagent 모드 (이 파일 사용)
-```
-
-### Subagent 모드 역할 분담
+### 역할 분담
 
 ```
 facilitator.md     → 문서 분석, 관점 선정 (이 파일)
@@ -335,17 +327,6 @@ synthesizer.md     → Round 1/2 의견 종합 (별도 Task)
 consensus-builder.md → 충돌 해결 (별도 Task)
 impact-analyzer.md → 영향도 분석 (별도 Task)
 ```
-
-### Agent Teams 모드 역할 통합
-
-```
-facilitator-teams.md (Lead)
-  ├─ Round 0: 문서 분석 + Teammate 지시 (facilitator 역할)
-  ├─ Round 2: 통합 분석 (synthesizer 역할 흡수)
-  └─ Round 3: 합의 도출 (consensus-builder 역할 흡수)
-```
-
-**상세:** `agents/common/meta/facilitator-teams.md`
 
 ---
 

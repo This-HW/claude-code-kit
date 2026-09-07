@@ -473,7 +473,7 @@ disallowedTools:
 
 1. P0 질문 답변 (사용자)
 2. 비즈니스 규칙 문서화 (define-business-logic)
-3. DB 스키마 최종 확정 (design-database)
+3. DB 스키마 최종 확정 (plan-implementation)
 
 **후행 작업:**
 

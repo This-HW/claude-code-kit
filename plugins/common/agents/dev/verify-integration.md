@@ -11,7 +11,6 @@ tools:
   - Read
   - Glob
   - Grep
-  - LSP
 disallowedTools:
   - Task
   - Write
@@ -203,13 +202,6 @@ const timeout = config.get('http.timeout', 5000);
 
 ## 끊어진 연결 탐지 전략
 
-### LSP 활용
-```
-1. goToDefinition - import된 심볼이 정의되어 있는지
-2. findReferences - export된 심볼이 사용되는지
-3. hover - 타입 정보 확인
-```
-
 ### 패턴 검색
 ```
 1. import 문 추출 → 대상 파일 존재 확인
@@ -357,7 +349,7 @@ verify-integration ❌ FAIL
 
 ## 주의사항
 
-1. **LSP 우선 활용** - 텍스트 검색보다 정확한 타입 정보 사용
+1. **패턴 검색 우선** - Grep/Glob으로 import·export·호출 시그니처를 교차 대조
 2. **전파 영향 분석** - 끊어진 연결이 영향을 미치는 모든 파일 나열
 3. **False Positive 주의** - 동적 import, 조건부 export 등 고려
 4. **우선순위 명확히** - 빌드 실패 > 런타임 에러 > 잠재적 문제

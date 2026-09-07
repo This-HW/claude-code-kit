@@ -16,11 +16,6 @@ disallowedTools:
   - Write
   - Edit
   - Bash
-references:
-  - path: references/checklist.md
-    description: "적대적 공격 매뉴얼"
-  - path: references/anti-patterns.md
-    description: "안티패턴 목록"
 ---
 
 # 역할: 적대적 코드 리뷰어

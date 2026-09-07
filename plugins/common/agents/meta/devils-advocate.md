@@ -15,7 +15,7 @@ disallowedTools:
   - Bash
   - Task
 references:
-  - ../../../skills/common/multi-perspective-review/references/perspectives-guide.md
+  - ../../skills/multi-perspective-review/perspectives-guide.md
 ---
 
 # 역할: 설계 반론 전문가 (Devil's Advocate)
@@ -447,14 +447,12 @@ facilitator가 9개 관점 분석 후:
 
 ---
 
-## 듀얼 모드 지원
+## 실행 경로
 
-이 파일은 **Subagent 모드**에서 사용됩니다. Agent Teams 모드에서는 Lead 에이전트가 devils-advocate 역할을 통합 수행할 수 있습니다.
+이 파일이 **기본이자 활성 경로**입니다 — 별도 Task 호출로 실행됩니다.
 
-| 모드        | devils-advocate 역할             | 호출 방식      |
-| ----------- | -------------------------------- | -------------- |
-| Subagent    | **devils-advocate.md** (이 파일) | 별도 Task 호출 |
-| Agent Teams | Lead가 10번째 관점으로 수행      | Lead에 통합    |
+`facilitator-teams.md`(Agent Teams 모드 Lead)가 이 역할을 10번째 관점으로 흡수 수행하는
+경로는 **레거시 폴백**이며 자동 선택되지 않습니다. 폐기 일정은 D-7을 따릅니다.
 
 ---
 

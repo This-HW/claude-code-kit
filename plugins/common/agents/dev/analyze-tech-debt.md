@@ -92,7 +92,7 @@ grep -rn "temporary\|temp\|workaround" --include="*.py"
 # 📊 기술 부채 리포트
 
 분석일: 2026-01-30
-대상: claude_setting
+대상: [프로젝트명]
 
 ## 요약
 

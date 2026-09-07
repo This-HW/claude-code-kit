@@ -292,11 +292,8 @@ clarify-requirements 완료
     ├── 비즈니스 규칙 필요 → Planning/define-business-logic
     │                       비즈니스 로직 정의
     │
-    ├── 기술 구현 가능 → Dev/plan-implementation
-    │                   기술 구현 계획
-    │
-    └── 인프라 관련 → Infra/plan-infrastructure
-                     인프라 계획
+    └── 기술 구현 가능 → Dev/plan-implementation
+                        기술 구현 계획 (인프라 관련 포함)
 ```
 
 ### 위임 대상 선택 기준
@@ -306,7 +303,7 @@ clarify-requirements 완료
 | 사용자 플로우 정의 | **Planning/design-user-journey** |
 | 비즈니스 규칙 정의 | **Planning/define-business-logic** |
 | 코드 구현 계획 | **Dev/plan-implementation** |
-| 인프라 구성 계획 | **Infra/plan-infrastructure** |
+| 인프라 구성 계획 | **Dev/plan-implementation** |
 | API 설계 | **Dev/plan-implementation** |
 
 ---
