@@ -5,7 +5,6 @@
 """
 
 import contextlib
-import importlib.util
 import json
 import shutil
 import subprocess
@@ -14,18 +13,14 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from module_loader import load_module_by_path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SCRIPTS_DIR.parent
 
 
 def _load_module() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "eval_forge", SCRIPTS_DIR / "eval-forge.py"
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return load_module_by_path(SCRIPTS_DIR / "eval-forge.py", "eval_forge")
 
 
 _mod = _load_module()
