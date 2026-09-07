@@ -13,6 +13,31 @@ SETUP_DIR = pathlib.Path(__file__).resolve().parent  # plugins/common/setup/
 warnings = []
 
 
+def _default_git_hooks_dir(repo_root: pathlib.Path) -> pathlib.Path:
+    """저장소의 기본 hooks 디렉토리를 `git rev-parse --git-path hooks` 로 얻는다.
+
+    `repo_root / ".git/hooks"` 로 조립하면 **워크트리에서 깨진다** — 워크트리의
+    `.git` 은 디렉토리가 아니라 gitdir 포인터 파일이라 `.git/hooks` 접근이
+    ENOTDIR 로 실패하고, 이 킷이 권장하는 운영 형태(isolation: worktree,
+    parallel-worktree)에서 **매 세션 경고가 발화**했다 (D-51 위반).
+
+    `--git-path` 는 워크트리에서 공용 hooks 절대경로를, 주 체크아웃에서 상대경로를
+    각각 올바르게 돌려준다. 상대경로일 수 있으므로 repo_root 기준으로 resolve 한다.
+    """
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--git-path", "hooks"],
+            cwd=str(repo_root), capture_output=True, text=True, timeout=5, check=False,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return (repo_root / r.stdout.strip()).resolve()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    # git 조회 실패 시에도 침묵하지 않되, 조립은 하지 않는다 — 판정 불가는 None 이 아니라
+    # 기존 관례대로 최선 추정을 쓰되 호출부가 존재 검사를 한다.
+    return (repo_root / ".git" / "hooks").resolve()
+
+
 def stale_venv_interp(venv_dir):
     """venv 콘솔 스크립트의 shebang이 이 venv 밖 python을 가리키면 그 경로를 반환한다.
 
@@ -140,12 +165,12 @@ try:
                         f"core.hooksPath가 repo 외부를 가리킵니다: {raw_hooks_path!r}. "
                         "기본 .git/hooks를 사용합니다."
                     )
-                    git_hooks_dir = repo_root / ".git/hooks"
+                    git_hooks_dir = _default_git_hooks_dir(repo_root)
             else:
-                git_hooks_dir = repo_root / ".git/hooks"
+                git_hooks_dir = _default_git_hooks_dir(repo_root)
         except subprocess.TimeoutExpired:
             warnings.append("git config core.hooksPath 시간 초과")
-            git_hooks_dir = repo_root / ".git/hooks"
+            git_hooks_dir = _default_git_hooks_dir(repo_root)
 
         # 1c. stale venv 감지 — 프로젝트 디렉토리 이동/복사 후의 침묵 실패 (stale_venv_interp 참고)
         for venv_name in (".venv", "venv"):
