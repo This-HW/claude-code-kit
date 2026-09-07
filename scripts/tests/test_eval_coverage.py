@@ -7,25 +7,21 @@ baseline/scenarios)을 오염시키면 안 된다(scripts/tests/test_eval_forge.
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import shutil
 from pathlib import Path
 from types import ModuleType
+
+from module_loader import load_module_by_path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SCRIPTS_DIR.parent
 
 
 def _load_module() -> ModuleType:
-    # scripts/에 __init__.py가 없어 일반 import가 안 되므로 경로 기반 로드로
-    # 대상을 가져온다 (scripts/tests/test_eval_forge.py와 동일 관례).
-    spec = importlib.util.spec_from_file_location(
-        "check_eval_coverage", SCRIPTS_DIR / "check_eval_coverage.py"
+    return load_module_by_path(
+        SCRIPTS_DIR / "check_eval_coverage.py", "check_eval_coverage"
     )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
 
 
 cec = _load_module()

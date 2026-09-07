@@ -18,21 +18,17 @@ S3에서 `passthroughFields`가 추가됐다(SSOT에 있으면 싣고 없으면 
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 from types import ModuleType
+
+from module_loader import load_module_by_path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 
 
 def _load_module() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "build_targets", SCRIPTS_DIR / "build-targets.py"
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return load_module_by_path(SCRIPTS_DIR / "build-targets.py", "build_targets")
 
 
 _mod = _load_module()
