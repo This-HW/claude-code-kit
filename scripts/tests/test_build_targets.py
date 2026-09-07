@@ -416,6 +416,15 @@ def test_write_and_check_block_symlink_escape(tmp_path, capsys):
     assert not target_file.exists()
 
 
+def test_resolve_in_repo_shared_adversarial_table(tmp_path):
+    """`_resolve_in_repo`가 check_eval_coverage.py와 공유하는 적대적 케이스 표를
+    통과하는지 검증한다 (D-15: 구현은 여러 벌, 계약만 하나 —
+    scripts/tests/resolve_in_repo_contract.py 참고)."""
+    from resolve_in_repo_contract import assert_resolve_in_repo_contract
+
+    assert_resolve_in_repo_contract(_mod._resolve_in_repo, tmp_path)
+
+
 def test_write_continues_after_one_target_fails_and_reports_both(tmp_path, capsys):
     """Medium 수정: 첫 아티팩트가 경로 탈출로 막혀도 두 번째(alpha)는 시도되고 기록된다."""
     root = tmp_path / "repo"

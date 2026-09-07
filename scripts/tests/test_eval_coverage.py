@@ -408,6 +408,15 @@ def test_baseline_file_within_baseline_dir_still_works(tmp_path):
     assert rc == 0
 
 
+def test_resolve_in_repo_shared_adversarial_table(tmp_path):
+    """`_resolve_in_repo`가 build-targets.py와 공유하는 적대적 케이스 표를
+    통과하는지 검증한다 (D-15: 구현은 여러 벌, 계약만 하나 —
+    scripts/tests/resolve_in_repo_contract.py 참고)."""
+    from resolve_in_repo_contract import assert_resolve_in_repo_contract
+
+    assert_resolve_in_repo_contract(cec._resolve_in_repo, tmp_path)
+
+
 # ── tier2 커버리지 (W-024, docs/specs/2026-09-04-eval-tier2-coverage-gate.md D-3) ──
 
 
