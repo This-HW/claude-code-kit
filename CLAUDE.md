@@ -36,7 +36,7 @@ git clone https://github.com/This-HW/claude-code-kit && cd claude-code-kit && ./
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (19) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (21) + rules (13) + hooks
 ```
 
 `plugins/common/` contains:
@@ -65,7 +65,9 @@ plugins/
 | agent-creator            | `/agent-creator`            | Generate plugin agents                          |
 | skill-creator            | `/skill-creator`            | Generate plugin skills                          |
 | mcp-builder              | `/mcp-builder`              | Scaffold MCP servers                            |
-| agent-teams              | `/agent-teams`              | Large-scale parallel work — routes to native `ultracode` |
+| agent-teams              | `/agent-teams`              | DEPRECATED (removal in v3.0.0) — large-scale parallel work, see control-loop |
+| control-loop              | `/control-loop`             | Multi-session control discipline — investigate/decide/dispatch/verify/merge |
+| child-session              | (loaded, not invoked)       | Discipline a dispatched worker session loads at start |
 | native-watch             | `/native-watch`             | Audit native-feature absorption vs the kit (SSOT: docs/native-absorption.md) |
 | self-improve             | `/self-improve`             | Propose agent/skill/rule improvements from ledger+evals (proposal-only, gated) |
 | harness-export           | `/harness-export`           | Export host-neutral rules to AGENTS.md for Codex/OpenCode/Pi/Hermes (drift-gated) |

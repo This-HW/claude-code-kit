@@ -1,6 +1,6 @@
 ---
 title: "claude-code-kit"
-description: "A universal Claude Code toolkit — 33 specialized agents, 19 skills, and 13 governance rules for building a multi-agent development pipeline."
+description: "A universal Claude Code toolkit — 33 specialized agents, 21 skills, and 13 governance rules for building a multi-agent development pipeline."
 keywords: ["claude code plugin", "multi-agent development system", "agent harness engineering", "AI coding agent evals", "claude code skills"]
 ---
 
@@ -14,7 +14,7 @@ state**.
 <strong>By the numbers</strong>
 
 - **33** specialized agents (planning, implementation, review, refactoring)
-- **19** skills (`/plan-task`, `/auto-dev`, `/review`, `/debug`, `/test`, and more)
+- **21** skills (`/plan-task`, `/auto-dev`, `/review`, `/debug`, `/test`, and more)
 - **13** governance rules (worktree isolation, delegation chains, definition of done)
 - **220+** unit tests
 - **11** agent behavior eval scenarios (deterministic-first scoring)

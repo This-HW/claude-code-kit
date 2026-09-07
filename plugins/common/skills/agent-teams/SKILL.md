@@ -1,11 +1,18 @@
 ---
 name: agent-teams
-description: Large-scale parallel work guidance. Routes 10+ parallel independent tasks to native dynamic workflows (ultracode), with legacy experimental Agent Teams as fallback.
+description: DEPRECATED (removal in v3.0.0) — large-scale parallel work guidance. Routes 10+ parallel independent tasks to native dynamic workflows, with legacy experimental Agent Teams as fallback. See control-loop for the current multi-session delegation discipline.
 model: opus
 effort: high
 ---
 
 # Agent Teams / 대규모 병렬 처리 스킬
+
+> **폐기 예고 (D-7 1단계, v2.19.0).** 이 스킬은 **v3.0.0에서 제거**된다. 여기 담겨
+> 있던 절차·규율은 `control-loop` 스킬로 흡수됐다 — 결정 대 조사를 페이즈로 나누고,
+> 워커 디스패치·검증·병합을 다룬다. 지금 당장은 아무것도 깨지지 않는다: 이 스킬은
+> 계속 호출 가능하고 아래 안내도 계속 유효하다. `/agent-teams`를 쓰던 사용자는
+> v3.0.0 이전에 `control-loop`로 옮겨 가면 된다. (스킬 삭제는 그 자체로 파괴적
+> 변경이므로 메이저 버전에서만 한다 — 폐기 예고와 제거를 같은 릴리스에 묶지 않는다.)
 
 > **Spec 2 / W-006 업데이트:** 대규모 병렬 오케스트레이션의 1순위는 이제 네이티브
 > **dynamic workflow(`ultracode`)** 입니다. 실험적 자체 Agent Teams 조율은 네이티브가
@@ -92,3 +99,4 @@ auto-dev가 Work `size: Large`를 만나면:
 | 오케스트레이션 모델 | `CLAUDE.md` → Orchestration Model                       |
 | auto-dev 파이프라인 | `plugins/common/skills/auto-dev/SKILL.md`               |
 | MPR 스킬            | `plugins/common/skills/multi-perspective-review/SKILL.md` |
+| **후속(v3.0.0에서 이 스킬을 대체)** | `plugins/common/skills/control-loop/SKILL.md` |
