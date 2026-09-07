@@ -257,24 +257,25 @@ def _compose_conv(text: str, block: str) -> str:
 # 도구 allowlist·Task 재개)에 의존하는 룰은 이식해봐야 지킬 수단이 없으므로 제외하고,
 # 제외 사유를 생성물에 명시한다 — "왜 없는지"를 남기지 않으면 다음 사람이 버그로 읽는다.
 # ─────────────────────────────────────────────────────────────────────────────
-PORTABLE: dict[str, str] = {
-    "definition-of-done": "완료 판정 규율 — 호스트 무관",
-    "planning-protocol": "계획 수립 프로토콜 — 호스트 무관",
-    "planning-check": "계획 전 확인 규율 — 호스트 무관",
-    "code-quality": "코드 품질 규범 — 호스트 무관",
-    "ssot": "단일 진실 원천 규범 — 호스트 무관",
-    "tool-usage-priority": "도구 선택 우선순위 — 개념 수준에서 호스트 무관",
-    "loop-engineering": "루프/재시도 규율 — 호스트 무관",
-    "feedback-loop": "결함 학습 루프 — 호스트 무관",
-}
+def _rule_portability(path: Path) -> tuple[bool | None, str]:
+    """규범 파일의 frontmatter 에서 `portable` 과 사유를 읽는다 (D-45).
 
-NOT_PORTABLE: dict[str, str] = {
-    "agent-system": "Claude Code 서브에이전트 정의 규격에 종속",
-    "agent-delegation-chain": "Claude Code 서브에이전트 호출·수명주기 규격에 종속",
-    "parallel-worktree": "`isolation: worktree` 프론트매터(네이티브 프리미티브)에 종속",
-    "mcp-usage": "Claude Code의 MCP 도구 allowlist 규격에 종속",
-    "task-resume": "Claude Code Task 도구 수명주기에 종속",
-}
+    이전에는 PORTABLE / NOT_PORTABLE 딕셔너리 두 개가 이 파일에 있었다 — 같은 13종에
+    대한 분류가 `tier` frontmatter(D-17)와 **두 곳에** 존재했고 정합을 강제하는 것이
+    없었다(`KNOWN_ASSERTION_TYPES` 결함 클래스의 세 번째 인스턴스).
+    이제 **규범이 자기 이식성을 선언**하고 생성기는 그것을 읽기만 한다 — 규범을 지우면
+    분류도 함께 사라진다.
+    """
+    head = path.read_text(encoding="utf-8").split("---", 2)
+    if len(head) < 3:
+        return None, ""
+    fm = head[1]
+    m = re.search(r"^portable:\s*(true|false)\s*$", fm, re.MULTILINE)
+    if m is None:
+        return None, ""
+    why = re.search(r"^portable_reason:\s*(.+?)\s*$", fm, re.MULTILINE)
+    return m.group(1) == "true", (why.group(1) if why else "")
+
 
 PREAMBLE = """# AGENTS.md
 
@@ -393,17 +394,16 @@ def _classify(rules: list[Path]) -> tuple[list[Path], list[str], list[str]]:
     **양방향으로 검사한다** — 신규 룰 누락(미분류)만 막으면, 삭제·개명된 룰의 분류
     엔트리가 표에 남아 모든 소비자 AGENTS.md에 "존재하지 않는 룰"을 영구히 광고한다.
     """
-    stems = {p.stem for p in rules}
     portable, unknown = [], []
     for p in rules:
-        if p.stem in PORTABLE:
-            portable.append(p)
-        elif p.stem in NOT_PORTABLE:
-            continue
-        else:
+        flag, _ = _rule_portability(p)
+        if flag is None:
             unknown.append(p.stem)
-    ghosts = sorted((set(PORTABLE) | set(NOT_PORTABLE)) - stems)
-    return portable, unknown, ghosts
+        elif flag:
+            portable.append(p)
+    # 유령(분류표에만 있고 실물 없음)은 **구조적으로 불가능해졌다** — 분류가 규범 파일
+    # 자신에 있으므로 파일이 사라지면 분류도 사라진다. 빈 목록을 유지해 호출부 계약만 지킨다.
+    return portable, unknown, []
 
 
 #: 마커 줄에 그대로 인터폴레이션되는 값이므로 마커 문법을 깰 수 없는 문자만 허용한다.
@@ -482,30 +482,22 @@ def _demote_headings(body: str, levels: int = 2, source: str = "<rules>") -> str
 
 def build_block(plugin_root: Path) -> tuple[str, str]:
     """생성 블록과 그 sha256을 만든다."""
-    # 분류표 검증의 **세 번째 방향**. 미분류(신규)와 유령(삭제)은 잡으면서 교집합을
-    # 안 잡으면, 재분류 PR에서 한쪽 삭제를 빠뜨렸을 때 같은 룰이 본문으로도 실리고
-    # "이식 못 함" 표에도 실린다 — 소비자가 읽는 규범이 자기모순이 된다 (ATK-006).
-    dupes = sorted(set(PORTABLE) & set(NOT_PORTABLE))
-    if dupes:
-        raise ClassificationError(
-            "PORTABLE과 NOT_PORTABLE 양쪽에 등재된 룰: "
-            + ", ".join(dupes)
-            + "\n  → 한쪽에서 지워라. 두면 생성물이 같은 룰을 싣고 동시에 '못 싣는다'고 광고한다."
-        )
+    # 교집합 검사는 불필요해졌다 — 분류가 규범 파일 하나에 있어 양쪽 등재가
+    # 구조적으로 불가능하다 (D-45). 이전에는 딕셔너리 둘이라 필요했다.
     rules = _rule_files(plugin_root)
     portable, unknown, ghosts = _classify(rules)
     if unknown:
         raise ClassificationError(
             "이식 가능성 미분류 룰: "
             + ", ".join(sorted(unknown))
-            + "\n  → hooks/export_harness.py의 PORTABLE / NOT_PORTABLE에 사유와 함께 추가하라."
+            + "\n  → 규범 파일 frontmatter 에 `portable: true|false` 를 선언하라 (D-45)."
             "\n  (조용히 빠뜨리면 '내보냈다고 믿는데 안 나간' 구멍이 된다)"
         )
     if ghosts:
         raise ClassificationError(
             "분류표에만 있고 실물이 없는 룰: "
             + ", ".join(ghosts)
-            + "\n  → 삭제·개명된 룰이다. PORTABLE / NOT_PORTABLE에서 제거하라."
+            + "\n  → 삭제·개명된 룰이다. (D-45 이후 구조적으로 발생하지 않는다)"
             "\n  (두면 소비자 AGENTS.md가 존재하지 않는 룰을 영구히 광고한다)"
         )
 
@@ -519,10 +511,12 @@ def build_block(plugin_root: Path) -> tuple[str, str]:
         )
 
     portable_rows = "\n".join(
-        f"| `rules/{p.stem}` | {PORTABLE[p.stem]} |" for p in portable
+        f"| `rules/{p.stem}` | {_rule_portability(p)[1] or '호스트 무관'} |" for p in portable
     )
     not_portable_rows = "\n".join(
-        f"| `rules/{k}` | {v} |" for k, v in sorted(NOT_PORTABLE.items())
+        f"| `rules/{p.stem}` | {_rule_portability(p)[1] or 'Claude Code 고유 프리미티브에 종속'} |"
+        for p in sorted(_rule_files(plugin_root), key=lambda x: x.stem)
+        if _rule_portability(p)[0] is False
     )
     header = BLOCK_HEADER.format(
         portable_rows=portable_rows, not_portable_rows=not_portable_rows

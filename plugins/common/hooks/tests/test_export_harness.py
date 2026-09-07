@@ -29,14 +29,38 @@ def _fake_plugin_root(tmp_path: Path, rules: dict, *, complete: bool = True) -> 
     root = tmp_path / "plugins" / "common"
     (root / "rules").mkdir(parents=True)
     (root / "rules" / "VERSION").write_text("9.9.9\n", encoding="utf-8")
+    # D-45 이후 분류는 규범 frontmatter 에 있다. 픽스처도 그렇게 만든다.
+    _PORT = ["definition-of-done", "planning-protocol", "planning-check",
+             "code-quality", "ssot", "loop-engineering", "feedback-loop"]
+    _NOT = ["agent-system", "agent-delegation-chain", "parallel-worktree",
+            "mcp-usage", "task-resume"]
     bodies = {}
     if complete:
-        for name in list(_mod.PORTABLE) + list(_mod.NOT_PORTABLE):
+        for name in _PORT + _NOT:
             bodies[name] = f"# {name}\n\n(placeholder)\n"
     bodies.update(rules)
     for name, body in bodies.items():
-        (root / "rules" / f"{name}.md").write_text(body, encoding="utf-8")
+        text = body
+        if not text.lstrip().startswith("---"):
+            flag = "false" if name in _NOT else "true"
+            why = ("Claude Code 고유 프리미티브에 종속" if name in _NOT
+                   else "호스트 무관")
+            text = f"---\ntier: core\nportable: {flag}\nportable_reason: {why}\n---\n\n" + text
+        (root / "rules" / f"{name}.md").write_text(text, encoding="utf-8")
     return root
+
+
+def _write_rule(root: Path, name: str, body: str, *, portable: bool = True) -> None:
+    """규범 파일을 frontmatter 와 함께 쓴다 (D-45 — 분류가 파일 자신에 있다).
+
+    테스트가 본문만 덮어쓰면 분류가 사라져 "미분류" 로 fail 한다. 그것이 생성기의
+    올바른 동작이므로, 본문을 바꾸려는 테스트는 이 헬퍼를 쓴다.
+    """
+    why = "호스트 무관" if portable else "Claude Code 고유 프리미티브에 종속"
+    (root / "rules" / f"{name}.md").write_text(
+        f"---\ntier: core\nportable: {str(portable).lower()}\nportable_reason: {why}\n---\n\n{body}",
+        encoding="utf-8",
+    )
 
 
 def _minimal(tmp_path: Path) -> Path:
@@ -83,8 +107,9 @@ def test_explicit_bad_plugin_root_is_error_not_skipped(tmp_path):
 
 
 def test_unclassified_rule_fails_loudly(tmp_path):
+    # frontmatter 에 portable 선언이 없는 규범 = 미분류 (D-45)
     root = _fake_plugin_root(
-        tmp_path, {"ssot": "# SSOT\n", "brand-new-rule": "# New\n"}
+        tmp_path, {"ssot": "# SSOT\n", "brand-new-rule": "---\ntier: core\n---\n\n# New\n"}
     )
     try:
         _mod.build_block(root)
@@ -144,7 +169,7 @@ def test_replaces_only_managed_block(tmp_path):
     p.write_text("PRE-USER\n\n" + text + "\nPOST-USER\n", encoding="utf-8")
 
     # 규범을 바꾸고 재생성
-    (root / "rules" / "ssot.md").write_text("# SSOT\n\n바뀐 규범.\n", encoding="utf-8")
+    _write_rule(root, "ssot", "# SSOT\n\n바뀐 규범.\n")
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
 
     out = p.read_text(encoding="utf-8")
@@ -217,9 +242,7 @@ def test_not_portable_rule_change_does_not_move_sha(tmp_path):
     """이식 안 되는 룰이 바뀌었다고 소비자 AGENTS.md를 흔들지 않는다."""
     root = _minimal(tmp_path)
     _, sha1 = _mod.build_block(root)
-    (root / "rules" / "agent-system.md").write_text(
-        "# Agent System\n\n완전히 달라짐.\n", encoding="utf-8"
-    )
+    _write_rule(root, "agent-system", "# Agent System\n\n완전히 달라짐.\n", portable=False)
     _, sha2 = _mod.build_block(root)
     assert sha1 == sha2
 
@@ -351,17 +374,17 @@ def test_rule_body_with_marker_string_is_rejected(tmp_path):
         raise AssertionError("마커 오염 룰이 통과했다")
 
 
-def test_ghost_classification_entry_is_rejected(tmp_path):
-    """삭제·개명된 룰의 분류 엔트리가 남으면 소비자 AGENTS.md가 존재하지 않는 룰을
-    영구히 광고한다."""
+def test_deleted_rule_disappears_from_output(tmp_path):
+    """D-45 이후 분류가 규범 파일 자신에 있으므로 **유령이 구조적으로 불가능**하다.
+    이전에는 딕셔너리에 엔트리가 남아 소비자 AGENTS.md가 존재하지 않는 룰을 영구히
+    광고할 수 있었고, 그것을 잡는 검사가 여기 있었다. 이제는 파일을 지우면 분류도
+    함께 사라지는지를 검사한다 — 같은 실패를 다른 기전으로 막는다."""
     root = _minimal(tmp_path)
-    (root / "rules" / "task-resume.md").unlink()
-    try:
-        _mod.build_block(root)
-    except _mod.ClassificationError as e:
-        assert "task-resume" in str(e)
-    else:
-        raise AssertionError("유령 분류 엔트리가 통과했다")
+    before, _ = _mod.build_block(root)
+    assert "agent-system" in before
+    (root / "rules" / "agent-system.md").unlink()
+    after, _ = _mod.build_block(root)
+    assert "agent-system" not in after, "삭제된 룰이 생성물에 남았다"
 
 
 def test_self_location_beats_env_var(tmp_path, monkeypatch):
@@ -505,10 +528,14 @@ def test_check_and_stdout_are_mutually_exclusive(tmp_path):
     assert exc.value.code != 0
 
 
-def test_rule_in_both_tables_is_rejected(tmp_path, monkeypatch):
-    """PORTABLE ∩ NOT_PORTABLE — 생성물이 같은 룰을 싣고 동시에 '못 싣는다'고 광고한다 (ATK-006)."""
+def test_malformed_portable_value_is_rejected(tmp_path):
+    """D-45 이후 양쪽 등재는 구조적으로 불가능하다(선언이 한 곳). 대신 **잘못된 값**이
+    조용히 통과하지 않는지를 검사한다 — `portable: maybe` 같은 값을 미분류로 읽어
+    fail 시켜야 한다. 조용히 false 로 읽으면 '내보냈다고 믿는데 안 나간' 구멍이 된다."""
     root = _minimal(tmp_path)
-    monkeypatch.setitem(_mod.NOT_PORTABLE, "ssot", "중복 등재 (테스트)")
+    (root / "rules" / "ssot.md").write_text(
+        "---\ntier: core\nportable: maybe\n---\n\n# SSOT\n", encoding="utf-8"
+    )
     assert _mod.main(["--plugin-root", str(root), "--target", str(tmp_path)]) == 1
 
 
@@ -591,11 +618,12 @@ def test_sha_covers_generator_template_not_only_rules(tmp_path, monkeypatch):
 
 
 def test_portable_reasons_are_rendered(tmp_path):
-    """PORTABLE의 사유가 어디에도 안 나가면 리뷰 압력이 0인 죽은 데이터다 (ATK-012)."""
+    """이식 사유가 어디에도 안 나가면 리뷰 압력이 0인 죽은 데이터다 (ATK-012).
+    D-45 이후 사유는 규범 frontmatter 의 `portable_reason` 이다."""
     root = _minimal(tmp_path)
     block, _ = _mod.build_block(root)
     assert "### 이식된 룰" in block
-    assert _mod.PORTABLE["ssot"] in block
+    assert "호스트 무관" in block
 
 
 def test_missing_target_root_is_not_created(tmp_path):
@@ -783,7 +811,7 @@ def test_conventions_preserves_user_content_around_both_blocks(tmp_path):
     p.write_text("PRE-USER\n\n" + new_text, encoding="utf-8")
 
     # 규범과 conventions 둘 다 바꿔서 재생성이 실제로 콘텐츠를 건드리게 한다
-    (root / "rules" / "ssot.md").write_text("# SSOT\n\n바뀐 규범.\n", encoding="utf-8")
+    _write_rule(root, "ssot", "# SSOT\n\n바뀐 규범.\n")
     assert _mod.main(["--plugin-root", str(root), "--target", str(target)]) == 0
 
     out = p.read_text(encoding="utf-8")
