@@ -1,18 +1,14 @@
 # Work 시스템 통합 가이드
 
-> plan-task 스킬의 Work 시스템 자동화 상세 가이드
-
-> ⚠️ **구세대 모델 경고**: 이 문서는 Planning을 "Phase 0~6" 단계로 서술하지만,
-> 현재 `plan-task/SKILL.md`는 **Step 0~4** 모델을 쓴다(다관점 리뷰는 Planning이 아니라
-> `auto-dev`의 Validation 단계가 담당). 이 문서는 아직 그 모델로 전면 재작성되지
-> **않았다** — 재작성은 W-026(S25)에서 다룬다. 지금은 아래 내용을 Phase/Step 이름이
-> 다를 수 있다는 점을 감안해 참고만 하라.
+> `plan-task` 스킬의 Work 시스템 자동화 상세 가이드. `plan-task/SKILL.md`가 쓰는
+> **Step 0~4** 모델을 그대로 따른다 — 이 문서는 그 모델의 산출물(파일 구조·
+> frontmatter·progress.md 포맷)을 상세히 보여준다.
 
 ---
 
 ## 개요
 
-plan-task는 Work 시스템과 완전히 통합되어 있습니다:
+`plan-task`는 Work 시스템과 완전히 통합되어 있습니다:
 
 - ✅ Work ID 자동 생성 (W-XXX)
 - ✅ 폴더 구조 자동 생성
@@ -22,7 +18,7 @@ plan-task는 Work 시스템과 완전히 통합되어 있습니다:
 
 ---
 
-## 신규 Work 생성 시
+## Step 0: Work ID 확보 시
 
 ### 1. Work ID 생성
 
@@ -42,9 +38,13 @@ docs/works/idea/
     ├── W-043-user-authentication.md    # 메인 Work 파일
     ├── progress.md                      # 진행 상황
     ├── decisions.md                     # 의사결정 기록
-    ├── planning-results.md              # Planning 상세 결과 (Phase 2~5)
-    └── review-results.md                # 다관점 리뷰 결과 (Phase 6, Medium/Large만)
+    └── planning-results.md              # Planning 상세 결과 (Step 2~3)
 ```
+
+> `review-results.md`는 Planning 산출물이 아니다 — `auto-dev`의 Validation
+> 단계(T-merge)에서 review-code/security-scan 결과를 통합 기록하며 처음 생긴다.
+> Work 폴더가 `docs/works/active/`로 옮겨간 뒤 만들어지는 파일이므로 여기 목록에
+> 두지 않는다. 아래 "auto-dev와의 접점" 참고.
 
 ### 3. Work 파일 Frontmatter
 
@@ -78,12 +78,13 @@ updated_at: "2026-01-30T10:30:00+09:00"
 
 ## Planning 결과
 
-[Phase 완료 후 여기에 결과 추가]
+[Step 완료 후 여기에 결과 추가]
 ```
 
 ### 4. progress.md 초기화
 
-Task Map 포맷을 사용한다. Phase 체크리스트 대신 Task 단위로 추적하여 세션 재시작 시 Task 재생성의 소스로 활용한다.
+Task Map 포맷을 사용한다. Step 체크리스트 대신 Task 단위로 추적하여 세션 재시작 시
+Task 재생성의 소스로 활용한다.
 
 ```markdown
 # Progress: 사용자 인증 시스템 추가
@@ -151,11 +152,15 @@ Task Map 포맷을 사용한다. Phase 체크리스트 대신 Task 단위로 추
 
 - **날짜**: 2026-01-30
 - **결정**: [Small/Medium/Large]
-- **근거**: [Phase 0 판단 이유]
+- **근거**: [Step 2 판단 이유]
 - **영향**: Planning 경로 결정
 ```
 
 ### 6. planning-results.md 초기화
+
+`plan-task/SKILL.md`의 Step 2(요구사항 명확화)·Step 3(구현 계획 수립) 결과를 담는다.
+규모가 Medium/Large면 Step 3 안에서 사용자 여정 설계·비즈니스 로직 정의가 추가된다
+(`rules/planning-protocol.md` 기준).
 
 ```markdown
 # Planning 상세 결과
@@ -165,104 +170,23 @@ Task Map 포맷을 사용한다. Phase 체크리스트 대신 Task 단위로 추
 
 ---
 
-## 규모 판단 (Phase 0)
+## 규모 판단
 
 - **크기**: [Small/Medium/Large]
 - **판단 근거**: [...]
-- **실행 경로**: [Phase 목록]
 
 ---
 
-## 요구사항 명확화 (Phase 2)
+## 요구사항 명확화 (Step 2)
 
 [clarify-requirements 에이전트 전체 결과]
 
 ---
 
-## 사용자 여정 설계 (Phase 3) - Medium/Large만
+## 구현 계획 (Step 3)
 
-[design-user-journey 에이전트 전체 결과]
-
----
-
-## 비즈니스 로직 정의 (Phase 4) - Large만
-
-[define-business-logic 에이전트 전체 결과]
-
----
-
-## 구현 계획 수립 (Phase 5)
-
-[plan-implementation 에이전트 전체 결과]
-```
-
-### 7. review-results.md 초기화 (Medium/Large만)
-
-```markdown
-# 다관점 리뷰 결과
-
-> Work ID: W-043
-> Last Updated: 2026-01-30T10:30:00+09:00
-
----
-
-## 리뷰 메타데이터
-
-- **실행 날짜**: 2026-01-30T14:00:00+09:00
-- **규모**: [Medium/Large]
-- **참여 관점**: [N]개
-- **합의율**: [X]%
-
----
-
-## 🔴 Critical 이슈 (즉시 해결 필요)
-
-### 1. [이슈명]
-
-- **제기 관점**: [관점 목록]
-- **내용**: [상세 설명]
-- **영향**: [영향 범위]
-- **해결**: [구체적 해결책]
-- **합의**: ✅ 전원 합의 / ⚠️ 조건부 / ❓ 사용자 결정 필요
-
----
-
-## 🟡 Important 이슈 (수정 권장)
-
-[...]
-
----
-
-## 🟢 Nice-to-have (선택 사항)
-
-[...]
-
----
-
-## 💬 합의 과정
-
-### 충돌 #1: [충돌 설명]
-
-- **Round 1**: [초기 의견]
-- **Round 2**: [재검토 의견]
-- **합의안**: [최종 합의]
-- **결과**: ✅ 해결 / ❓ 사용자 결정 대기
-
----
-
-## 📊 영향도 분석
-
-- **변경 범위**: [영향받는 시스템]
-- **예상 개발 기간**: [...]
-- **리스크**: [...]
-
----
-
-## 🎯 최종 권고사항
-
-- [ ] [액션 아이템 1]
-- [ ] [액션 아이템 2]
-- [ ] [액션 아이템 3]
+[plan-implementation 에이전트 전체 결과 — Medium+는 사용자 여정 설계 포함,
+Large+는 비즈니스 로직 정의 포함]
 ```
 
 ---
@@ -292,35 +216,33 @@ cat docs/works/idea/W-043-user-authentication/progress.md
 
 # 체크포인트 확인
 - 어디까지 진행되었는가?
-- 어느 Phase에서 중단되었는가?
+- 어느 Step에서 중단되었는가?
 - 중단된 지점부터 재개
 ```
 
 ---
 
-## Planning 진행 중 업데이트
+## Planning 진행 중 업데이트 (Step 2~3)
 
-### Phase 완료 후 업데이트
+### Step 완료 후 업데이트
 
 **1. progress.md 업데이트**
 
 ```markdown
-### Planning Phase
+### Planning
 
-- [x] 규모 판단
-- [x] 요구사항 명확화 (P0 모호함 해결)
-- [ ] 사용자 여정 설계 (Medium/Large)
-- [ ] 비즈니스 로직 정의 (Large)
-- [ ] 구현 계획 수립
+| Task ID | 제목            | 설명                          | 상태 | blockedBy |
+| ------- | --------------- | ----------------------------- | ---- | --------- |
+| T-1     | 요구사항 명확화 | clarify-requirements 에이전트 | ✅   | -         |
+| T-2     | 구현 계획 수립  | plan-implementation 에이전트  | ⏳   | T-1       |
 
 ---
 
 ## 체크포인트
 
-| 날짜       | Phase    | 체크포인트      | 상태 |
+| 날짜       | Step     | 체크포인트      | 상태 |
 | ---------- | -------- | --------------- | ---- |
-| 2026-01-30 | Planning | 규모 판단       | ✅   |
-| 2026-01-30 | Planning | 요구사항 명확화 | ✅   |
+| 2026-01-30 | Step 2   | 요구사항 명확화 | ✅   |
 ```
 
 **2. decisions.md 업데이트**
@@ -342,18 +264,18 @@ P0 결정 사항 기록:
 ```markdown
 ## Planning 결과
 
-### 요구사항 명확화 (Phase 2)
+### 요구사항 명확화 (Step 2)
 
-[Phase 2 결과 전체 내용]
+[Step 2 결과 전체 내용]
 
-### 사용자 여정 설계 (Phase 3)
+### 구현 계획 (Step 3)
 
-[Phase 3 결과 전체 내용]
+[Step 3 결과 전체 내용]
 ```
 
 ---
 
-## Planning 완료 시
+## Planning 완료 시 (Step 4)
 
 ### 1. Frontmatter 업데이트
 
@@ -375,17 +297,16 @@ updated_at: "2026-01-30T14:20:00+09:00" # ← 갱신
 ### 2. progress.md 업데이트
 
 ```markdown
-### Planning Phase
+### Planning
 
-- [x] 규모 판단
-- [x] 요구사항 명확화 (P0 모호함 해결)
-- [x] 사용자 여정 설계
-- [x] 비즈니스 로직 정의
-- [x] 구현 계획 수립
+| Task ID | 제목            | 설명                          | 상태 | blockedBy |
+| ------- | --------------- | ----------------------------- | ---- | --------- |
+| T-1     | 요구사항 명확화 | clarify-requirements 에이전트 | ✅   | -         |
+| T-2     | 구현 계획 수립  | plan-implementation 에이전트  | ✅   | T-1       |
 
-### Development Phase
+### Development
 
-- [ ] ⏳ 준비됨 (Phase 전환 대기)
+- [ ] ⏳ 준비됨 (auto-dev 전환 대기)
 ```
 
 ### 3. Work 파일에 최종 결과 저장
@@ -400,73 +321,48 @@ updated_at: "2026-01-30T14:20:00+09:00" # ← 갱신
 
 ### 요구사항 명확화
 
-[Phase 2 전체 결과]
-
-### 사용자 여정
-
-[Phase 3 전체 결과]
-
-### 비즈니스 규칙
-
-[Phase 4 전체 결과]
+[Step 2 전체 결과]
 
 ### 구현 계획
 
-[Phase 5 전체 결과]
+[Step 3 전체 결과]
 ```
 
-### 4. 상태 전환 안내
+### 4. 상태 전환 안내 — `plan-task/SKILL.md` Step 4 [건너뛰기 금지]
+
+Step 4는 `TaskList`로 이 Work의 `[Planning]`/`[Brainstorm]` Task 중 완료됐는데
+마킹만 안 된 것을 정리한 뒤(`rules/definition-of-done.md#task-마감-규율`), 곧바로
+`auto-dev`를 invoke한다(사용자가 나중을 원하면 아래 명령만 안내):
 
 ```bash
-# 사용자에게 다음 명령 제시:
-
-# Option 1: Phase 전환
-./scripts/work.sh next-phase W-043
-
-# Option 2: 직접 Development 시작
-/auto-dev W-043
+/auto-dev W-043        # 개발 파이프라인 시작
+./scripts/work.sh next-phase W-043  # Phase만 전환
 ```
 
 ---
 
-## 자동화 체크리스트
+## auto-dev와의 접점 — Planning이 끝난 뒤에 일어나는 일
 
-### 신규 Work 생성 시
+`plan-task`는 여기서 끝난다. 아래는 이 스킬의 산출물이 **다음에** 어떻게 쓰이는지
+참고용으로만 적는다 — `auto-dev`가 소유하는 절차다.
 
-```
-□ Work ID 생성 (W-XXX)
-□ slug 생성 (kebab-case)
-□ 폴더 생성 (docs/works/idea/W-XXX-{slug}/)
-□ Work 파일 생성 (W-XXX-{slug}.md)
-□ Frontmatter 작성 (모든 필드)
-□ progress.md 초기화
-□ decisions.md 초기화
-□ planning-results.md 초기화
-□ review-results.md 초기화 (Medium/Large만)
-```
+- `auto-dev`는 `planning-results.md` 존재를 전제로 시작한다(없으면 `/plan-task`를
+  먼저 실행하라고 안내하고 중단한다).
+- Work 폴더는 `docs/works/idea/` → `docs/works/active/`로 이동한다.
+- `review-results.md`는 **Validation 단계**(T-merge)에서 review-code·security-scan
+  결과를 통합 기록하며 처음 생긴다. Planning 중에는 존재하지 않는다.
 
-### Planning 진행 중
+---
 
-```
-□ 각 Phase 완료 시 progress.md 갱신
-□ P0 결정 시 decisions.md 기록
-□ Phase 2~5 결과를 planning-results.md에 저장
-□ Work 파일에 결과 추가
-□ Frontmatter updated_at 갱신
-```
+## Fallback: Work 시스템 없는 경우
 
-### Planning 완료 시
+`docs/works/` 폴더가 없으면 Work 파일 없이 Planning만 진행한다(`plan-task/SKILL.md`
+Fallback 절 참고):
 
-```
-□ phases_completed: [planning] 업데이트
-□ progress.md → Planning ✅
-□ progress.md → Development ⏳ 준비
-□ planning-results.md 최종 저장
-□ Phase 6 다관점 리뷰 실행 (Medium/Large)
-□ review-results.md 저장 (리뷰 실행 시)
-□ Work 파일 최종 저장
-□ 사용자에게 다음 단계 안내
-```
+1. 요구사항 명확화 (P0 질문 포함)
+2. 규모 판단
+3. 구현 계획 수립
+4. 결과를 대화창에 출력
 
 ---
 
@@ -474,16 +370,16 @@ updated_at: "2026-01-30T14:20:00+09:00" # ← 갱신
 
 ```
 docs/works/
-├── idea/                    # Planning 중
+├── idea/                    # Planning 중 (Step 0~4)
 │   └── W-XXX-{slug}/
 │       ├── W-XXX-{slug}.md      # 메인 파일
 │       ├── progress.md          # 진행 상황
 │       ├── decisions.md         # 의사결정
-│       ├── planning-results.md  # Planning 상세 결과 (Phase 2~5)
-│       └── review-results.md    # 다관점 리뷰 결과 (Phase 6, Medium/Large만)
+│       └── planning-results.md  # Planning 상세 결과 (Step 2~3)
 │
-├── active/                  # Development 중
+├── active/                  # Development·Validation 중 (auto-dev)
 │   └── W-XXX-{slug}/
+│       └── review-results.md    # Validation 결과 (auto-dev T-merge에서 생성)
 │
 └── completed/               # 완료
     └── W-XXX-{slug}/
@@ -504,12 +400,14 @@ mv docs/works/idea/W-043-user-authentication \
 | 도구              | 용도                      |
 | ----------------- | ------------------------- |
 | `scripts/work.sh` | Work 상태 관리            |
-| `/plan-task`      | Planning 자동화 (이 스킬) |
-| `/auto-dev`       | Development 자동화        |
+| `/plan-task`      | Planning 자동화 (이 문서가 상세를 보여주는 스킬) |
+| `/auto-dev`       | Development·Validation 자동화 |
 
 ---
 
 ## 참고
 
-- 전체 Work 시스템: docs/works/README.md
-- Phase 전환 규칙: docs/architecture/phase-gate-pattern.md
+- 전체 Work 시스템: `docs/works/README.md`
+- Planning Step 모델: `plugins/common/skills/plan-task/SKILL.md`
+- Development·Validation 파이프라인: `plugins/common/skills/auto-dev/SKILL.md`
+- Phase Gate 패턴(Planning→Dev→Validation 게이트 개념): `docs/architecture/phase-gate-pattern.md`

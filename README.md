@@ -1,6 +1,6 @@
 # claude-code-kit
 
-> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 19 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
+> Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 21 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
 
 A focused, single-plugin AI agent system built for Claude Code. Covers the full software development lifecycle: planning, implementation, review, testing, and meta-tooling. (Not a TUI component library or a scaffolding installer — this is the agents + skills plugin.)
 
@@ -68,7 +68,7 @@ differs by platform capability, verified against the real CLIs (not assumed):
 
 | Component | Codex | Antigravity |
 | --- | --- | --- |
-| Skills (19) | ✅ `"skills": "./skills/"` | ✅ recognized (`agy plugin validate` currently reports 21 — it also counts `skills/README.md` and `skills/references/`, which have no `SKILL.md`; the real 19 install and run correctly) |
+| Skills (21) | ✅ `"skills": "./skills/"` | ✅ recognized (real skills install and run correctly) |
 | Rules (13) | ⚠ no dedicated field → carried via `AGENTS.md` (see [`/harness-export`](plugins/common/skills/harness-export/SKILL.md)) | ✅ recognized |
 | Agents (33) | ⚠ no dedicated field | ❌ **not supported** — `agy plugin validate` does not recurse into `agents/`'s category subdirectories (`backend`/`dev`/`meta`/`planning`); it miscounts the 4 category folders as agent entries and finds none of the real 33. No config exists to opt into recursion (confirmed against official docs and the plugin schema) |
 | Hooks | ❌ not shipped — Codex's hook runtime does not load the exec-array form (`command`+`args`) this kit uses; confirmed by direct testing, not just reading docs | ❌ not shipped this batch — format unverified |
@@ -223,7 +223,7 @@ kit은 **특정 MCP 서버를 가정하지 않습니다** (consumer-first). 대�
 
 | Plugin            | Agents | Skills | Description                               |
 | ----------------- | ------ | ------ | ----------------------------------------- |
-| `claude-code-kit` | 33     | 19     | Core: planning, development, review, meta |
+| `claude-code-kit` | 33     | 21     | Core: planning, development, review, meta |
 
 ---
 
@@ -409,7 +409,7 @@ clarify-requirements → analyze-domain → design-user-journey → define-busin
 
 ```
 plugins/
-└── common/      — Core agents (33) + skills (19) + rules (13) + hooks
+└── common/      — Core agents (33) + skills (21) + rules (13) + hooks
 ```
 
 The plugin contains:
