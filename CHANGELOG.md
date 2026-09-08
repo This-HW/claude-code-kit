@@ -21,7 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 | 매치 | 판정 |
 | --- | --- |
-| `total_quant`(13)·`git_ops`(4)·`extra_ops`(4)·`write_ops`(4)·`empty_ops`·`claude_ops` | **오탐** — 평범한 식별자 |
+| `total_*`·`git_*`·`extra_*`·`write_*`·`empty_*`·`claude_*` 형태 24건 중 23건 | **오탐** — 평범한 식별자 |
 | 실제 비공개 이름 | **1건** (2026-03 커밋, 당시 이미 트리에서 제거됨) |
 
 **정밀도 4%, 그리고 정작 잡아야 할 것은 놓쳤다.** 두 방향 모두에서 실패했다.
