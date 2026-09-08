@@ -228,7 +228,7 @@ W-021/022 가 폐기한 `---DELEGATION_SIGNAL---` 과 겉모습이 비슷하므�
 이는 킷이 반복해서 잡아온 "켜져 있다는 착각"과 같은 클래스다.
 
 **채택**: bypass 운영을 인정하고 allowlist 를 **정직한 최소**로 줄인다.
-프로젝트 전용(`Bash(hantu:*)`)과 광범위 쓰기(`curl`·`ssh`·`scp`·`source`·`chmod`)를 뺀다.
+프로젝트 전용(`Bash(<project>:*)`)과 광범위 쓰기(`curl`·`ssh`·`scp`·`source`·`chmod`)를 뺀다.
 bypass 를 끄는 날 allowlist 가 **검토된 진짜 방어선**이 되게 하는 것이 목적이다.
 되돌리기는 한 커밋이다.
 
