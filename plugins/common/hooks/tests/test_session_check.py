@@ -203,3 +203,69 @@ def test_subprocess_run_never_blocks_session(tmp_path):
     )
     assert r.returncode == 0, r.stderr
     assert json.loads(r.stdout)["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+
+
+# ── pre-commit 설치·갱신 (install-once 결함 회귀) ────────────────────────────
+#
+# 결함: `not hook_dst.exists()` 로 없을 때만 설치해, 훅이 최초 설치 시점 판에서 영구
+# 동결됐다. 이후 릴리스에서 추가된 검사가 기존 사용자에게 영원히 도달하지 않는다 —
+# 배포된 것과 실행되는 것이 갈리는 형태이고 소비자 우선 북극성에 걸린다.
+#
+# 반대편도 같이 잠근다: 사용자가 직접 만든 훅을 덮으면 그 사람의 검사가 조용히 사라진다.
+
+
+def _hook_path(tmp_path):
+    """저장소를 만들고 훅 경로를 준다. 기존 헬퍼를 그대로 쓴다 — 새로 정의하지 않는다.
+
+    아래 테스트들은 `_run_in_repo` 가 아니라 `_run_isolated` 를 부른다. `_run_in_repo` 는
+    자기가 `_init_repo` 를 하므로, 여기서 이미 만든 저장소에 대고 다시 부르면 두 번
+    초기화되어 터진다(실측: `FileExistsError`).
+    """
+    _init_repo(tmp_path)
+    return tmp_path / ".git" / "hooks" / "pre-commit"
+
+
+def test_installs_pre_commit_when_absent(tmp_path, monkeypatch):
+    hook = _hook_path(tmp_path)
+    assert not hook.exists()
+    assert _run_isolated(tmp_path, monkeypatch) == 0
+    assert hook.exists()
+    assert hook.read_bytes() == (SETUP_DIR / "pre-commit").read_bytes()
+
+
+def test_updates_stale_kit_owned_hook(tmp_path, monkeypatch, capsys):
+    """마커를 가진 낡은 훅은 갱신되고, 그 사실을 stderr 로 알린다."""
+    hook = _hook_path(tmp_path)
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_bytes(
+        b"#!/bin/bash\n# Auto-installed by session-check.py\n# stale\n"
+    )
+
+    assert _run_isolated(tmp_path, monkeypatch) == 0
+    assert hook.read_bytes() == (SETUP_DIR / "pre-commit").read_bytes()
+    # 사용자 저장소의 실행 파일이 바뀐 사건이다 — 조용히 덮지 않는다.
+    assert "pre-commit" in capsys.readouterr().err
+
+
+def test_never_touches_user_owned_hook(tmp_path, monkeypatch):
+    """마커가 없으면 남의 훅이다. 내용도 바뀌지 않고 알림도 없다."""
+    hook = _hook_path(tmp_path)
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    mine = b"#!/bin/bash\necho hi\n"
+    hook.write_bytes(mine)
+
+    assert _run_isolated(tmp_path, monkeypatch) == 0
+    assert hook.read_bytes() == mine
+
+
+def test_no_write_when_already_current(tmp_path, monkeypatch, capsys):
+    """이미 최신이면 쓰지 않는다 — 매 세션 알림이 뜨면 그 경고는 죽는다."""
+    hook = _hook_path(tmp_path)
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    src = (SETUP_DIR / "pre-commit").read_bytes()
+    hook.write_bytes(src)
+    before = hook.stat().st_mtime_ns
+
+    assert _run_isolated(tmp_path, monkeypatch) == 0
+    assert hook.stat().st_mtime_ns == before
+    assert "갱신했습니다" not in capsys.readouterr().err

@@ -2,7 +2,7 @@
 
 > Universal **Claude Code plugin** by [This-HW](https://github.com/This-HW) — 33 agents + 21 skills for software development. Listed in [Anthropic's community plugin catalog](https://github.com/anthropics/claude-plugins-community).
 
-> **This plugin is now `hiway-kit`.** v2.20.0 is the final release under the name
+> **This plugin is now `hiway-kit`.** v2.21.0 is the final release under the name
 > `claude-code-kit` — it is fully maintained and gate-green, but new work happens at
 > **[This-HW/hiway-kit](https://github.com/This-HW/hiway-kit)**. See
 > [Successor: `hiway-kit`](#successor-hiway-kit) for the one-time migration.
@@ -53,11 +53,11 @@ qualifies); older interpreters make the hooks no-ops and the session warns you o
 > ("expect about a day"). **The observed cadence does not match it**, and the cause is inside
 > Anthropic's review pipeline where we cannot see it — so we state what we measured instead of
 > what is documented. Path 2 tracks `main` directly with no delay and is the only path that
-> reflects v2.20.0 today.
+> reflects v2.21.0 today.
 
 ## Successor: `hiway-kit`
 
-**`claude-code-kit` v2.20.0 is the final release under this name.** Development continues as
+**`claude-code-kit` v2.21.0 is the final release under this name.** Development continues as
 **[`hiway-kit`](https://github.com/This-HW/hiway-kit)** — same kit, renamed because it is no
 longer Claude-only: the same agents, skills and rules are packaged for **Codex** and
 **Antigravity** as well (see [Other Harnesses](#other-harnesses-codex--antigravity)).

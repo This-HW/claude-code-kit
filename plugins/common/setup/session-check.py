@@ -10,6 +10,9 @@ import sys
 # D-012: __file__ 기반 경로 해결 (cwd 무관, Plugin 캐시 위치 무관)
 SETUP_DIR = pathlib.Path(__file__).resolve().parent  # plugins/common/setup/
 
+# 킷이 심은 훅임을 표시한다. 갱신 판정의 유일한 근거 — 이 줄이 없으면 남의 훅으로 본다.
+HOOK_MARKER = b"# Auto-installed by session-check.py"
+
 warnings = []
 
 
@@ -197,6 +200,43 @@ except Exception as e:
     print(f"[claude-code-kit] session-check warning (설정 체크): {e}", file=sys.stderr)
 
 # ── 2. pre-commit 설치 (plugin-only 모드) ─────────────────────────────────────
+def _pre_commit_action(hook_dst: pathlib.Path, src_bytes: bytes) -> str:
+    """설치/갱신/무동작 중 무엇을 할지 판정한다. 반환: 'install' | 'update' | ''.
+
+    **왜 갱신 경로가 필요한가.** 원래는 `not hook_dst.exists()` 로 **없을 때만** 설치했다.
+    그 결과 훅이 최초 설치 시점 판에서 **영구 동결**됐고, 이후 릴리스에서 추가된 검사가
+    기존 사용자에게 영원히 도달하지 않았다. 배포된 것과 실행되는 것이 갈리는 이 킷의
+    대표 결함 클래스이고, 소비자 우선 북극성에 정면으로 걸린다.
+
+    **왜 무조건 덮지 않는가.** 사용자가 직접 만든 pre-commit 을 덮으면 그 사람의 검사가
+    조용히 사라진다. 그래서 킷이 심은 것(`HOOK_MARKER` 보유)만 갱신하고, 마커가 없으면
+    남의 것으로 보고 손대지 않는다. 읽을 수 없으면 판정 불가이므로 역시 손대지 않는다.
+    """
+    if not hook_dst.exists():
+        return "install"
+    try:
+        existing = hook_dst.read_bytes()
+    except OSError:
+        return ""
+    if HOOK_MARKER not in existing:
+        return ""  # 사용자 소유 훅 — 건드리지 않는다
+    return "update" if existing != src_bytes else ""
+
+
+def _write_hook(hook_dst: pathlib.Path, src_bytes: bytes) -> None:
+    """ATK-001: TOCTOU 방어 — 임시파일에 쓰고 os.replace 로 원자 교체."""
+    import tempfile
+
+    hook_dst.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=hook_dst.parent, delete=False, suffix=".tmp"
+    ) as tmp:
+        tmp_path = pathlib.Path(tmp.name)
+        tmp_path.write_bytes(src_bytes)
+    tmp_path.chmod(0o755)
+    os.replace(tmp_path, hook_dst)  # atomic
+
+
 try:
     setup_state = pathlib.Path.home() / ".claude/.setup-state.json"
     is_plugin_only = not setup_state.exists()
@@ -205,22 +245,18 @@ try:
         hook_dst = git_hooks_dir / "pre-commit"
         pre_commit_src = SETUP_DIR / "pre-commit"
 
-        # ATK-001: TOCTOU 방어 — atomic write (tempfile + os.replace)
-        if (
-            not hook_dst.is_symlink()
-            and not hook_dst.exists()
-            and pre_commit_src.exists()
-        ):
-            import tempfile
-
-            hook_dst.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(
-                dir=hook_dst.parent, delete=False, suffix=".tmp"
-            ) as tmp:
-                tmp_path = pathlib.Path(tmp.name)
-                tmp_path.write_bytes(pre_commit_src.read_bytes())
-            tmp_path.chmod(0o755)
-            os.replace(tmp_path, hook_dst)  # atomic
+        if not hook_dst.is_symlink() and pre_commit_src.exists():
+            src_bytes = pre_commit_src.read_bytes()
+            action = _pre_commit_action(hook_dst, src_bytes)
+            if action:
+                _write_hook(hook_dst, src_bytes)
+            if action == "update":
+                # 조용히 덮지 않는다 — 사용자 저장소의 실행 파일이 바뀐 사건이다.
+                print(
+                    f"[claude-code-kit] pre-commit 훅을 최신본으로 갱신했습니다 "
+                    f"({hook_dst})",
+                    file=sys.stderr,
+                )
 
 except Exception as e:
     print(
